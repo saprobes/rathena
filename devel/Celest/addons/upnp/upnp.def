@@ -1,9 +1,0 @@
-;you should put names of all functions here
-;which you want to export
-EXPORTS
-	upnp_init
-	upnp_final
-	plugin_info
-	plugin_call_table
-	plugin_event_table
-	CheckWindowsVersion
