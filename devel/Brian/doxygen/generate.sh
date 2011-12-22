@@ -1,13 +1,26 @@
-#!/bin/sh
+#!/bin/bash
+set -e
 
-svn up /home/rathena/trunk/
+svn_master='https://rathena.svn.sourceforge.net/svnroot/rathena/trunk/'
+svn_local='/home/rathena/trunk/'
 
-rev_master=`svnversion /home/rathena/trunk/`
-perl -pi -e 's/PROJECT_NUMBER         = .*$/PROJECT_NUMBER         = '$rev_master'/g' /home/rathena/doxygen/rathena.ini
+TMPFILE=`mktemp -t svn_head.XXXXXX`
+svn log -q -r "HEAD" "$svn_master" > $TMPFILE
+rev_master=`cat $TMPFILE | sed -ne '/^r[0-9]/{ s/^r//; s/ .*//; p; q; }'`
+rm -f $TMPFILE
+rev_local=`svnversion $svn_local`
 
-doxygen /home/rathena/doxygen/rathena.ini
-
-rm -rf /home/project-web/rathena/htdocs/doxygen/
-mv /home/project-web/rathena/htdocs/html /home/project-web/rathena/htdocs/doxygen
-
-echo "Done generating Doxygen for rathena $rev_master"
+if [ "$rev_local" -lt "$rev_master" ]
+then
+	echo "Updating mirror from $rev_local to $rev_master ..."
+	svn up /home/rathena/trunk/
+	
+	perl -pi -e 's/PROJECT_NUMBER         = .*$/PROJECT_NUMBER         = '$rev_master'/g' /home/rathena/doxygen/rathena.ini
+	
+	doxygen /home/rathena/doxygen/rathena.ini
+	
+	rm -rf /var/www/rathena.org/htdocs/doxygen/
+	mv /var/www/rathena.org/htdocs/html /var/www/rathena.org/htdocs/doxygen
+	
+	echo "Done generating Doxygen for rathena $rev_master"
+fi
