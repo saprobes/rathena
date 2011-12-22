@@ -1,5 +1,4 @@
-#!/bin/bash
-set -e
+#!/bin/sh
 
 svn_master='https://rathena.svn.sourceforge.net/svnroot/rathena/trunk/'
 svn_local='/home/rathena/trunk/'
