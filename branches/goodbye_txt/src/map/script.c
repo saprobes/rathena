@@ -13596,7 +13596,6 @@ BUILDIN_FUNC(setd)
 	return 0;
 }
 
-#ifndef TXT_ONLY
 int buildin_query_sql_sub(struct script_state* st, Sql* handle)
 {
 	int i, j;
@@ -13696,22 +13695,14 @@ int buildin_query_sql_sub(struct script_state* st, Sql* handle)
 	script_pushint(st, i);
 	return 0;
 }
-#endif
 
 BUILDIN_FUNC(query_sql)
 {
-#ifndef TXT_ONLY
 	return buildin_query_sql_sub(st, mmysql_handle);
-#else
-	//for TXT version, we always return -1
-	script_pushint(st,-1);
-	return 0;
-#endif
 }
 
 BUILDIN_FUNC(query_logsql)
 {
-#ifndef TXT_ONLY
 	if( !log_config.sql_logs )
 	{// logmysql_handle == NULL
 		ShowWarning("buildin_query_logsql: SQL logs are disabled, query '%s' will not be executed.\n", script_getstr(st,2));
@@ -13720,11 +13711,6 @@ BUILDIN_FUNC(query_logsql)
 	}
 
 	return buildin_query_sql_sub(st, logmysql_handle);
-#else
-	//for TXT version, we always return -1
-	script_pushint(st,-1);
-	return 0;
-#endif
 }
 
 //Allows escaping of a given string.
@@ -13737,11 +13723,7 @@ BUILDIN_FUNC(escape_sql)
 	str = script_getstr(st,2);
 	len = strlen(str);
 	esc_str = (char*)aMallocA(len*2+1);
-#if defined(TXT_ONLY)
-	jstrescapecpy(esc_str, str);
-#else
 	Sql_EscapeStringLen(mmysql_handle, esc_str, str, len);
-#endif
 	script_pushstr(st, esc_str);
 	return 0;
 }
@@ -14762,9 +14744,8 @@ BUILDIN_FUNC(openmail)
 	if( sd == NULL )
 		return 0;
 
-#ifndef TXT_ONLY
 	mail_openmail(sd);
-#endif
+
 	return 0;
 }
 
@@ -14776,9 +14757,8 @@ BUILDIN_FUNC(openauction)
 	if( sd == NULL )
 		return 0;
 
-#ifndef TXT_ONLY
 	clif_Auction_openwindow(sd);
-#endif
+
 	return 0;
 }
 
@@ -14831,7 +14811,6 @@ BUILDIN_FUNC(setcell)
  *------------------------------------------*/
 BUILDIN_FUNC(mercenary_create)
 {
-#ifndef TXT_ONLY
 	struct map_session_data *sd;
 	int class_, contract_time;
 
@@ -14845,7 +14824,6 @@ BUILDIN_FUNC(mercenary_create)
 
 	contract_time = script_getnum(st,3);
 	merc_create(sd, class_, contract_time);
-#endif
 	return 0;
 }
 

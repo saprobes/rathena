@@ -2,8 +2,8 @@
 
 HAVE_MYSQL=@HAVE_MYSQL@
 ifeq ($(HAVE_MYSQL),yes)
-	ALL_DEPENDS=common_sql login_sql char_sql map_sql tools 
-	SQL_DEPENDS=common_sql login_sql char_sql map_sql
+	ALL_DEPENDS=common_sql login_sql char_sql map_sql tools import
+	SQL_DEPENDS=common_sql login_sql char_sql map_sql import
 	COMMON_SQL_DEPENDS=mt19937ar
 	LOGIN_SQL_DEPENDS=mt19937ar common_sql
 	CHAR_SQL_DEPENDS=mt19937ar common_sql
@@ -34,11 +34,14 @@ endif
 	char_sql \
 	map_sql \
 	tools plugins addons \
+	import \
 	clean help
 
 all: $(ALL_DEPENDS)
 
 sql: $(SQL_DEPENDS)
+
+conf: import
 
 common_sql: $(COMMON_SQL_DEPENDS)
 	@$(MAKE) -C src/common sql
@@ -60,6 +63,15 @@ tools:
 
 plugins addons: $(PLUGIN_DEPENDS)
 	@$(MAKE) -C src/plugins
+	
+import:
+# 1) create conf/import folder
+# 2) add missing files
+# 3) remove remaining .svn folder
+        @echo "building conf/import folder..."
+		@if test ! -d conf/import ; then mkdir conf/import ; fi
+		@for f in $$(ls conf/import-tmpl) ; do if test ! -e conf/import/$$f ; then cp conf/import-tmpl/$$f conf/import ; fi ; done
+		@rm -rf conf/import/.svn
 
 clean:
 	@$(MAKE) -C src/common $@

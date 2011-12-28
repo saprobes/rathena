@@ -92,7 +92,6 @@ void log_branch(struct map_session_data *sd)
 
 	nullpo_retv(sd);
 
-#ifndef TXT_ONLY
 	if( log_config.sql_logs )
 	{
 		SqlStmt* stmt;
@@ -108,7 +107,6 @@ void log_branch(struct map_session_data *sd)
 		SqlStmt_Free(stmt);
 	}
 	else
-#endif
 	{
 		char timestring[255];
 		time_t curtime;
@@ -131,7 +129,6 @@ void log_pick_pc(struct map_session_data *sd, const char *type, int nameid, int 
 	if (!should_log_item(log_config.filter, nameid, amount))
 		return; //we skip logging this item set - it doesn't meet our logging conditions [Lupus]
 
-#ifndef TXT_ONLY
 	if( log_config.sql_logs )
 	{
 		if( itm == NULL ) { //We log common item
@@ -151,7 +148,6 @@ void log_pick_pc(struct map_session_data *sd, const char *type, int nameid, int 
 		}
 	}
 	else
-#endif
 	{
 		char timestring[255];
 		time_t curtime;
@@ -187,7 +183,6 @@ void log_pick_mob(struct mob_data *md, const char *type, int nameid, int amount,
 	if(mapname==NULL)
 		mapname="";
 
-#ifndef TXT_ONLY
 	if( log_config.sql_logs )
 	{
 		if( itm == NULL ) { //We log common item
@@ -207,7 +202,6 @@ void log_pick_mob(struct mob_data *md, const char *type, int nameid, int amount,
 		}
 	}
 	else
-#endif
 	{
 		char timestring[255];
 		time_t curtime;
@@ -235,7 +229,6 @@ void log_zeny(struct map_session_data *sd, char *type, struct map_session_data *
 
 	nullpo_retv(sd);
 
-#ifndef TXT_ONLY
 	if( log_config.sql_logs )
 	{
 		if (SQL_ERROR == Sql_Query(logmysql_handle, LOG_QUERY " INTO `%s` (`time`, `char_id`, `src_id`, `type`, `amount`, `map`) VALUES (NOW(), '%d', '%d', '%s', '%d', '%s')",
@@ -246,7 +239,6 @@ void log_zeny(struct map_session_data *sd, char *type, struct map_session_data *
 		}
 	}
 	else
-#endif
 	{
 		char timestring[255];
 		time_t curtime;
@@ -269,7 +261,6 @@ void log_mvpdrop(struct map_session_data *sd, int monster_id, int *log_mvp)
 
 	nullpo_retv(sd);
 
-#ifndef TXT_ONLY
 	if( log_config.sql_logs )
 	{
 		if (SQL_ERROR == Sql_Query(logmysql_handle, LOG_QUERY " INTO `%s` (`mvp_date`, `kill_char_id`, `monster_id`, `prize`, `mvpexp`, `map`) VALUES (NOW(), '%d', '%d', '%d', '%d', '%s') ",
@@ -280,7 +271,6 @@ void log_mvpdrop(struct map_session_data *sd, int monster_id, int *log_mvp)
 		}
 	}
 	else
-#endif
 	{
 		char timestring[255];
 		time_t curtime;
@@ -303,7 +293,6 @@ void log_atcommand(struct map_session_data* sd, const char* message)
 
 	nullpo_retv(sd);
 
-#ifndef TXT_ONLY
 	if( log_config.sql_logs )
 	{
 		SqlStmt* stmt;
@@ -321,7 +310,6 @@ void log_atcommand(struct map_session_data* sd, const char* message)
 		SqlStmt_Free(stmt);
 	}
 	else
-#endif
 	{
 		char timestring[255];
 		time_t curtime;
@@ -344,7 +332,6 @@ void log_npc(struct map_session_data* sd, const char* message)
 
 	nullpo_retv(sd);
 
-#ifndef TXT_ONLY
 	if( log_config.sql_logs )
 	{
 		SqlStmt* stmt;
@@ -361,7 +348,6 @@ void log_npc(struct map_session_data* sd, const char* message)
 		SqlStmt_Free(stmt);
 	}
 	else
-#endif
 	{
 		char timestring[255];
 		time_t curtime;
@@ -389,7 +375,6 @@ void log_chat(e_log_chat_type type, int type_id, int src_charid, int src_accid, 
 		return;
 	}
 
-#ifndef TXT_ONLY
 	if( log_config.sql_logs )
 	{
 		SqlStmt* stmt;
@@ -407,7 +392,6 @@ void log_chat(e_log_chat_type type, int type_id, int src_charid, int src_accid, 
 		SqlStmt_Free(stmt);
 	}
 	else
-#endif
 	{
 		char timestring[255];
 		time_t curtime;
@@ -490,8 +474,6 @@ int log_config_read(char *cfgName)
 			} else if(strcmpi(w1,"log_chat_woe_disable") == 0) {
 				log_config.log_chat_woe_disable = (bool)config_switch(w2);
 			}
-
-#ifndef TXT_ONLY
 			else if(strcmpi(w1, "log_branch_db") == 0) {
 				strcpy(log_config.log_branch_db, w2);
 				if(log_config.branch == 1)
@@ -521,8 +503,6 @@ int log_config_read(char *cfgName)
 				if(log_config.chat > 0)
 					ShowNotice("Logging CHAT to table `%s`\n", w2);
 			}
-#endif
-
 			else if(strcmpi(w1, "log_branch_file") == 0) {
 				strcpy(log_config.log_branch, w2);
 				if(log_config.branch > 0 && !log_config.sql_logs)
