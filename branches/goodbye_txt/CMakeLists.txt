@@ -437,43 +437,31 @@ set( DEVELOPMENT_FILES
 	"${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
 	"${CMAKE_CURRENT_SOURCE_DIR}/configure"
 	"${CMAKE_CURRENT_SOURCE_DIR}/configure.in"
-	"${CMAKE_CURRENT_SOURCE_DIR}/eAthena-6.dsw"
-	"${CMAKE_CURRENT_SOURCE_DIR}/eAthena-7.1.sln"
-	"${CMAKE_CURRENT_SOURCE_DIR}/eAthena-8.sln"
 	"${CMAKE_CURRENT_SOURCE_DIR}/eAthena-9.sln"
 	"${CMAKE_CURRENT_SOURCE_DIR}/eAthena-10.sln"
 	)
 set( DEVELOPMENT_DIRECTORIES
 	"3rdparty"
 	"conf/import-tmpl"
-	"save-tmpl"
 	"src"
-	"vcproj-6"
-	"vcproj-7.1"
-	"vcproj-8"
 	"vcproj-9"
 	"vcproj-10"
 	)
 set( RUNTIME_FILES
 	"${CMAKE_CURRENT_SOURCE_DIR}/athena-start"
-	"${CMAKE_CURRENT_SOURCE_DIR}/Changelog-Trunk.txt"
 	"${CMAKE_CURRENT_SOURCE_DIR}/char-server.sh"
 	"${CMAKE_CURRENT_SOURCE_DIR}/charserv-sql.bat"
-	"${CMAKE_CURRENT_SOURCE_DIR}/charserv.bat"
 	"${CMAKE_CURRENT_SOURCE_DIR}/dbghelp.dll"
 	"${CMAKE_CURRENT_SOURCE_DIR}/libmysql.dll"
 	"${CMAKE_CURRENT_SOURCE_DIR}/LICENSE"
 	"${CMAKE_CURRENT_SOURCE_DIR}/login-server.sh"
 	"${CMAKE_CURRENT_SOURCE_DIR}/logserv-sql.bat"
-	"${CMAKE_CURRENT_SOURCE_DIR}/logserv.bat"
 	"${CMAKE_CURRENT_SOURCE_DIR}/map-server.sh"
 	"${CMAKE_CURRENT_SOURCE_DIR}/mapserv-sql.bat"
-	"${CMAKE_CURRENT_SOURCE_DIR}/mapserv.bat"
 	"${CMAKE_CURRENT_SOURCE_DIR}/notice.txt"
 	"${CMAKE_CURRENT_SOURCE_DIR}/pcre3.dll"
 	"${CMAKE_CURRENT_SOURCE_DIR}/readme.html"
 	"${CMAKE_CURRENT_SOURCE_DIR}/runserver-sql.bat"
-	"${CMAKE_CURRENT_SOURCE_DIR}/runserver.bat"
 	"${CMAKE_CURRENT_SOURCE_DIR}/serv.bat"
 	"${CMAKE_CURRENT_SOURCE_DIR}/start"
 	"${CMAKE_CURRENT_SOURCE_DIR}/zlib1.dll"
@@ -518,7 +506,6 @@ endif()
 if( INSTALL_COMPONENT_RUNTIME )
 	# templates
 	set( _TEMPLATES
-		"save-tmpl" "save"
 		"conf/import-tmpl" "conf/import"
 		)
 	set( INSTALL_TEMPLATES_FILE "${CMAKE_CURRENT_BINARY_DIR}/InstallTemplates.cmake" )
