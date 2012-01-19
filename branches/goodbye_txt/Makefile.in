@@ -41,8 +41,6 @@ all: $(ALL_DEPENDS)
 
 sql: $(SQL_DEPENDS)
 
-conf: import
-
 common_sql: $(COMMON_SQL_DEPENDS)
 	@$(MAKE) -C src/common sql
 
@@ -68,10 +66,10 @@ import:
 # 1) create conf/import folder
 # 2) add missing files
 # 3) remove remaining .svn folder
-        @echo "building conf/import folder..."
-		@if test ! -d conf/import ; then mkdir conf/import ; fi
-		@for f in $$(ls conf/import-tmpl) ; do if test ! -e conf/import/$$f ; then cp conf/import-tmpl/$$f conf/import ; fi ; done
-		@rm -rf conf/import/.svn
+	@echo "building conf/import folder..."
+	@if test ! -d conf/import ; then mkdir conf/import ; fi
+	@for f in $$(ls conf/import-tmpl) ; do if test ! -e conf/import/$$f ; then cp conf/import-tmpl/$$f conf/import ; fi ; done
+	@rm -rf conf/import/.svn
 
 clean:
 	@$(MAKE) -C src/common $@
@@ -91,17 +89,12 @@ help:
 	@echo "'char_sql'    - builds char server (SQL version)"
 	@echo "'map_sql'     - builds map server (SQL version)"
 	@echo "'tools'       - builds all the tools in src/tools"
-	@echo "'converters'  - builds the login/char converters"
 	@echo "'plugins'     - builds all the plugins in src/plugins"
 	@echo "'addons'"
 	@echo "'import'      - builds conf/import folder from the template conf/import-tmpl"
-	@echo "'save'        - builds save folder from the template save-tmpl"
 	@echo "'all'         - builds all the above targets"
-	@echo "'txt'         - builds txt servers (targets 'common' 'login' 'char' 'map'"
-	@echo "                'import' and 'save')"
 	@echo "'sql'         - builds sql servers (targets 'common_sql' 'login_sql' 'char_sql'"
-	@echo "                'map_sql' 'import' and 'save')"
-	@echo "'conf'        - builds templated folders/files (targets 'import' and 'save')"
+	@echo "                'map_sql' and 'import')"
 	@echo "'clean'       - cleans builds and objects"
 	@echo "'help'        - outputs this message"
 
