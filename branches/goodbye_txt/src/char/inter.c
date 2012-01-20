@@ -37,8 +37,6 @@ char char_server_pw[32] = "ragnarok";
 char char_server_db[32] = "ragnarok";
 char default_codepage[32] = ""; //Feature by irmin.
 
-#ifndef TXT_SQL_CONVERT
-
 static struct accreg *accreg_pt;
 unsigned int party_share_level = 10;
 char main_chat_nick[16] = "Main";
@@ -65,7 +63,6 @@ struct WisData {
 static DBMap* wis_db = NULL; // int wis_id -> struct WisData*
 static int wis_dellist[WISDELLIST_MAX], wis_delnum;
 
-#endif //TXT_SQL_CONVERT
 //--------------------------------------------------------
 // Save registry to sql
 int inter_accreg_tosql(int account_id, int char_id, struct accreg* reg, int type)
@@ -123,7 +120,6 @@ int inter_accreg_tosql(int account_id, int char_id, struct accreg* reg, int type
 	SqlStmt_Free(stmt);
 	return 1;
 }
-#ifndef TXT_SQL_CONVERT
 
 // Load account_reg from sql (type=2)
 int inter_accreg_fromsql(int account_id,int char_id, struct accreg *reg, int type)
@@ -180,7 +176,6 @@ int inter_accreg_sql_init(void)
 	return 0;
 
 }
-#endif //TXT_SQL_CONVERT
 
 /*==========================================
  * read config file
@@ -229,14 +224,12 @@ static int inter_config_read(const char* cfgName)
 			strcpy(default_codepage,w2);
 			ShowStatus ("set default_codepage : %s\n", w2);
 		}
-#ifndef TXT_SQL_CONVERT
 		else if(!strcmpi(w1,"party_share_level"))
 			party_share_level = atoi(w2);
 		else if(!strcmpi(w1,"log_inter"))
 			log_inter = atoi(w2);
 		else if(!strcmpi(w1,"main_chat_nick"))
 			safestrncpy(main_chat_nick, w2, sizeof(main_chat_nick));
-#endif //TXT_SQL_CONVERT
 		else if(!strcmpi(w1,"import"))
 			inter_config_read(w2);
 	}
@@ -246,7 +239,6 @@ static int inter_config_read(const char* cfgName)
 
 	return 0;
 }
-#ifndef TXT_SQL_CONVERT
 
 // Save interlog into sql
 int inter_log(char* fmt, ...)
@@ -265,8 +257,6 @@ int inter_log(char* fmt, ...)
 
 	return 0;
 }
-
-#endif //TXT_SQL_CONVERT
 
 // initialize
 int inter_init_sql(const char *file)
@@ -291,7 +281,6 @@ int inter_init_sql(const char *file)
 			Sql_ShowDebug(sql_handle);
 	}
 
-#ifndef TXT_SQL_CONVERT
 	wis_db = idb_alloc(DB_OPT_RELEASE_DATA);
 	inter_guild_sql_init();
 	inter_storage_sql_init();
@@ -303,10 +292,8 @@ int inter_init_sql(const char *file)
 	inter_mail_sql_init();
 	inter_auction_sql_init();
 
-#endif //TXT_SQL_CONVERT
 	return 0;
 }
-#ifndef TXT_SQL_CONVERT
 
 // finalize
 void inter_final(void)
@@ -740,5 +727,3 @@ int inter_parse_frommap(int fd)
 	RFIFOSKIP(fd, len);
 	return 1;
 }
-
-#endif //TXT_SQL_CONVERT

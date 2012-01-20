@@ -24,7 +24,6 @@ int storage_tosql(int account_id, struct storage_data* p)
 	return 0;
 }
 
-#ifndef TXT_SQL_CONVERT
 /// Load storage data to mem
 int storage_fromsql(int account_id, struct storage_data* p)
 {
@@ -71,7 +70,6 @@ int storage_fromsql(int account_id, struct storage_data* p)
 	ShowInfo("storage load complete from DB - id: %d (total: %d)\n", account_id, p->storage_amount);
 	return 1;
 }
-#endif //TXT_SQL_CONVERT
 
 /// Save guild_storage data to sql
 int guild_storage_tosql(int guild_id, struct guild_storage* p)
@@ -81,7 +79,6 @@ int guild_storage_tosql(int guild_id, struct guild_storage* p)
 	return 0;
 }
 
-#ifndef TXT_SQL_CONVERT
 /// Load guild_storage data to mem
 int guild_storage_fromsql(int guild_id, struct guild_storage* p)
 {
@@ -247,4 +244,3 @@ int inter_storage_parse_frommap(int fd)
 	}
 	return 1;
 }
-#endif //TXT_SQL_CONVERT

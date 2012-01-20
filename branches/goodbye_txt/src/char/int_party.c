@@ -18,7 +18,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef TXT_SQL_CONVERT
 struct party_data {
 	struct party party;
 	unsigned int min_lv, max_lv;
@@ -111,7 +110,7 @@ static void int_party_calc_state(struct party_data *p)
 	}
 	return;
 }
-#endif //TXT_SQL_CONVERT
+
 // Save party to mysql
 int inter_party_tosql(struct party *p, int flag, int index)
 {
@@ -128,7 +127,6 @@ int inter_party_tosql(struct party *p, int flag, int index)
 #endif
 	Sql_EscapeStringLen(sql_handle, esc_name, p->name, strnlen(p->name, NAME_LENGTH));
 
-#ifndef TXT_SQL_CONVERT
 	if( flag & PS_BREAK )
 	{// Break the party
 		// we'll skip name-checking and just reset everyone with the same party id [celest]
@@ -140,10 +138,9 @@ int inter_party_tosql(struct party *p, int flag, int index)
 		idb_remove(party_db_, party_id);
 		return 1;
 	}
-#endif //TXT_SQL_CONVERT
+
 	if( flag & PS_CREATE )
 	{// Create party
-#ifndef TXT_SQL_CONVERT
 		if( SQL_ERROR == Sql_Query(sql_handle, "INSERT INTO `%s` "
 			"(`name`, `exp`, `item`, `leader_id`, `leader_char`) "
 			"VALUES ('%s', '%d', '%d', '%d', '%d')",
@@ -153,22 +150,8 @@ int inter_party_tosql(struct party *p, int flag, int index)
 			return 0;
 		}
 		party_id = p->party_id = (int)Sql_LastInsertId(sql_handle);
-#else
-		//During conversion, you want to specify the id, and allow overwriting
-		//(in case someone is re-running the process.
-
-		if( SQL_ERROR == Sql_Query(sql_handle, "REPLACE INTO `%s` "
-			"(`party_id`, `name`, `exp`, `item`, `leader_id`, `leader_char`) "
-			"VALUES ('%d', '%s', '%d', '%d', '%d', '%d')",
-			party_db, p->party_id, esc_name, p->exp, p->item, p->member[index].account_id, p->member[index].char_id) )
-		{
-			Sql_ShowDebug(sql_handle);
-			return 0;
-		}
-#endif
 	}
 
-#ifndef TXT_SQL_CONVERT
 	if( flag & PS_BASIC )
 	{// Update party info.
 		if( SQL_ERROR == Sql_Query(sql_handle, "UPDATE `%s` SET `name`='%s', `exp`='%d', `item`='%d' WHERE `party_id`='%d'",
@@ -196,12 +179,12 @@ int inter_party_tosql(struct party *p, int flag, int index)
 			char_db, party_id, p->member[index].account_id, p->member[index].char_id) )
 			Sql_ShowDebug(sql_handle);
 	}
-#endif //TXT_SQL_CONVERT
+
 	if( save_log )
 		ShowInfo("Party Saved (%d - %s)\n", party_id, p->name);
 	return 1;
 }
-#ifndef TXT_SQL_CONVERT
+
 // Read party from mysql
 struct party_data *inter_party_fromsql(int party_id)
 {
@@ -867,4 +850,3 @@ int inter_party_CharOffline(int char_id, int party_id) {
 		idb_remove(party_db_, party_id);
 	return 1;
 }
-#endif //TXT_SQL_CONVERT

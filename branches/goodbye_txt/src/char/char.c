@@ -61,15 +61,8 @@ char hotkey_db[256] = "hotkey";
 char quest_db[256] = "quest";
 
 // show loading/saving messages
-#ifdef TXT_SQL_CONVERT
-int save_log = 0; //Have the logs be off by default when converting
-#else
 int save_log = 1;
-#endif
 
-//If your code editor is having problems syntax highlighting this file, uncomment this and RECOMMENT IT BEFORE COMPILING
-//#undef TXT_SQL_CONVERT
-#ifndef TXT_SQL_CONVERT
 static DBMap* char_db_; // int char_id -> struct mmo_charstatus*
 
 char db_path[1024] = "db";
@@ -401,7 +394,7 @@ static void* create_charstatus(DBKey key, va_list args)
 	cp->char_id = key.i;
 	return cp;
 }
-#endif //TXT_SQL_CONVERT
+
 
 int mmo_char_tosql(int char_id, struct mmo_charstatus* p)
 {
@@ -415,11 +408,7 @@ int mmo_char_tosql(int char_id, struct mmo_charstatus* p)
 
 	if (char_id!=p->char_id) return 0;
 
-#ifndef TXT_SQL_CONVERT
 	cp = (struct mmo_charstatus*)idb_ensure(char_db_, char_id, create_charstatus);
-#else
-	cp = (struct mmo_charstatus*)aCalloc(1, sizeof(struct mmo_charstatus));
-#endif
 
 	StringBuf_Init(&buf);
 	memset(save_status, 0, sizeof(save_status));
@@ -450,21 +439,6 @@ int mmo_char_tosql(int char_id, struct mmo_charstatus* p)
 		else
 			errors++;
 	}
-
-#ifdef TXT_SQL_CONVERT
-{	//Insert the barebones to then update the rest.
-	char esc_name[NAME_LENGTH*2+1];
-
-	Sql_EscapeStringLen(sql_handle, esc_name, p->name, strnlen(p->name, NAME_LENGTH));
-	if( SQL_ERROR == Sql_Query(sql_handle, "REPLACE INTO `%s` (`char_id`, `account_id`, `char_num`, `name`)  VALUES ('%d', '%d', '%d', '%s')",
-		char_db, p->char_id, p->account_id, p->slot, esc_name) )
-	{
-		Sql_ShowDebug(sql_handle);
-		errors++;
-	} else
-		strcat(save_status, " creation");
-}
-#endif
 
 	if (
 		(p->base_exp != cp->base_exp) || (p->base_level != cp->base_level) ||
@@ -699,12 +673,8 @@ int mmo_char_tosql(int char_id, struct mmo_charstatus* p)
 	StringBuf_Destroy(&buf);
 	if (save_status[0]!='\0' && save_log)
 		ShowInfo("Saved char %d - %s:%s.\n", char_id, p->name, save_status);
-#ifndef TXT_SQL_CONVERT
 	if (!errors)
 		memcpy(cp, p, sizeof(struct mmo_charstatus));
-#else
-	aFree(cp);
-#endif
 	return 0;
 }
 
@@ -864,7 +834,6 @@ int memitemdata_to_sql(const struct item items[], int max, int id, int tableswit
 
 int mmo_char_tobuf(uint8* buf, struct mmo_charstatus* p);
 
-#ifndef TXT_SQL_CONVERT
 //=====================================================================================================
 // Loads the basic character rooster for the given account. Returns total buffer used.
 int mmo_chars_fromsql(struct char_session_data* sd, uint8* buf)
@@ -4218,7 +4187,6 @@ int char_lan_config_read(const char *lancfgName)
 	fclose(fp);
 	return 0;
 }
-#endif //TXT_SQL_CONVERT
 
 void sql_config_read(const char* cfgName)
 {
@@ -4297,7 +4265,6 @@ void sql_config_read(const char* cfgName)
 	fclose(fp);
 	ShowInfo("Done reading %s.\n", cfgName);
 }
-#ifndef TXT_SQL_CONVERT
 
 int char_config_read(const char* cfgName)
 {
@@ -4618,5 +4585,3 @@ int do_init(int argc, char **argv)
 
 	return 0;
 }
-
-#endif //TXT_SQL_CONVERT
