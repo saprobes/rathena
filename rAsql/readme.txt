@@ -1,18 +1,13 @@
 :######################################################################## 
 :# File name: readme.txt
 :# Created By: rAthena Development Team
-:# Edited Last By: Yommy <3
-:# V 1.0 17.12.2011
+:# Edited Last By: Gepard
+:# V 1.1 20.01.2012
 :######################################################################## 
 
 This server is meant for locally TESTING rAthena only,
 And should not be used for hosting a public rAthena server.
 To host a public rAthena server, you should use a Dedicated Server or VPS.
-
-This database has default sql already imported from r15003 -
-+ trunk\sql-files\main.sql
-+ trunk\sql-files\logs.sql
-Any sql updates after upgrade_svn15003.sql should be applied
 
 Server uses the standard port 3306, and will only accepts connections from localhost.
 The default username/password is ragnarok/ragnarok .

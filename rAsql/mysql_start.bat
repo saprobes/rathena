@@ -1,8 +1,8 @@
 :######################################################################## 
 :# File name: mysql_start.bat
 :# Created By: rAthena Development Team
-:# Edited Last By: Yommy
-:# V 1.0 17.12.2011
+:# Edited Last By: Gepard
+:# V 1.1 20.01.2012
 :######################################################################## 
 
 @echo off
@@ -53,7 +53,7 @@ rem ## Save drive letter to file. Used by mysql_stop.bat
 rem ## Start server
 %Disk%:
 :start \bin\mysqld-opt.exe --defaults-file=/bin/my-small.cnf
-start \bin\mysqld-opt.exe
+start \bin\mysqld-opt.exe --standalone
 
 rem ## Start HeidiSQL. Rem next line to disable 
 start \bin\heidisql.exe
