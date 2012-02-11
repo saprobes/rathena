@@ -56,9 +56,15 @@ bool buyingstore_setup(struct map_session_data* sd, unsigned char slots)
 		return false;
 	}
 
-	if( map[sd->bl.m].flag.novending || map_getcell(sd->bl.m, sd->bl.x, sd->bl.y, CELL_CHKNOVENDING) )
-	{// custom: no vending maps/cells
+	if( map[sd->bl.m].flag.novending )
+	{// custom: no vending maps
 		clif_displaymessage(sd->fd, msg_txt(276)); // "You can't open a shop on this map"
+		return false;
+	}
+
+	if( map_getcell(sd->bl.m, sd->bl.x, sd->bl.y, CELL_CHKNOVENDING) )
+	{// custom: no vending cells
+		clif_displaymessage(sd->fd, msg_txt(204)); // "You can't open a shop on this cell."
 		return false;
 	}
 
@@ -105,9 +111,15 @@ void buyingstore_create(struct map_session_data* sd, int zenylimit, unsigned cha
 		return;
 	}
 
-	if( map[sd->bl.m].flag.novending || map_getcell(sd->bl.m, sd->bl.x, sd->bl.y, CELL_CHKNOVENDING) )
-	{// custom: no vending maps/cells
+	if( map[sd->bl.m].flag.novending )
+	{// custom: no vending maps
 		clif_displaymessage(sd->fd, msg_txt(276)); // "You can't open a shop on this map"
+		return;
+	}
+
+	if( map_getcell(sd->bl.m, sd->bl.x, sd->bl.y, CELL_CHKNOVENDING) )
+	{// custom: no vending cells
+		clif_displaymessage(sd->fd, msg_txt(204)); // "You can't open a shop on this cell."
 		return;
 	}
 
@@ -355,17 +367,11 @@ void buyingstore_trade(struct map_session_data* sd, int account_id, unsigned int
 		zeny = amount*pl_sd->buyingstore.items[listidx].price;
 
 		// log
-		if( log_config.enable_logs&LOG_BUYING_STORE )
-		{
-			log_pick_pc(sd, "B", nameid, -((int)amount), &sd->status.inventory[index]);
-			log_pick_pc(pl_sd, "B", nameid, amount, &sd->status.inventory[index]);
-		}
-		if( log_config.zeny )
-			log_zeny(sd, "B", pl_sd, zeny);
+		log_zeny(sd, LOG_TYPE_BUYING_STORE, pl_sd, zeny);
 
 		// move item
-		pc_additem(pl_sd, &sd->status.inventory[index], amount);
-		pc_delitem(sd, index, amount, 1, 0);
+		pc_additem(pl_sd, &sd->status.inventory[index], amount, LOG_TYPE_BUYING_STORE);
+		pc_delitem(sd, index, amount, 1, 0, LOG_TYPE_BUYING_STORE);
 		pl_sd->buyingstore.items[listidx].amount-= amount;
 
 		// pay up

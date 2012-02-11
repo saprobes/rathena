@@ -295,7 +295,8 @@ LUA_FUNC(npcnext)
 	clif_scriptnext(sd,sd->npc_id);
 
 	sd->lua_script_state = L_NEXT;
-	return lua_yield(NL, 0);
+	//return lua_yield(NL, 0);
+	return 0;
 }
 
 // npcclose([id])
@@ -304,12 +305,10 @@ LUA_FUNC(close)
 {
 	lua_get_target(1);
 	
-	if (sd == NULL)
-		return 0;
-
+	sd->lua_script_state = L_CLOSE;
+	
 	clif_scriptclose(sd,sd->npc_id);
 
-	sd->lua_script_state = L_CLOSE;
 	return lua_yield(NL, 0);
 }
 
@@ -754,17 +753,13 @@ LUA_FUNC(giveitem)
 		// if not pet egg
 		if (!pet_create_egg(sd, nameid))
 		{
-			if ((flag = pc_additem(sd, &it, get_count)))
+			if ( ( flag = pc_additem( sd, &it, get_count, LOG_TYPE_SCRIPT ) ) )
 			{
-				clif_additem(sd, 0, 0, flag);
-				if( pc_candrop(sd,&it) )
-					map_addflooritem(&it,get_count,sd->bl.m,sd->bl.x,sd->bl.y,0,0,0,0);
+				clif_additem( sd, 0, 0, flag );
+				if ( pc_candrop( sd, &it ) )
+					map_addflooritem( &it, get_count, sd->bl.m, sd->bl.x, sd->bl.y, 0, 0, 0, 0 );
 			}
-                }
         }
-	//Logs items, got from (N)PC scripts [Lupus]
-	if(log_config.enable_logs&LOG_SCRIPT_TRANSACTIONS) {
-		log_pick_pc(sd, "N", nameid, amount, NULL);
 	}
 	lua_pushinteger(NL,1);
 	return 1;
@@ -824,7 +819,7 @@ LUA_FUNC(getrentalitem)
 	it.identify = 1;
 	it.expire_time = (unsigned int)(time(NULL) + seconds);
 
-	if( (flag = pc_additem(sd, &it, 1)) )
+	if( (flag = pc_additem(sd, &it, 1, LOG_TYPE_SCRIPT)) )
 	{
 		clif_additem(sd, 0, 0, flag);
 		return 0;
@@ -832,9 +827,6 @@ LUA_FUNC(getrentalitem)
 
 	clif_rental_time(sd->fd, nameid, seconds);
 	pc_inventory_rental_add(sd, seconds);
-
-	if( log_config.enable_logs&LOG_SCRIPT_TRANSACTIONS )
-		log_pick_pc(sd, "N", nameid, 1, NULL);
 
 	lua_pushinteger(NL,1);
 	return 1;
@@ -1028,13 +1020,9 @@ LUA_FUNC(givenameditem)
 	item_tmp.card[0]=CARD0_CREATE; //we don't use 255! because for example SIGNED WEAPON shouldn't get TOP10 BS Fame bonus [Lupus]
 	item_tmp.card[2]=tsd->status.char_id;
 	item_tmp.card[3]=tsd->status.char_id >> 16;
-	if(pc_additem(sd,&item_tmp,1)) {
+	if(pc_additem(sd,&item_tmp,1,LOG_TYPE_SCRIPT)) {
 		return 0;	//Failed to add item, we will not drop if they don't fit
 	}
-
-	//Logs items, got from (N)PC scripts [Lupus]
-	if(log_config.enable_logs&0x40)
-		log_pick_pc(sd, "N", item_tmp.nameid, item_tmp.amount, &item_tmp);
 
 	lua_pushinteger(NL,1);
 	return 1;
@@ -1152,24 +1140,12 @@ LUA_FUNC(deleteitem)
 		}
 
 		if(sd->status.inventory[i].amount>=amount){
-
-			//Logs items, got from (N)PC scripts
-			if(log_config.enable_logs&0x40)
-				log_pick_pc(sd, "N", sd->status.inventory[i].nameid, -amount, &sd->status.inventory[i]);
-
-			pc_delitem(sd,i,amount,0,0);
+			pc_delitem(sd,i,amount,0,0,LOG_TYPE_SCRIPT);
 			lua_pushinteger(NL,1);
 			return 1;
 		} else {
 			amount-=sd->status.inventory[i].amount;
-
-			//Logs items, got from (N)PC scripts
-			if(log_config.enable_logs&0x40) {
-				log_pick_pc(sd, "N", sd->status.inventory[i].nameid, -sd->status.inventory[i].amount, &sd->status.inventory[i]);
-			}
-			//Logs
-
-			pc_delitem(sd,i,sd->status.inventory[i].amount,0,0);
+			pc_delitem(sd,i,sd->status.inventory[i].amount,0,0,LOG_TYPE_SCRIPT);
 		}
 	}
 	//2nd pass
@@ -1182,22 +1158,12 @@ LUA_FUNC(deleteitem)
 				continue;
 
 			if(sd->status.inventory[i].amount>=amount){
-
-				//Logs items, got from (N)PC scripts
-				if(log_config.enable_logs&0x40)
-					log_pick_pc(sd, "N", sd->status.inventory[i].nameid, -amount, &sd->status.inventory[i]);
-
-				pc_delitem(sd,i,amount,0,0);
+				pc_delitem(sd,i,amount,0,0,LOG_TYPE_SCRIPT);
 				lua_pushinteger(NL,1);
 				return 1; //we deleted exact amount of items. now exit
 			} else {
 				amount-=sd->status.inventory[i].amount;
-
-				//Logs items, got from (N)PC scripts
-				if(log_config.enable_logs&0x40)
-					log_pick_pc(sd, "N", sd->status.inventory[i].nameid, -sd->status.inventory[i].amount, &sd->status.inventory[i]);
-
-				pc_delitem(sd,i,sd->status.inventory[i].amount,0,0);
+				pc_delitem(sd,i,sd->status.inventory[i].amount,0,0,LOG_TYPE_SCRIPT);
 			}
 		}
 
@@ -1257,22 +1223,12 @@ LUA_FUNC(deleteitem2)
 		}
 
 		if(sd->status.inventory[i].amount>=amount){
-
-			//Logs items, got from (N)PC scripts [Lupus]
-			if(log_config.enable_logs&0x40)
-				log_pick_pc(sd, "N", sd->status.inventory[i].nameid, -amount, &sd->status.inventory[i]);
-
-			pc_delitem(sd,i,amount,0,0);
+			pc_delitem(sd,i,amount,0,0,LOG_TYPE_SCRIPT);
 			lua_pushinteger(NL,1);
 			return 1; //we deleted exact amount of items. now exit
 		} else {
 			amount-=sd->status.inventory[i].amount;
-
-			//Logs items, got from (N)PC scripts [Lupus]
-			if(log_config.enable_logs&0x40)
-				log_pick_pc(sd, "N", sd->status.inventory[i].nameid, -sd->status.inventory[i].amount, &sd->status.inventory[i]);
-
-			pc_delitem(sd,i,sd->status.inventory[i].amount,0,0);
+			pc_delitem(sd,i,sd->status.inventory[i].amount,0,0,LOG_TYPE_SCRIPT);
 		}
 	}
 
@@ -1623,18 +1579,18 @@ LUA_FUNC(successrefitem)
 		i=pc_checkequip(sd,equip[num-1]);
 	if(i >= 0) {
 		ep=sd->status.inventory[i].equip;
+		
 		//Logs items, got from (N)PC scripts
-		if(log_config.enable_logs&0x40) {
-			log_pick_pc(sd, "N", sd->status.inventory[i].nameid, -1, &sd->status.inventory[i]);
-		}
+		log_pick_pc(sd, LOG_TYPE_SCRIPT, -1, &sd->status.inventory[i]);
+		
 		sd->status.inventory[i].refine++;
 		pc_unequipitem(sd,i,2); // status calc will happen in pc_equipitem() below
 		clif_refine(sd->fd,0,i,sd->status.inventory[i].refine);
 		clif_delitem(sd,i,1,0);
+		
 		//Logs items, got from (N)PC scripts
-		if(log_config.enable_logs&0x40) {
-			log_pick_pc(sd, "N", sd->status.inventory[i].nameid, 1, &sd->status.inventory[i]);
-		}
+		log_pick_pc(sd, LOG_TYPE_SCRIPT, 1, &sd->status.inventory[i]);
+		
 		clif_additem(sd,i,1,0);
 		pc_equipitem(sd,i,ep);
 		clif_misceffect(&sd->bl,3);
@@ -1667,15 +1623,10 @@ LUA_FUNC(failedrefitem)
 	if (num > 0 && num <= ARRAYLENGTH(equip))
 		i=pc_checkequip(sd,equip[num-1]);
 	if(i >= 0) {
-		//Logs items, got from (N)PC scripts
-		if(log_config.enable_logs&0x40)
-			log_pick_pc(sd, "N", sd->status.inventory[i].nameid, -1, &sd->status.inventory[i]);
-
 		sd->status.inventory[i].refine = 0;
 		pc_unequipitem(sd,i,3);
 		clif_refine(sd->fd,1,i,sd->status.inventory[i].refine);
-
-		pc_delitem(sd,i,1,0,0);
+		pc_delitem(sd,i,1,0,0,LOG_TYPE_SCRIPT);
 		clif_misceffect(&sd->bl,2);
 	}
 	return 0;
@@ -2167,7 +2118,7 @@ LUA_FUNC(produce)
 	int trigger;
 	lua_get_target(2);
 	trigger=luaL_checkint(NL,1);
-	clif_skill_produce_mix_list(sd, trigger);
+	clif_skill_produce_mix_list(sd, -1, trigger);
 	return 0;
 }
 
@@ -3283,7 +3234,7 @@ LUA_FUNC(getmapflag)
 			case MF_FIREWORKS:		lua_pushinteger(NL,map[m].flag.fireworks); break;
 			case MF_SAKURA:			lua_pushinteger(NL,map[m].flag.sakura); break;
 			case MF_LEAVES:			lua_pushinteger(NL,map[m].flag.leaves); break;
-			case MF_RAIN:			lua_pushinteger(NL,map[m].flag.rain); break;
+			//case MF_RAIN:			lua_pushinteger(NL,map[m].flag.rain); break;
 			case MF_NIGHTENABLED:	lua_pushinteger(NL,map[m].flag.nightenabled); break;
 			case MF_NOGO:			lua_pushinteger(NL,map[m].flag.nogo); break;
 			case MF_NOBASEEXP:		lua_pushinteger(NL,map[m].flag.nobaseexp); break;
@@ -3346,7 +3297,7 @@ LUA_FUNC(editmapflag)
 			case MF_FIREWORKS:     map[m].flag.fireworks=flag; break;
 			case MF_SAKURA:        map[m].flag.sakura=flag; break;
 			case MF_LEAVES:        map[m].flag.leaves=flag; break;
-			case MF_RAIN:          map[m].flag.rain=flag; break;
+			//case MF_RAIN:          map[m].flag.rain=flag; break;
 			case MF_NIGHTENABLED:  map[m].flag.nightenabled=flag; break;
 			case MF_NOGO:          map[m].flag.nogo=flag; break;
 			case MF_NOBASEEXP:     map[m].flag.nobaseexp=flag; break;
@@ -3757,12 +3708,7 @@ LUA_FUNC(successremovecards)
 			item_tmp.attribute=0,item_tmp.expire_time=0;
 			for (j = 0; j < MAX_SLOTS; j++)
 				item_tmp.card[j]=0;
-
-			//Logs items, got from (N)PC scripts [Lupus]
-			if(log_config.enable_logs&0x40)
-				log_pick_pc(sd, "N", item_tmp.nameid, 1, NULL);
-
-			if((flag=pc_additem(sd,&item_tmp,1))){
+			if((flag=pc_additem(sd,&item_tmp,1,LOG_TYPE_SCRIPT))){
 				clif_additem(sd,0,0,flag);
 				map_addflooritem(&item_tmp,1,sd->bl.m,sd->bl.x,sd->bl.y,0,0,0,0);
 			}
@@ -3780,18 +3726,10 @@ LUA_FUNC(successremovecards)
 			item_tmp.card[j]=0;
 		for (j = sd->inventory_data[i]->slot; j < MAX_SLOTS; j++)
 			item_tmp.card[j]=sd->status.inventory[i].card[j];
+			
+		pc_delitem(sd,i,1,0,0,LOG_TYPE_SCRIPT);
 
-		//Logs items, got from (N)PC scripts [Lupus]
-		if(log_config.enable_logs&0x40)
-			log_pick_pc(sd, "N", sd->status.inventory[i].nameid, -1, &sd->status.inventory[i]);
-
-		pc_delitem(sd,i,1,0,0);
-
-		//Logs items, got from (N)PC scripts [Lupus]
-		if(log_config.enable_logs&0x40)
-			log_pick_pc(sd, "N", item_tmp.nameid, 1, &item_tmp);
-
-		if((flag=pc_additem(sd,&item_tmp,1))){	// もてないならドロップ
+		if((flag=pc_additem(sd,&item_tmp,1,LOG_TYPE_SCRIPT))){	// もてないならドロップ
 			clif_additem(sd,0,0,flag);
 			map_addflooritem(&item_tmp,1,sd->bl.m,sd->bl.x,sd->bl.y,0,0,0,0);
 		}
@@ -3833,11 +3771,7 @@ LUA_FUNC(failedremovecards)
 				for (j = 0; j < MAX_SLOTS; j++)
 					item_tmp.card[j]=0;
 
-				//Logs items, got from (N)PC scripts [Lupus]
-				if(log_config.enable_logs&0x40)
-					log_pick_pc(sd, "N", item_tmp.nameid, 1, NULL);
-
-				if((flag=pc_additem(sd,&item_tmp,1))){
+				if((flag=pc_additem(sd,&item_tmp,1,LOG_TYPE_SCRIPT))){
 					clif_additem(sd,0,0,flag);
 					map_addflooritem(&item_tmp,1,sd->bl.m,sd->bl.x,sd->bl.y,0,0,0,0);
 				}
@@ -3848,11 +3782,7 @@ LUA_FUNC(failedremovecards)
 	if(cardflag == 1)
 	{
 		if(typefail == 0 || typefail == 2){	// 武具損失
-			//Logs items, got from (N)PC scripts [Lupus]
-			if(log_config.enable_logs&0x40)
-				log_pick_pc(sd, "N", sd->status.inventory[i].nameid, -1, &sd->status.inventory[i]);
-
-			pc_delitem(sd,i,1,0,0);
+			pc_delitem(sd,i,1,0,0,LOG_TYPE_SCRIPT);
 		}
 		if(typefail == 1){	// カードのみ損失（武具を返す）
 			int flag;
@@ -3861,21 +3791,13 @@ LUA_FUNC(failedremovecards)
 			item_tmp.equip=0,item_tmp.identify=1,item_tmp.refine=sd->status.inventory[i].refine;
 			item_tmp.attribute=sd->status.inventory[i].attribute,item_tmp.expire_time=sd->status.inventory[i].expire_time;
 
-			//Logs items, got from (N)PC scripts [Lupus]
-			if(log_config.enable_logs&0x40)
-				log_pick_pc(sd, "N", sd->status.inventory[i].nameid, -1, &sd->status.inventory[i]);
-
 			for (j = 0; j < sd->inventory_data[i]->slot; j++)
 				item_tmp.card[j]=0;
 			for (j = sd->inventory_data[i]->slot; j < MAX_SLOTS; j++)
 				item_tmp.card[j]=sd->status.inventory[i].card[j];
-			pc_delitem(sd,i,1,0,0);
+			pc_delitem(sd,i,1,0,0,LOG_TYPE_SCRIPT);
 
-			//Logs items, got from (N)PC scripts [Lupus]
-			if(log_config.enable_logs&0x40)
-				log_pick_pc(sd, "N", item_tmp.nameid, 1, &item_tmp);
-
-			if((flag=pc_additem(sd,&item_tmp,1))){
+			if((flag=pc_additem(sd,&item_tmp,1,LOG_TYPE_SCRIPT))){
 				clif_additem(sd,0,0,flag);
 				map_addflooritem(&item_tmp,1,sd->bl.m,sd->bl.x,sd->bl.y,0,0,0,0);
 			}
@@ -4441,12 +4363,7 @@ LUA_FUNC(clearitem)
 	nullpo_retr(0,sd);
 	for (i=0; i<MAX_INVENTORY; i++) {
 		if (sd->status.inventory[i].amount) {
-
-			//Logs items, got from (N)PC scripts
-			if(log_config.enable_logs&0x40)
-				log_pick_pc(sd, "N", sd->status.inventory[i].nameid, -sd->status.inventory[i].amount, &sd->status.inventory[i]);
-
-			pc_delitem(sd, i, sd->status.inventory[i].amount, 0,0);
+			pc_delitem(sd, i, sd->status.inventory[i].amount, 0,0, LOG_TYPE_SCRIPT);
 		}
 	}
 	return 0;
@@ -7211,7 +7128,7 @@ void script_run_function(const char *name,int char_id,const char *format,...)
 		sd = map_charid2sd(char_id);
 		nullpo_retv(sd);
 		if(sd->lua_script_state!=L_NRUN) { // Check that the player is not currently running a script
-			ShowError("Cannot run function %s for player %d : player is already running a script\n",name,char_id);
+			ShowError("Cannot run function %s for player %d : player is already running a script (state %d, expected state %d)\n",name,char_id,sd->lua_script_state,L_NRUN);
 			return;
 		}
 		NL = sd->NL = lua_newthread(L); // Use the player's personal thread
@@ -7253,6 +7170,7 @@ void script_run_function(const char *name,int char_id,const char *format,...)
 	    sd->NL=NULL; // Close the player's personal thread
 		sd->npc_id=0; // Set the player's current NPC to 'none'
 	}
+	
 }
 
 // Run a Lua chunk

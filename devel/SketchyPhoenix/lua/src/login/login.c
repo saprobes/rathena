@@ -5,6 +5,7 @@
 #include "../common/db.h"
 #include "../common/malloc.h"
 #include "../common/md5calc.h"
+#include "../common/random.h"
 #include "../common/showmsg.h"
 #include "../common/socket.h"
 #include "../common/strlib.h"
@@ -29,12 +30,7 @@ static struct{
 	AccountDB* (*constructor)(void);
 	AccountDB* db;
 } account_engines[] = {
-#ifdef WITH_TXT
-	{account_db_txt, NULL},
-#endif
-#ifdef WITH_SQL
 	{account_db_sql, NULL},
-#endif
 #ifdef ACCOUNTDB_ENGINE_0
 	{ACCOUNTDB_CONSTRUCTOR(ACCOUNTDB_ENGINE_0), NULL},
 #endif
@@ -269,7 +265,7 @@ bool check_encrypted(const char* str1, const char* str2, const char* passwd)
 }
 
 bool check_password(const char* md5key, int passwdenc, const char* passwd, const char* refpass)
-{	
+{
 	if(passwdenc == 0)
 	{
 		return (0==strcmp(passwd, refpass));
@@ -931,6 +927,9 @@ int mmo_auth_new(const char* userid, const char* pass, const char sex, const cha
 		return 3;
 	}
 
+	if( login_config.new_acc_length_limit && ( strlen(userid) < 4 || strlen(pass) < 4 ) )
+		return 1;
+
 	// check for invalid inputs
 	if( sex != 'M' && sex != 'F' )
 		return 0; // 0 = Unregistered ID
@@ -1065,8 +1064,8 @@ int mmo_auth(struct login_session_data* sd)
 
 	// update session data
 	sd->account_id = acc.account_id;
-	sd->login_id1 = rand();
-	sd->login_id2 = rand();
+	sd->login_id1 = rnd();
+	sd->login_id2 = rnd();
 	safestrncpy(sd->lastlogin, acc.lastlogin, sizeof(sd->lastlogin));
 	sd->sex = acc.sex;
 	sd->level = acc.level;
@@ -1410,7 +1409,7 @@ int parse_login(int fd)
 			RFIFOSKIP(fd,2);
 		{
 			memset(sd->md5key, '\0', sizeof(sd->md5key));
-			sd->md5keylen = (uint16)(12 + rand() % 4);
+			sd->md5keylen = (uint16)(12 + rnd() % 4);
 			MD5_Salt(sd->md5keylen, sd->md5key);
 
 			WFIFOHEAD(fd,4 + sd->md5keylen);
@@ -1507,6 +1506,7 @@ void login_set_defaults()
 	safestrncpy(login_config.date_format, "%Y-%m-%d %H:%M:%S", sizeof(login_config.date_format));
 	login_config.console = false;
 	login_config.new_account_flag = true;
+	login_config.new_acc_length_limit = true;
 	login_config.use_md5_passwds = false;
 	login_config.min_level_to_connect = 0;
 	login_config.check_client_version = false;
@@ -1565,6 +1565,8 @@ int login_config_read(const char* cfgName)
 
 		else if(!strcmpi(w1, "new_account"))
 			login_config.new_account_flag = (bool)config_switch(w2);
+		else if(!strcmpi(w1, "new_acc_length_limit"))
+			login_config.new_acc_length_limit = (bool)config_switch(w2);
 		else if(!strcmpi(w1, "start_limited_time"))
 			login_config.start_limited_time = atoi(w2);
 		else if(!strcmpi(w1, "check_client_version"))
@@ -1724,7 +1726,7 @@ int do_init(int argc, char** argv)
 	login_config_read((argc > 1) ? argv[1] : LOGIN_CONF_NAME);
 	login_lan_config_read((argc > 2) ? argv[2] : LAN_CONF_NAME);
 
-	srand((unsigned int)time(NULL));
+	rnd_init();
 	
 	for( i = 0; i < ARRAYLENGTH(server); ++i )
 		chrif_server_init(i);

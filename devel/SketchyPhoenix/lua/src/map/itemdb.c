@@ -3,6 +3,7 @@
 
 #include "../common/nullpo.h"
 #include "../common/malloc.h"
+#include "../common/random.h"
 #include "../common/showmsg.h"
 #include "../common/strlib.h"
 #include "itemdb.h"
@@ -14,11 +15,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-// 32k array entries (the rest goes to the db)
-#define MAX_ITEMDB 0x8000
-
-
 
 static struct item_data* itemdb_array[MAX_ITEMDB];
 static DBMap*            itemdb_other;// int nameid -> struct item_data*
@@ -144,7 +140,7 @@ int itemdb_searchrandomid(int group)
 		return UNKNOWN_ITEM_ID;
 	}
 	if (itemgroup_db[group].qty)
-		return itemgroup_db[group].nameid[rand()%itemgroup_db[group].qty];
+		return itemgroup_db[group].nameid[rnd()%itemgroup_db[group].qty];
 	
 	ShowError("itemdb_searchrandomid: No item entries for group id %d\n", group);
 	return UNKNOWN_ITEM_ID;
@@ -419,17 +415,17 @@ int itemdb_cansell_sub(struct item_data* item, int gmlv, int unused)
 }
 
 int itemdb_cancartstore_sub(struct item_data* item, int gmlv, int unused)
-{	
+{
 	return (item && (!(item->flag.trade_restriction&16) || gmlv >= item->gm_lv_trade_override));
 }
 
 int itemdb_canstore_sub(struct item_data* item, int gmlv, int unused)
-{	
+{
 	return (item && (!(item->flag.trade_restriction&32) || gmlv >= item->gm_lv_trade_override));
 }
 
 int itemdb_canguildstore_sub(struct item_data* item, int gmlv, int unused)
-{	
+{
 	return (item && (!(item->flag.trade_restriction&64) || gmlv >= item->gm_lv_trade_override));
 }
 
@@ -566,8 +562,11 @@ static void itemdb_read_itemgroup_sub(const char* filename)
 static void itemdb_read_itemgroup(void)
 {
 	char path[256];
-	snprintf(path, 255, "%s/item_group_db.txt", db_path);
-
+#if REMODE
+	snprintf(path, 255, "%s/re/item_group_db.txt", db_path);
+#else
+	snprintf(path, 255, "%s/pre-re/item_group_db.txt", db_path);
+#endif
 	memset(&itemgroup_db, 0, sizeof(itemgroup_db));
 	itemdb_read_itemgroup_sub(path);
 	ShowStatus("Done reading '"CL_WHITE"%s"CL_RESET"'.\n", "item_group_db.txt");
@@ -663,46 +662,6 @@ static bool itemdb_read_itemdelay(char* str[], int columns, int current)
 	return true;
 }
 
-/*==================================================================
- * Reads item stacking restrictions
- *----------------------------------------------------------------*/
-static bool itemdb_read_stack(char* fields[], int columns, int current)
-{// <item id>,<stack limit amount>,<type>
-	unsigned short nameid, amount;
-	unsigned int type;
-	struct item_data* id;
-
-	nameid = (unsigned short)strtoul(fields[0], NULL, 10);
-
-	if( ( id = itemdb_exists(nameid) ) == NULL )
-	{
-		ShowWarning("itemdb_read_stack: Unknown item id '%hu'.\n", nameid);
-		return false;
-	}
-
-	if( !itemdb_isstackable2(id) )
-	{
-		ShowWarning("itemdb_read_stack: Item id '%hu' is not stackable.\n", nameid);
-		return false;
-	}
-
-	amount = (unsigned short)strtoul(fields[1], NULL, 10);
-	type = strtoul(fields[2], NULL, 10);
-
-	if( !amount )
-	{// ignore
-		return true;
-	}
-
-	id->stack.amount       = amount;
-	id->stack.inventory    = (type&1)!=0;
-	id->stack.cart         = (type&2)!=0;
-	id->stack.storage      = (type&4)!=0;
-	id->stack.guildstorage = (type&8)!=0;
-
-	return true;
-}
-
 
 /// Reads items allowed to be sold in buying stores
 static bool itemdb_read_buyingstore(char* fields[], int columns, int current)
@@ -746,7 +705,35 @@ static int itemdb_gendercheck(struct item_data *id)
 
 	return (battle_config.ignore_items_gender) ? 2 : id->sex;
 }
+/**
+ * [RRInd]
+ * For backwards compatibility, in Renewal mode, MATK from weapons comes from the atk slot
+ * We use a ':' delimiter which, if not found, assumes the weapon does not provide any matk.
+ **/
+void itemdb_re_split_atoi(char *str, int *atk, int *matk) {
+	int i, val[2];
 
+	for (i=0; i<2; i++) {
+		if (!str) break;
+		val[i] = atoi(str);
+		str = strchr(str,':');
+		if (str)
+			*str++=0;
+	}
+	if( i == 0 ) {
+		*atk = *matk = 0;
+		return;//no data found
+	}
+	if( i == 1 ) {//Single Value, we assume it's the ATK
+		*atk = val[0];
+		*matk = 0;
+		return;
+	}
+	//We assume we have 2 values.
+	*atk = val[0];
+	*matk = val[1];
+	return;
+}
 /*==========================================
  * processes one itemdb entry
  *------------------------------------------*/
@@ -776,7 +763,7 @@ static bool itemdb_parse_dbrow(char** str, const char* source, int line, int scr
 
 	id->type = atoi(str[3]);
 
-	if( id->type < 0 || id->type == IT_UNKNOWN || id->type == IT_UNKNOWN2 || ( id->type > IT_DELAYCONSUME && id->type < IT_CASH ) || id->type >= IT_MAX )
+	if( id->type < 0 || id->type == IT_UNKNOWN || id->type == IT_UNKNOWN2 || ( id->type > IT_DELAYCONSUME && id->type < IT_THROWWEAPON ) || id->type >= IT_MAX )
 	{// catch invalid item types
 		ShowWarning("itemdb_parse_dbrow: Invalid item type %d for item %d. IT_ETC will be used.\n", id->type, nameid);
 		id->type = IT_ETC;
@@ -813,7 +800,11 @@ static bool itemdb_parse_dbrow(char** str, const char* source, int line, int scr
 			id->value_buy, id->value_sell, nameid, id->jname);
 
 	id->weight = atoi(str[6]);
+#if REMODE
+	itemdb_re_split_atoi(str[7],&id->atk,&id->matk);
+#else
 	id->atk = atoi(str[7]);
+#endif
 	id->def = atoi(str[8]);
 	id->range = atoi(str[9]);
 	id->slot = atoi(str[10]);
@@ -875,7 +866,14 @@ static bool itemdb_parse_dbrow(char** str, const char* source, int line, int scr
  *------------------------------------------*/
 static int itemdb_readdb(void)
 {
-	const char* filename[] = { "item_db.txt", "item_db2.txt" };
+	const char* filename[] = {
+#if REMODE
+		"re/item_db.txt",
+#else
+		"pre-re/item_db.txt",
+#endif
+		"item_db2.txt" };
+
 	int fi;
 
 	for( fi = 0; fi < ARRAYLENGTH(filename); ++fi )
@@ -981,13 +979,16 @@ static int itemdb_readdb(void)
 	return 0;
 }
 
-#ifndef TXT_ONLY
 /*======================================
  * item_db table reading
  *======================================*/
 static int itemdb_read_sqldb(void)
 {
+#if REMODE
+	const char* item_db_name[] = { item_db_db, item_db_re_db, item_db2_db };
+#else
 	const char* item_db_name[] = { item_db_db, item_db2_db };
+#endif
 	int fi;
 	
 	for( fi = 0; fi < ARRAYLENGTH(item_db_name); ++fi )
@@ -1027,26 +1028,26 @@ static int itemdb_read_sqldb(void)
 
 	return 0;
 }
-#endif /* not TXT_ONLY */
 
 /*====================================
  * read all item-related databases
  *------------------------------------*/
 static void itemdb_read(void)
 {
-#ifndef TXT_ONLY
 	if (db_use_sqldbs)
 		itemdb_read_sqldb();
 	else
-#endif
 		itemdb_readdb();
 
 	itemdb_read_itemgroup();
 	sv_readdb(db_path, "item_avail.txt",   ',', 2, 2, -1,             &itemdb_read_itemavail);
 	sv_readdb(db_path, "item_noequip.txt", ',', 2, 2, -1,             &itemdb_read_noequip);
-	sv_readdb(db_path, "item_trade.txt",   ',', 3, 3, -1,             &itemdb_read_itemtrade);
+#if REMODE
+	sv_readdb(db_path, "re/item_trade.txt",   ',', 3, 3, -1,             &itemdb_read_itemtrade);
+#else
+	sv_readdb(db_path, "pre-re/item_trade.txt",   ',', 3, 3, -1,             &itemdb_read_itemtrade);
+#endif
 	sv_readdb(db_path, "item_delay.txt",   ',', 2, 2, MAX_ITEMDELAYS, &itemdb_read_itemdelay);
-	sv_readdb(db_path, "item_stack.txt", ',', 3, 3, -1, &itemdb_read_stack);
 	sv_readdb(db_path, "item_buyingstore.txt", ',', 1, 1, -1,         &itemdb_read_buyingstore);
 }
 
@@ -1090,8 +1091,8 @@ void itemdb_reload(void)
 	struct s_mapiterator* iter;
 	struct map_session_data* sd;
 
-	int i;
-
+	int i,d,k;
+	
 	// clear the previous itemdb data
 	for( i = 0; i < ARRAYLENGTH(itemdb_array); ++i )
 		if( itemdb_array[i] )
@@ -1100,9 +1101,37 @@ void itemdb_reload(void)
 	itemdb_other->clear(itemdb_other, itemdb_final_sub);
 
 	memset(itemdb_array, 0, sizeof(itemdb_array));
-
+	
 	// read new data
 	itemdb_read();
+	
+	//Epoque's awesome @reloaditemdb fix - thanks! [Ind]
+	//- Fixes the need of a @reloadmobdb after a @reloaditemdb to re-link monster drop data
+	for( i = 0; i < MAX_MOB_DB; i++ ) {
+		struct mob_db *entry;
+		if( !((i < 1324 || i > 1363) && (i < 1938 || i > 1946)) )
+			continue;
+		entry = mob_db(i);
+		for(d = 0; d < MAX_MOB_DROP; d++) {
+			struct item_data *id;
+			if( !entry->dropitem[d].nameid )
+				continue;
+			id = itemdb_search(entry->dropitem[d].nameid);
+
+			for (k = 0; k < MAX_SEARCH; k++) {
+				if (id->mob[k].chance <= entry->dropitem[d].p)
+					break;
+			}
+
+			if (k == MAX_SEARCH)
+				continue;
+			
+			if (id->mob[k].id != i)
+				memmove(&id->mob[k+1], &id->mob[k], (MAX_SEARCH-k-1)*sizeof(id->mob[0]));
+			id->mob[k].chance = entry->dropitem[d].p;
+			id->mob[k].id = i;
+		}
+	}
 
 	// readjust itemdb pointer cache for each player
 	iter = mapit_geteachpc();

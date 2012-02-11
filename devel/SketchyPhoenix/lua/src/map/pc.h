@@ -10,18 +10,21 @@
 #include "buyingstore.h"  // struct s_buyingstore
 #include "itemdb.h" // MAX_ITEMGROUP
 #include "map.h" // RC_MAX
-#include "pc.h" // struct map_session_data
 #include "script.h" // struct script_reg, struct script_regstr
 #include "searchstore.h"  // struct s_search_store_info
 #include "status.h" // OPTION_*, struct weapon_atk
 #include "unit.h" // unit_stop_attack(), unit_stop_walking()
 #include "vending.h" // struct s_vending
 #include "mob.h"
+#include "log.h"
 #include <lua.h>
 
 #define MAX_PC_BONUS 10
 #define MAX_PC_SKILL_REQUIRE 5
 #define MAX_PC_FEELHATE 3
+
+//For Warlock
+#define MAX_SPELLBOOK 10
 
 struct weapon_data {
 	int atkmods[3];
@@ -106,10 +109,9 @@ struct map_session_data {
 		unsigned int active : 1; //Marks active player (not active is logging in/out, or changing map servers)
 		unsigned int menu_or_input : 1;// if a script is waiting for feedback from the player
 		unsigned int dead_sit : 2;
-		unsigned int lr_flag : 2;
+		unsigned int lr_flag : 3;//1: left h. weapon; 2: arrow; 3: shield
 		unsigned int connect_new : 1;
 		unsigned int arrow_atk : 1;
-		unsigned int combo : 2; // 1:Asura, 2:Kick [Inkfish]
 		unsigned int gangsterparadise : 1;
 		unsigned int rest : 1;
 		unsigned int storage_flag : 2; //0: closed, 1: Normal Storage open, 2: guild storage open [Skotlex]
@@ -141,12 +143,15 @@ struct map_session_data {
 		unsigned int vending : 1;
 		unsigned int noks : 3; // [Zeph Kill Steal Protection]
 		unsigned int changemap : 1;
+		unsigned int callshop : 1; // flag to indicate that a script used callshop; on a shop
 		short pmap; // Previous map on Map Change
 		unsigned short autoloot;
-		unsigned short autolootid; // [Zephyrus]
+		unsigned short autolootid[AUTOLOOTITEM_SIZE]; // [Zephyrus]
+		unsigned int autolooting : 1; //performance-saver, autolooting state for @alootid
 		unsigned scriptedcommand : 1;
 		unsigned short autobonus; //flag to indicate if an autobonus is activated. [Inkfish]
 		struct guild *gmaster_flag;
+		unsigned int prevend : 1;//used to flag wheather you've spent 40sp to open the vending or not.
 	} state;
 	struct {
 		unsigned char no_weapon_damage, no_magic_damage, no_misc_damage;
@@ -169,7 +174,7 @@ struct map_session_data {
 	struct registry save_reg;
 	
 	struct item_data* inventory_data[MAX_INVENTORY]; // direct pointers to itemdb entries (faster than doing item_id lookups)
-	short equip_index[11];
+	short equip_index[14];
 	unsigned int weight,max_weight;
 	int cart_weight,cart_num;
 	int fd;
@@ -224,6 +229,7 @@ struct map_session_data {
 	unsigned int canusecashfood_tick;
 	unsigned int canequip_tick;	// [Inkfish]
 	unsigned int cantalk_tick;
+	unsigned int canskill_tick; // used to prevent abuse from no-delay ACT files
 	unsigned int cansendmail_tick; // [Mail System Flood Protection]
 	unsigned int ks_floodprotect_tick; // [Kill Steal Protection]
 	
@@ -307,12 +313,12 @@ struct map_session_data {
 	int double_add_rate;
 	int short_weapon_damage_return,long_weapon_damage_return;
 	int magic_damage_return; // AppleGirl Was Here
-	int random_attack_increase_add,random_attack_increase_per; // [Valaris]
 	int break_weapon_rate,break_armor_rate;
 	int crit_atk_rate;
 	int classchange; // [Valaris]
 	int speed_rate, speed_add_rate, aspd_add;
 	int itemhealrate2; // [Epoque] Increase heal rate of all healing items.
+	int shieldmdef;//royal guard's
 	unsigned int setitem_hash, setitem_hash2; //Split in 2 because shift operations only work on int ranges. [Skotlex]
 	
 	short splash_range, splash_add_range;
@@ -320,7 +326,8 @@ struct map_session_data {
 	short add_heal_rate, add_heal2_rate;
 	short sp_gain_value, hp_gain_value, magic_sp_gain_value, magic_hp_gain_value;
 	short sp_vanish_rate;
-	short sp_vanish_per;	
+	short sp_vanish_per;
+	short sp_weapon_matk,sp_base_matk;
 	unsigned short unbreakable;	// chance to prevent ANY equipment breaking [celest]
 	unsigned short unbreakable_equip; //100% break resistance on certain equipment
 	unsigned short unstripable_equip;
@@ -425,6 +432,13 @@ struct map_session_data {
 		bool changed; // if true, should sync with charserver on next mailbox request
 	} mail;
 
+	// Reading SpellBook
+	struct {
+		unsigned short skillid;
+		unsigned char level;
+		unsigned char points;
+	} rsb[MAX_SPELLBOOK];
+
 	//Quest log system [Kevin] [Inkfish]
 	int num_quests;
 	int avail_quests;
@@ -440,13 +454,39 @@ struct map_session_data {
 	unsigned int bg_id;
 	unsigned short user_font;
 
+	/**
+	 * For the Secure NPC Timeout option (check config/Secure.h) [RR]
+	 **/
+#if SECURE_NPCTIMEOUT
+	/**
+	 * ID of the timer
+	 * @info
+	 * - value is -1 (INVALID_TIMER constant) when not being used
+	 * - timer is cancelled upon closure of the current npc's instance
+	 **/
+	int npc_idle_timer;
+	/**
+	 * Tick on the last recorded NPC iteration (next/menu/whatever)
+	 * @info
+	 * - It is updated on every NPC iteration as mentioned above
+	 **/
+	unsigned int npc_idle_tick;
+#endif
+
+	/**
+	 * Guarantees your friend request is legit (for bugreport:4629)
+	 **/
+	int friend_req;
+
 	// temporary debugging of bug #3504
 	const char* delunit_prevfile;
 	int delunit_prevline;
+
 };
 
 //Update this max as necessary. 55 is the value needed for Super Baby currently
-#define MAX_SKILL_TREE 55
+//Raised to 75 due to 3rds
+#define MAX_SKILL_TREE 75
 //Total number of classes (for data storage)
 #define CLASS_COUNT (JOB_MAX - JOB_NOVICE_HIGH + JOB_MAX_BASIC)
 
@@ -463,7 +503,7 @@ enum weapon_type {
 	W_2HMACE,	//9 (unused)
 	W_STAFF,	//10
 	W_BOW,	//11
-	W_KNUCKLE,	//12	
+	W_KNUCKLE,	//12
 	W_MUSICAL,	//13
 	W_WHIP,	//14
 	W_BOOK,	//15
@@ -507,6 +547,9 @@ enum equip_pos {
 	EQP_GARMENT  = 0x0004,
 	EQP_ACC_L    = 0x0008,
 	EQP_ACC_R    = 0x0080, //128
+	EQP_COSTUME_HEAD_TOP = 0x0400,
+	EQP_COSTUME_HEAD_MID = 0x0800,
+	EQP_COSTUME_HEAD_LOW = 0x1000,
 	EQP_AMMO     = 0x8000, //32768
 };
 
@@ -536,6 +579,9 @@ enum equip_index {
 	EQI_ARMOR,
 	EQI_HAND_L,
 	EQI_HAND_R,
+	EQI_COSTUME_TOP,
+	EQI_COSTUME_MID,
+	EQI_COSTUME_LOW,
 	EQI_AMMO,
 	EQI_MAX
 };
@@ -546,7 +592,7 @@ enum equip_index {
 #define pc_issit(sd)          ( (sd)->vd.dead_sit == 2 )
 #define pc_isidle(sd)         ( (sd)->chatID || (sd)->state.vending || (sd)->state.buyingstore || DIFF_TICK(last_tick, (sd)->idletime) >= battle_config.idle_no_share )
 #define pc_istrading(sd)      ( (sd)->npc_id || (sd)->state.vending || (sd)->state.buyingstore || (sd)->state.trading )
-#define pc_cant_act(sd)       ( (sd)->npc_id || (sd)->state.vending || (sd)->state.buyingstore || (sd)->chatID || (sd)->sc.opt1 || (sd)->state.trading || (sd)->state.storage_flag )
+#define pc_cant_act(sd)       ( (sd)->npc_id || (sd)->state.vending || (sd)->state.buyingstore || (sd)->chatID || ((sd)->sc.opt1 && (sd)->sc.opt1 != OPT1_BURNING) || (sd)->state.trading || (sd)->state.storage_flag )
 #define pc_setdir(sd,b,h)     ( (sd)->ud.dir = (b) ,(sd)->head_dir = (h) )
 #define pc_setchatid(sd,n)    ( (sd)->chatID = n )
 #define pc_ishiding(sd)       ( (sd)->sc.option&(OPTION_HIDE|OPTION_CLOAK|OPTION_CHASEWALK) )
@@ -558,7 +604,12 @@ enum equip_index {
 #define pc_isinvisible(sd)    ( (sd)->sc.option&OPTION_INVISIBLE )
 #define pc_is50overweight(sd) ( (sd)->weight*100 >= (sd)->max_weight*battle_config.natural_heal_weight_rate )
 #define pc_is90overweight(sd) ( (sd)->weight*10 >= (sd)->max_weight*9 )
-#define pc_maxparameter(sd)   ( ((sd)->class_&JOBL_3 ? ((sd)->class_&JOBL_BABY ? battle_config.max_baby_third_parameter : battle_config.max_third_parameter) : ((sd)->class_&JOBL_BABY ? battle_config.max_baby_parameter : battle_config.max_parameter)) )
+#define pc_maxparameter(sd)   ( (sd)->class_&JOBL_THIRD ? battle_config.max_third_parameter : (sd)->class_&JOBL_BABY ? battle_config.max_baby_parameter : battle_config.max_parameter )
+/** 
+ * Ranger
+ **/
+#define pc_iswug(sd)       ( (sd)->sc.option&OPTION_WUG )
+#define pc_isridingwug(sd) ( (sd)->sc.option&OPTION_WUGRIDER )
 
 #define pc_stop_walking(sd, type) unit_stop_walking(&(sd)->bl, type)
 #define pc_stop_attack(sd) unit_stop_attack(&(sd)->bl)
@@ -571,8 +622,7 @@ enum equip_index {
 ( \
 	( (class_) >= JOB_NOVICE      && (class_) <  JOB_MAX_BASIC   ) \
 ||	( (class_) >= JOB_NOVICE_HIGH && (class_) <= JOB_SOUL_LINKER ) \
-||	( (class_) >= JOB_RUNE_KNIGHT && (class_) <= JOB_MECHANIC_H2 ) \
-||	( (class_) >= JOB_BABY_RUNE   && (class_) <  JOB_MAX         ) \
+||	( (class_) >= JOB_RUNE_KNIGHT && (class_) <  JOB_MAX         ) \
 )
 
 int pc_class2idx(int class_);
@@ -584,7 +634,7 @@ int pc_setrestartvalue(struct map_session_data *sd,int type);
 int pc_makesavestatus(struct map_session_data *);
 void pc_respawn(struct map_session_data* sd, clr_type clrtype);
 int pc_setnewpc(struct map_session_data*,int,int,int,unsigned int,int,int);
-bool pc_authok(struct map_session_data* sd, int, time_t, int gmlevel, struct mmo_charstatus* status);
+bool pc_authok(struct map_session_data *sd, int login_id2, time_t expiration_time, int gmlevel, struct mmo_charstatus *st, bool changing_mapservers);
 void pc_authfail(struct map_session_data *);
 int pc_reg_received(struct map_session_data *sd);
 
@@ -614,16 +664,16 @@ int pc_checkadditem(struct map_session_data*,int,int);
 int pc_inventoryblank(struct map_session_data*);
 int pc_search_inventory(struct map_session_data *sd,int item_id);
 int pc_payzeny(struct map_session_data*,int);
-int pc_additem(struct map_session_data*,struct item*,int);
+int pc_additem(struct map_session_data*,struct item*,int,e_log_pick_type);
 int pc_getzeny(struct map_session_data*,int);
-int pc_delitem(struct map_session_data*,int,int,int,short);
+int pc_delitem(struct map_session_data*,int,int,int,short,e_log_pick_type);
 
 // Special Shop System
 void pc_paycash(struct map_session_data *sd, int price, int points);
 void pc_getcash(struct map_session_data *sd, int cash, int points);
 
-int pc_cart_additem(struct map_session_data *sd,struct item *item_data,int amount);
-int pc_cart_delitem(struct map_session_data *sd,int n,int amount,int type);
+int pc_cart_additem(struct map_session_data *sd,struct item *item_data,int amount,e_log_pick_type log_type);
+int pc_cart_delitem(struct map_session_data *sd,int n,int amount,int type,e_log_pick_type log_type);
 int pc_putitemtocart(struct map_session_data *sd,int idx,int amount);
 int pc_getitemfromcart(struct map_session_data *sd,int idx,int amount);
 int pc_cartitem_amount(struct map_session_data *sd,int idx,int amount);
@@ -807,5 +857,13 @@ void pc_inventory_rental_add(struct map_session_data *sd, int seconds);
 
 int pc_read_motd(void); // [Valaris]
 int pc_disguise(struct map_session_data *sd, int class_);
-
+bool pc_isautolooting(struct map_session_data *sd, int nameid);
+/**
+ * Mechanic (Mado Gear)
+ **/
+void pc_overheat(struct map_session_data *sd, int val);
+/**
+ * Royal Guard
+ **/
+int pc_banding(struct map_session_data *sd, short skill_lv);
 #endif /* _PC_H_ */

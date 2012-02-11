@@ -26,6 +26,6 @@ void script_run_chunk(const char *chunk,int char_id);
 void script_resume(struct map_session_data *sd,const char *format,...);
 void do_final_luascript(void);
 
-extern enum { L_NRUN,L_CLOSE,L_NEXT,L_INPUT,L_MENU, L_END };
+extern enum { L_NRUN, L_CLOSE, L_NEXT, L_INPUT, L_MENU, L_END };
 
 #endif /* _LUASCRIPT_H_ */

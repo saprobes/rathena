@@ -5,6 +5,10 @@
 #define _ITEMDB_H_
 
 #include "../common/mmo.h" // ITEM_NAME_LENGTH
+#include "map.h" //REMODE
+
+// 32k array entries in array (the rest goes to the db)
+#define MAX_ITEMDB 0x8000
 
 #define MAX_RANDITEM	11000
 
@@ -13,20 +17,31 @@
 
 #define MAX_SEARCH	5  //Designed for search functions, species max number of matches to display.
 
-#define ITEMID_YELLOW_GEMSTONE 715
-#define ITEMID_RED_GEMSTONE 716
-#define ITEMID_BLUE_GEMSTONE 717
+/**
+ * Arch Bishop
+ **/
+#define ITEMID_ANCILLA 12333
+
+enum item_itemid
+{
+	ITEMID_EMPERIUM = 714,
+	ITEMID_YELLOW_GEMSTONE = 715,
+	ITEMID_RED_GEMSTONE = 716,
+	ITEMID_BLUE_GEMSTONE = 717,
+	ITEMID_TRAP = 1065,
+	ITEMID_STONE = 7049,
+	ITEMID_SKULL_ = 7420,
+	ITEMID_TOKEN_OF_SIEGFRIED = 7621,
+};
+
 #define itemid_isgemstone(id) ( (id) >= ITEMID_YELLOW_GEMSTONE && (id) <= ITEMID_BLUE_GEMSTONE )
-#define ITEMID_TRAP 1065
-#define ITEMID_STONE 7049
-#define ITEMID_SKULL_ 7420
 #define itemdb_iscashfood(id) ( (id) >= 12202 && (id) <= 12207 )
 
 //The only item group required by the code to be known. See const.txt for the full list.
 #define IG_FINDINGORE 6
 #define IG_POTION 37
 //The max. item group count (increase this when needed).
-#define MAX_ITEMGROUP 55
+#define MAX_ITEMGROUP 62
 
 #define CARD0_FORGE 0x00FF
 #define CARD0_CREATE 0x00FE
@@ -50,6 +65,9 @@ struct item_data {
 	int equip;
 	int weight;
 	int atk;
+#if REMODE
+	int matk;//[RRInd] -- used in RE for matk
+#endif
 	int def;
 	int range;
 	int slot;
@@ -61,7 +79,7 @@ struct item_data {
 //Lupus: I rearranged order of these fields due to compatibility with ITEMINFO script command
 //		some script commands should be revised as well...
 	unsigned int class_base[3];	//Specifies if the base can wear this item (split in 3 indexes per type: 1-1, 2-1, 2-2)
-	unsigned class_upper : 3; //Specifies if the upper-type can equip it (bitfield, 1: normal, 2: upper, 3: baby)
+	unsigned class_upper : 4; //Specifies if the upper-type can equip it (bitfield, 1: normal, 2: upper, 3: baby,4:third)
 	struct {
 		unsigned short chance;
 		int id;
@@ -78,14 +96,6 @@ struct item_data {
 		unsigned autoequip: 1;
 		unsigned buyingstore : 1;
 	} flag;
-	struct
-	{// item stacking limitation
-		unsigned short amount;
-		unsigned int inventory:1;
-		unsigned int cart:1;
-		unsigned int storage:1;
-		unsigned int guildstorage:1;
-	} stack;
 	short gm_lv_trade_override;	//GM-level to override trade_restriction
 };
 
@@ -122,7 +132,7 @@ int itemdb_searchrandomid(int flags);
 
 #define itemdb_value_buy(n) itemdb_search(n)->value_buy
 #define itemdb_value_sell(n) itemdb_search(n)->value_sell
-#define itemdb_canrefine(n) itemdb_search(n)->flag.no_refine
+#define itemdb_canrefine(n) (!itemdb_search(n)->flag.no_refine)
 //Item trade restrictions [Skotlex]
 int itemdb_isdropable_sub(struct item_data *, int, int);
 int itemdb_cantrade_sub(struct item_data*, int, int);
@@ -151,4 +161,35 @@ void itemdb_reload(void);
 void do_final_itemdb(void);
 int do_init_itemdb(void);
 
+/**
+ * Rune Knight
+ **/
+enum {
+	ITEMID_NAUTHIZ = 12725,
+	ITEMID_RAIDO,
+	ITEMID_BERKANA,
+	ITEMID_ISA,
+	ITEMID_OTHILA,
+	ITEMID_URUZ,
+	ITEMID_THURISAZ,
+	ITEMID_WYRD,
+	ITEMID_HAGALAZ,
+} rune_list;
+#define itemdb_is_rune(n) (n >= ITEMID_NAUTHIZ && n <= ITEMID_HAGALAZ)
+/**
+ * Warlock
+ **/
+#define itemdb_is_spellbook(n) (n >= 6188 && n <= 6205)
+/**
+ * Ranger
+ **/
+#define ITEMID_TRAP_ALLOY 7940
+/**
+ * Mechanic
+ **/
+#define itemdb_is_element(n) (n >= 990 && n <= 993)
+/**
+ * Guilotine Cross
+ **/
+#define itemdb_is_poison(n) (n >= 12717 && n <= 12724)
 #endif /* _ITEMDB_H_ */

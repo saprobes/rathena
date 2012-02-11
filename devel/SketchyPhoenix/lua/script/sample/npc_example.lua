@@ -3,7 +3,7 @@ addnpc("Healer Dog","healer_gef","geffen.gat",125,95,4,81,"npc_healer")
 addnpc("Healer Dog","healer_moc","morocc.gat",160,100,4,81,"npc_healer")
 addnpc("Healer Dog","healer_prt","prontera.gat",155,190,4,81,"npc_healer")
 
-function npc_healer()
+function npc_healer(char_id, npc_id)
 	mes "[Healer Dog]"
 	mes "Would you like a heal?"
 	npcnext()

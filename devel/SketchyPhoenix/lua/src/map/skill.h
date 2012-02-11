@@ -13,7 +13,7 @@ struct skill_unit_group;
 struct status_change_entry;
 
 #define MAX_SKILL_DB			MAX_SKILL
-#define MAX_SKILL_PRODUCE_DB	150
+#define MAX_SKILL_PRODUCE_DB	170
 #define MAX_PRODUCE_RESOURCE	12
 #define MAX_SKILL_ARROW_DB		150
 #define MAX_ARROW_RESOURCE		5
@@ -64,6 +64,7 @@ enum e_skill_inf2
 	INF2_PARTY_ONLY     = 0x0400,
 	INF2_GUILD_ONLY     = 0x0800,
 	INF2_NO_ENEMY       = 0x1000,
+	INF2_NOLP           = 0x2000,  // Spells that can ignore Land Protector
 };
 
 //Walk intervals at which chase-skills are attempted to be triggered.
@@ -91,7 +92,7 @@ struct s_skill_db {
 	int range[MAX_SKILL_LEVEL],hit,inf,element[MAX_SKILL_LEVEL],nk,splash[MAX_SKILL_LEVEL],max;
 	int num[MAX_SKILL_LEVEL];
 	int cast[MAX_SKILL_LEVEL],walkdelay[MAX_SKILL_LEVEL],delay[MAX_SKILL_LEVEL];
-	int upkeep_time[MAX_SKILL_LEVEL],upkeep_time2[MAX_SKILL_LEVEL];
+	int upkeep_time[MAX_SKILL_LEVEL],upkeep_time2[MAX_SKILL_LEVEL],cooldown[MAX_SKILL_LEVEL];
 	int castcancel,cast_def_rate;
 	int inf2,maxcount[MAX_SKILL_LEVEL],skill_type;
 	int blewcount[MAX_SKILL_LEVEL];
@@ -290,7 +291,7 @@ int skill_clear_group(struct block_list *bl, int flag);
 int skill_unit_ondamaged(struct skill_unit *src,struct block_list *bl,int damage,unsigned int tick);
 
 int skill_castfix( struct block_list *bl, int skill_id, int skill_lv);
-int skill_castfix_sc( struct block_list *bl, int time);
+int skill_castfix_sc( struct block_list *bl, int time, int skill_id, int skill_lv);
 int skill_delayfix( struct block_list *bl, int skill_id, int skill_lv);
 
 // Skill conditions check and remove [Inkfish]
@@ -309,7 +310,7 @@ int skill_unit_move_unit_group( struct skill_unit_group *group, int m,int dx,int
 struct skill_unit_group *skill_check_dancing( struct block_list *src );
 
 // Guild skills [celest]
-int skill_guildaura_sub (struct block_list *bl,va_list ap);
+int skill_guildaura_sub (struct map_session_data* sd, int id, int strvit, int agidex);
 
 // ârè•ÉLÉÉÉìÉZÉã
 int skill_castcancel(struct block_list *bl,int type);
@@ -344,9 +345,11 @@ int skill_castend_nodamage_id( struct block_list *src, struct block_list *bl,int
 int skill_castend_damage_id( struct block_list* src, struct block_list *bl,int skillid,int skilllv,unsigned int tick,int flag );
 int skill_castend_pos2( struct block_list *src, int x,int y,int skillid,int skilllv,unsigned int tick,int flag);
 
-int skill_blockpc_start (struct map_session_data*,int,int);
+int skill_blockpc_start_(struct map_session_data*, int, int, bool);
 int skill_blockhomun_start (struct homun_data*,int,int);
 int skill_blockmerc_start (struct mercenary_data*,int,int);
+
+#define skill_blockpc_start(sd, skillid, tick) skill_blockpc_start_( sd, skillid, tick, false )
 
 // ÉXÉLÉãçU?àÍäá?óù
 int skill_attack( int attack_type, struct block_list* src, struct block_list *dsrc,struct block_list *bl,int skillid,int skilllv,unsigned int tick,int flag );
@@ -368,6 +371,14 @@ enum {
 	ST_RECOV_WEIGHT_RATE,
 	ST_MOVE_ENABLE,
 	ST_WATER,
+	/**
+	 * 3rd States
+	 **/
+	ST_RIDINGDRAGON,
+	ST_WUG,
+	ST_RIDINGWUG,
+	ST_MADO,
+	ST_ELEMENTALSPIRIT,
 };
 
 enum e_skill {
@@ -1310,7 +1321,7 @@ enum e_skill {
 	GN_S_PHARMACY,
 	GN_SLINGITEM_RANGEMELEEATK,
 
-	AB_SECRAMENT,
+	AB_SECRAMENT=2515,
 	WM_SEVERE_RAINSTORM_MELEE,
 	SR_HOWLINGOFLION,
 	SR_RIDEINLIGHTNING,
@@ -1320,6 +1331,8 @@ enum e_skill {
 	ALL_ODINS_RECALL = 2533,
 	RETURN_TO_ELDICASTES,
 	ALL_BUYING_STORE,
+	ALL_GUARDIAN_RECALL,
+	ALL_ODINS_POWER,
 
 	HLIF_HEAL = 8001,
 	HLIF_AVOID,
@@ -1547,5 +1560,50 @@ enum {
 
 	UNT_MAX = 0x190
 };
-
+/**
+ * Skill Cool Downs - load from pc.c when the character logs in
+ **/
+void skill_cooldown_load(struct map_session_data * sd);
+/**
+ * Warlock
+ **/
+#define MAX_SKILL_SPELLBOOK_DB	17
+enum wl_spheres {
+	WLS_FIRE = 0x44,
+	WLS_WIND,
+	WLS_WATER,
+	WLS_STONE,
+};
+int skill_spellbook (struct map_session_data *sd, int nameid);
+/**
+ * Guilottine Cross
+ **/
+#define MAX_SKILL_MAGICMUSHROOM_DB 22
+struct s_skill_magicmushroom_db {
+	int skillid;
+};
+extern struct s_skill_magicmushroom_db skill_magicmushroom_db[MAX_SKILL_MAGICMUSHROOM_DB];
+/**
+ * Ranger
+ **/
+int skill_detonator(struct block_list *bl, va_list ap);
+bool skill_check_camouflage(struct block_list *bl, struct status_change_entry *sce);
+/**
+ * Mechanic
+ **/
+int skill_magicdecoy(struct map_session_data *sd, int nameid);
+/**
+ * Guiltoine Cross
+ **/
+int skill_poisoningweapon( struct map_session_data *sd, int nameid);
+enum gx_poison {
+	PO_PARALYSE = 12717,
+	PO_LEECHESEND,
+	PO_OBLIVIONCURSE,
+	PO_DEATHHURT,
+	PO_TOXIN,
+	PO_PYREXIA,
+	PO_MAGICMUSHROOM,
+	PO_VENOMBLEED
+};
 #endif /* _SKILL_H_ */

@@ -53,13 +53,14 @@ struct guild_expcache {
 };
 static struct eri *expcache_ers; //For handling of guild exp payment.
 
+#define MAX_GUILD_SKILL_REQUIRE 5
 struct{
 	int id;
 	int max;
 	struct{
 		short id;
 		short lv;
-	}need[6];
+	}need[MAX_GUILD_SKILL_REQUIRE];
 } guild_skill_tree[MAX_GUILDSKILL];
 
 int guild_payexp_timer(int tid, unsigned int tick, int id, intptr_t data);
@@ -125,7 +126,7 @@ static bool guild_read_guildskill_tree_db(char* split[], int columns, int curren
 		guild_skill_tree[id].max = 1;
 	}
 
-	for( k = 0; k < 5; k++ )
+	for( k = 0; k < MAX_GUILD_SKILL_REQUIRE; k++ )
 	{
 		guild_skill_tree[id].need[k].id = atoi(split[k*2+2]);
 		guild_skill_tree[id].need[k].lv = atoi(split[k*2+3]);
@@ -148,7 +149,7 @@ int guild_check_skill_require(struct guild *g,int id)
 	if (idx < 0 || idx >= MAX_GUILDSKILL)
 		return 0;
 
-	for(i=0;i<5;i++)
+	for(i=0;i<MAX_GUILD_SKILL_REQUIRE;i++)
 	{
 		if(guild_skill_tree[idx].need[i].id == 0) break;
 		if(guild_skill_tree[idx].need[i].lv > guild_checkskill(g,guild_skill_tree[idx].need[i].id))
@@ -323,10 +324,14 @@ int guild_send_xy_timer_sub(DBKey key,void *data,va_list ap)
 
 	nullpo_ret(g);
 
+	if( !g->connect_member )
+	{// no members connected to this guild so do not iterate
+		return 0;
+	}
+
 	for(i=0;i<g->max_member;i++){
-		//struct map_session_data* sd = g->member[i].sd;
-		struct map_session_data* sd = map_charid2sd(g->member[i].char_id); // temporary crashfix
-		if( sd != NULL && (sd->guild_x != sd->bl.x || sd->guild_y != sd->bl.y) && !sd->bg_id )
+		struct map_session_data* sd = g->member[i].sd;
+		if( sd != NULL && sd->fd && (sd->guild_x != sd->bl.x || sd->guild_y != sd->bl.y) && !sd->bg_id )
 		{
 			clif_guild_xy(sd);
 			sd->guild_x = sd->bl.x;
@@ -395,7 +400,7 @@ int guild_created(int account_id,int guild_id)
 	sd->status.guild_id=guild_id;
 	clif_guild_created(sd,0);
 	if(battle_config.guild_emperium_check)
-		pc_delitem(sd,pc_search_inventory(sd,714),1,0,0);	// エンペリウム消耗
+		pc_delitem(sd,pc_search_inventory(sd,714),1,0,0,LOG_TYPE_CONSUME);	// エンペリウム消耗
 	return 0;
 }
 
@@ -950,8 +955,7 @@ int guild_send_message(struct map_session_data *sd,const char *mes,int len)
 	guild_recv_message(sd->status.guild_id,sd->status.account_id,mes,len);
 
 	// Chat logging type 'G' / Guild Chat
-	if( log_config.chat&1 || (log_config.chat&16 && !((agit_flag || agit2_flag) && log_config.chat&64)) )
-		log_chat("G", sd->status.guild_id, sd->status.char_id, sd->status.account_id, mapindex_id2name(sd->mapindex), sd->bl.x, sd->bl.y, NULL, mes);
+	log_chat(LOG_CHAT_GUILD, sd->status.guild_id, sd->status.char_id, sd->status.account_id, mapindex_id2name(sd->mapindex), sd->bl.x, sd->bl.y, NULL, mes);
 
 	return 0;
 }
@@ -1047,7 +1051,7 @@ int guild_change_emblem(struct map_session_data *sd,int len,const char *data)
 
 	if (battle_config.require_glory_guild &&
 		!((g = guild_search(sd->status.guild_id)) && guild_checkskill(g, GD_GLORYGUILD)>0)) {
-		clif_skill_fail(sd,GD_GLORYGUILD,0,0);
+		clif_skill_fail(sd,GD_GLORYGUILD,USESKILL_FAIL_LEVEL,0);
 		return 0;
 	}
 
@@ -1152,7 +1156,7 @@ unsigned int guild_payexp(struct map_session_data *sd,unsigned int exp)
 		exp = exp * per / 100;
 	//Otherwise tax everything.
 	
-	c = (struct guild_expcache*)guild_expcache_db->ensure(guild_expcache_db, i2key(sd->status.char_id), create_expcache, sd);
+	c = (struct guild_expcache*)guild_expcache_db->ensure(guild_expcache_db, db_i2key(sd->status.char_id), create_expcache, sd);
 
 	if (c->exp > UINT64_MAX - exp)
 		c->exp = UINT64_MAX;
@@ -1171,7 +1175,7 @@ int guild_getexp(struct map_session_data *sd,int exp)
 	if (sd->status.guild_id == 0 || guild_search(sd->status.guild_id) == NULL)
 		return 0;
 
-	c = (struct guild_expcache*)guild_expcache_db->ensure(guild_expcache_db, i2key(sd->status.char_id), create_expcache, sd);
+	c = (struct guild_expcache*)guild_expcache_db->ensure(guild_expcache_db, db_i2key(sd->status.char_id), create_expcache, sd);
 	if (c->exp > UINT64_MAX - exp)
 		c->exp = UINT64_MAX;
 	else
@@ -1955,7 +1959,7 @@ void do_init_guild(void)
 	sv_readdb(db_path, "castle_db.txt", ',', 4, 5, -1, &guild_read_castledb);
 
 	memset(guild_skill_tree,0,sizeof(guild_skill_tree));
-	sv_readdb(db_path, "guild_skill_tree.txt", ',', 12, 12, -1, &guild_read_guildskill_tree_db); //guild skill tree [Komurka]
+	sv_readdb(db_path, "guild_skill_tree.txt", ',', 2+MAX_GUILD_SKILL_REQUIRE*2, 2+MAX_GUILD_SKILL_REQUIRE*2, -1, &guild_read_guildskill_tree_db); //guild skill tree [Komurka]
 
 	add_timer_func_list(guild_payexp_timer,"guild_payexp_timer");
 	add_timer_func_list(guild_send_xy_timer, "guild_send_xy_timer");

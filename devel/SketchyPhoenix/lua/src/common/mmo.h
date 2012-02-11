@@ -41,11 +41,14 @@
 // 20100803 - 2010-08-03aRagexeRE+ - 0x6b, 0x6d, 0x827, 0x828, 0x829, 0x82a, 0x82b, 0x82c, 0x842, 0x843
 // 20101124 - 2010-11-24aRagexeRE+ - 0x856, 0x857, 0x858
 // 20110111 - 2011-01-11aRagexeRE+ - 0x6b, 0x6d
+// 20110928 - 2011-09-28aRagexeRE+ - 0x6b, 0x6d
+// 20111025 - 2011-10-25aRagexeRE+ - 0x6b, 0x6d
 
 #ifndef PACKETVER
-	#define PACKETVER	20081126
-	//#define PACKETVER 20100707
+	#define PACKETVER 20110609
+	//#define PACKETVER	20100730
 #endif
+
 // backward compatible PACKETVER 8 and 9
 #if PACKETVER == 8
 #undef PACKETVER
@@ -86,7 +89,7 @@
 #define MAX_ZENY 1000000000
 #define MAX_FAME 1000000000
 #define MAX_CART 100
-#define MAX_SKILL 2536
+#define MAX_SKILL 2540
 #define GLOBAL_REG_NUM 256
 #define ACCOUNT_REG_NUM 64
 #define ACCOUNT_REG2_NUM 16
@@ -148,7 +151,7 @@
 //Base Homun skill.
 #define HM_SKILLBASE 8001
 #define MAX_HOMUNSKILL 16
-#define MAX_HOMUNCULUS_CLASS	16	//[orn]
+#define MAX_HOMUNCULUS_CLASS	60	//[orn], Increased to 60 from 16 to allow new Homun-S.
 #define HM_CLASS_BASE 6001
 #define HM_CLASS_MAX (HM_CLASS_BASE+MAX_HOMUNCULUS_CLASS-1)
 
@@ -160,7 +163,7 @@
 //Mercenary System
 #define MC_SKILLBASE 8201
 #define MAX_MERCSKILL 40
-#define MAX_MERCENARY_CLASS 40
+#define MAX_MERCENARY_CLASS 44
 
 enum item_types {
 	IT_HEALING = 0,
@@ -175,6 +178,7 @@ enum item_types {
 	IT_UNKNOWN2,//9
 	IT_AMMO,    //10
 	IT_DELAYCONSUME,//11
+	IT_THROWWEAPON= 17,//17
 	IT_CASH = 18,
 	IT_MAX 
 };
@@ -218,8 +222,8 @@ enum e_skill_flag
 
 struct s_skill {
 	unsigned short id;
-	unsigned short lv;
-	unsigned short flag; // see enum e_skill_flag
+	unsigned char lv;
+	unsigned char flag; // see enum e_skill_flag
 };
 
 struct global_reg {
@@ -374,7 +378,7 @@ typedef enum mail_status {
 } mail_status;
 
 struct mail_message {
-	unsigned int id;
+	int id;
 	int send_id;
 	char send_name[NAME_LENGTH];
 	int dest_id;
@@ -559,6 +563,7 @@ enum {
 	GD_RESTORE=10012,
 	GD_EMERGENCYCALL=10013,
 	GD_DEVELOPMENT=10014,
+	GD_MAX,
 };
 
 
@@ -645,21 +650,27 @@ enum {
 	JOB_STAR_GLADIATOR,
 	JOB_STAR_GLADIATOR2,
 	JOB_SOUL_LINKER,
-
+	/**
+	 * 3.1 (2.1)
+	 **/
 	JOB_RUNE_KNIGHT = 4054,
 	JOB_WARLOCK,
 	JOB_RANGER,
-	JOB_ARCHBISHOP,
+	JOB_ARCH_BISHOP,
 	JOB_MECHANIC,
 	JOB_GUILLOTINE_CROSS,
-
-	JOB_RUNE_KNIGHT_H,
-	JOB_WARLOCK_H,
-	JOB_RANGER_H,
-	JOB_ARCHBISHOP_H,
-	JOB_MECHANIC_H,
-	JOB_GUILLOTINE_CROSS_H,
-
+	/**
+	 * 3.1 (2.1 Trans)
+	 **/
+	JOB_RUNE_KNIGHT_T,
+	JOB_WARLOCK_T,
+	JOB_RANGER_T,
+	JOB_ARCH_BISHOP_T,
+	JOB_MECHANIC_T,
+	JOB_GUILLOTINE_CROSS_T,
+	/**
+	 * 3.2 (2.2)
+	 **/
 	JOB_ROYAL_GUARD,
 	JOB_SORCERER,
 	JOB_MINSTREL,
@@ -667,42 +678,27 @@ enum {
 	JOB_SURA,
 	JOB_GENETIC,
 	JOB_SHADOW_CHASER,
-
-	JOB_ROYAL_GUARD_H,
-	JOB_SORCERER_H,
-	JOB_MINSTREL_H,
-	JOB_WANDERER_H,
-	JOB_SURA_H,
-	JOB_GENETIC_H,
-	JOB_SHADOW_CHASER_H,
-
+	/**
+	 * 3.2 (2.2 Trans)
+	 **/
+	JOB_ROYAL_GUARD_T,
+	JOB_SORCERER_T,
+	JOB_MINSTREL_T,
+	JOB_WANDERER_T,
+	JOB_SURA_T,
+	JOB_GENETIC_T,
+	JOB_SHADOW_CHASER_T,
+	/**
+	 * 3.x Mounts / Vehicles
+	 **/
 	JOB_RUNE_KNIGHT2,
-	JOB_RUNE_KNIGHT_H2,
+	JOB_RUNE_KNIGHT_T2,
 	JOB_ROYAL_GUARD2,
-	JOB_ROYAL_GUARD_H2,
+	JOB_ROYAL_GUARD_T2,
 	JOB_RANGER2,
-	JOB_RANGER_H2,
+	JOB_RANGER_T2,
 	JOB_MECHANIC2,
-	JOB_MECHANIC_H2,
-
-	JOB_BABY_RUNE = 4096,
-	JOB_BABY_WARLOCK,
-	JOB_BABY_RANGER,
-	JOB_BABY_BISHOP,
-	JOB_BABY_MECHANIC,
-	JOB_BABY_CROSS,
-	JOB_BABY_GUARD,
-	JOB_BABY_SORCERER,
-	JOB_BABY_MINSTREL,
-	JOB_BABY_WANDERER,
-	JOB_BABY_SURA,
-	JOB_BABY_GENETIC,
-	JOB_BABY_CHASER,
-
-	JOB_BABY_RUNE2,
-	JOB_BABY_GUARD2,
-	JOB_BABY_RANGER2,
-	JOB_BABY_MECHANIC2,
+	JOB_MECHANIC_T2,
 
 	JOB_MAX,
 };

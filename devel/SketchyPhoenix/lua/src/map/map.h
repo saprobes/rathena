@@ -10,6 +10,11 @@
 #include "../common/mapindex.h"
 #include "../common/db.h"
 
+/**
+ * [rAthena.org]
+ **/
+#include "./config/Core.h"
+
 #include <stdarg.h>
 
 struct npc_data;
@@ -22,17 +27,6 @@ enum E_MAPSERVER_ST
 	MAPSERVER_ST_LAST
 };
 
-//Uncomment to enable the Cell Stack Limit mod.
-//It's only config is the battle_config cell_stack_limit.
-//Only chars affected are those defined in BL_CHAR (mobs and players currently)
-//#define CELL_NOSTACK
-
-//Uncomment to enable circular area checks.
-//By default, all range checks in Aegis are of Square shapes, so a weapon range
-//  of 10 allows you to attack from anywhere within a 21x21 area.
-//Enabling this changes such checks to circular checks, which is more realistic,
-//  but is not the official behaviour.
-//#define CIRCULAR_AREA
 
 #define MAX_NPC_PER_MAP 512
 #define MAX_AREASCRIPT_PER_MAP 128
@@ -69,17 +63,17 @@ enum E_MAPSERVER_ST
 
 #define JOBL_UPPER 0x1000 //4096
 #define JOBL_BABY 0x2000  //8192
-#define JOBL_3 0x4000     //16384
+#define JOBL_THIRD 0x4000 //16384
 
 //for filtering and quick checking.
 #define MAPID_UPPERMASK 0x0fff
 #define MAPID_BASEMASK 0x00ff
+#define MAPID_THIRDMASK (JOBL_THIRD|MAPID_UPPERMASK)
 //First Jobs
 //Note the oddity of the novice:
 //Super Novices are considered the 2-1 version of the novice! Novices are considered a first class type, too...
 enum {
 	MAPID_NOVICE = 0x0,
-//1st classes
 	MAPID_SWORDMAN,
 	MAPID_MAGE,
 	MAPID_ARCHER,
@@ -93,7 +87,7 @@ enum {
 	MAPID_XMAS,
 	MAPID_SUMMER,
 //2_1 classes
-	MAPID_SUPER_NOVICE = JOBL_2_1|MAPID_NOVICE,
+	MAPID_SUPER_NOVICE = JOBL_2_1|0x0,
 	MAPID_KNIGHT,
 	MAPID_WIZARD,
 	MAPID_HUNTER,
@@ -102,29 +96,15 @@ enum {
 	MAPID_ASSASSIN,
 	MAPID_STAR_GLADIATOR,
 //2_2 classes
-	MAPID_CRUSADER = JOBL_2_2|MAPID_SWORDMAN,
+	MAPID_CRUSADER = JOBL_2_2|0x1,
 	MAPID_SAGE,
 	MAPID_BARDDANCER,
 	MAPID_MONK,
 	MAPID_ALCHEMIST,
 	MAPID_ROGUE,
 	MAPID_SOUL_LINKER,
-//3_1 classes
-	MAPID_RUNE_KNIGHT = JOBL_3|JOBL_2_1|MAPID_SWORDMAN,
-	MAPID_WARLOCK,
-	MAPID_RANGER,
-	MAPID_ARCHBISHOP,
-	MAPID_MECHANIC,
-	MAPID_GUILLOTINE_CROSS,
-//3_2 classes
-	MAPID_ROYAL_GUARD = JOBL_3|JOBL_2_2|MAPID_SWORDMAN,
-	MAPID_SORCERER,
-	MAPID_MINSTRELWANDERER,
-	MAPID_SURA,
-	MAPID_GENETIC,
-	MAPID_SHADOW_CHASER,
-//1st, advanced
-	MAPID_NOVICE_HIGH = JOBL_UPPER|MAPID_NOVICE,
+//1-1, advanced
+	MAPID_NOVICE_HIGH = JOBL_UPPER|0x0,
 	MAPID_SWORDMAN_HIGH,
 	MAPID_MAGE_HIGH,
 	MAPID_ARCHER_HIGH,
@@ -132,35 +112,21 @@ enum {
 	MAPID_MERCHANT_HIGH,
 	MAPID_THIEF_HIGH,
 //2_1 advanced
-	MAPID_LORD_KNIGHT = JOBL_UPPER|JOBL_2_1|MAPID_SWORDMAN,
+	MAPID_LORD_KNIGHT = JOBL_UPPER|JOBL_2_1|0x1,
 	MAPID_HIGH_WIZARD,
 	MAPID_SNIPER,
 	MAPID_HIGH_PRIEST,
 	MAPID_WHITESMITH,
 	MAPID_ASSASSIN_CROSS,
 //2_2 advanced
-	MAPID_PALADIN = JOBL_UPPER|JOBL_2_2|MAPID_SWORDMAN,
+	MAPID_PALADIN = JOBL_UPPER|JOBL_2_2|0x1,
 	MAPID_PROFESSOR,
 	MAPID_CLOWNGYPSY,
 	MAPID_CHAMPION,
 	MAPID_CREATOR,
 	MAPID_STALKER,
-//3_1 advanced
-	MAPID_RUNE_KNIGHT_H = JOBL_3|JOBL_UPPER|JOBL_2_1|MAPID_SWORDMAN,
-	MAPID_WARLOCK_H,
-	MAPID_RANGER_H,
-	MAPID_ARCHBISHOP_H,
-	MAPID_MECHANIC_H,
-	MAPID_GUILLOTINE_CROSS_H,
-//3_2 advanced
-	MAPID_ROYAL_GUARD_H = JOBL_3|JOBL_UPPER|JOBL_2_2|MAPID_SWORDMAN,
-	MAPID_SORCERER_H,
-	MAPID_MINSTRELWANDERER_H,
-	MAPID_SURA_H,
-	MAPID_GENETIC_H,
-	MAPID_SHADOW_CHASER_H,
-//1st baby
-	MAPID_BABY = JOBL_BABY|MAPID_NOVICE,
+//1-1 baby
+	MAPID_BABY = JOBL_BABY|0x0,
 	MAPID_BABY_SWORDMAN,
 	MAPID_BABY_MAGE,
 	MAPID_BABY_ARCHER,
@@ -169,7 +135,7 @@ enum {
 	MAPID_BABY_THIEF,
 	MAPID_BABY_TAEKWON,
 //2_1 baby
-	MAPID_SUPER_BABY = JOBL_BABY|JOBL_2_1|MAPID_NOVICE,
+	MAPID_SUPER_BABY = JOBL_BABY|JOBL_2_1|0x0,
 	MAPID_BABY_KNIGHT,
 	MAPID_BABY_WIZARD,
 	MAPID_BABY_HUNTER,
@@ -178,27 +144,38 @@ enum {
 	MAPID_BABY_ASSASSIN,
 	MAPID_BABY_STAR_GLADIATOR,
 //2_2 baby
-	MAPID_BABY_CRUSADER = JOBL_BABY|JOBL_2_2|MAPID_SWORDMAN,
+	MAPID_BABY_CRUSADER = JOBL_BABY|JOBL_2_2|0x1,
 	MAPID_BABY_SAGE,
 	MAPID_BABY_BARDDANCER,
 	MAPID_BABY_MONK,
 	MAPID_BABY_ALCHEMIST,
 	MAPID_BABY_ROGUE,
 	MAPID_BABY_SOUL_LINKER,
-//3_1 baby
-	MAPID_BABY_RUNE = JOBL_3|JOBL_BABY|JOBL_2_1|MAPID_SWORDMAN,
-	MAPID_BABY_WARLOCK,
-	MAPID_BABY_RANGER,
-	MAPID_BABY_BISHOP,
-	MAPID_BABY_MECHANIC,
-	MAPID_BABY_CROSS,
-//3_2 baby
-	MAPID_BABY_GUARD = JOBL_3|JOBL_BABY|JOBL_2_2|MAPID_SWORDMAN,
-	MAPID_BABY_SORCERER,
-	MAPID_BABY_MINSTRELWANDERER,
-	MAPID_BABY_SURA,
-	MAPID_BABY_GENETIC,
-	MAPID_BABY_CHASER
+	MAPID_RUNE_KNIGHT = JOBL_THIRD|JOBL_2_1|0x1,
+	MAPID_WARLOCK,
+	MAPID_RANGER,
+	MAPID_ARCH_BISHOP,
+	MAPID_MECHANIC,
+	MAPID_GUILLOTINE_CROSS,
+	MAPID_ROYAL_GUARD = JOBL_THIRD|JOBL_2_2|0x1,
+	MAPID_SORCERER,
+	MAPID_MINSTRELWANDERER,
+	MAPID_SURA,
+	MAPID_GENETIC,
+	MAPID_SHADOW_CHASER,
+	MAPID_RUNE_KNIGHT_T = JOBL_THIRD|JOBL_UPPER|JOBL_2_1|0x1,
+	MAPID_WARLOCK_T,
+	MAPID_RANGER_T,
+	MAPID_ARCH_BISHOP_T,
+	MAPID_MECHANIC_T,
+	MAPID_GUILLOTINE_CROSS_T,
+	MAPID_ROYAL_GUARD_T = JOBL_THIRD|JOBL_UPPER|JOBL_2_2|0x1,
+	MAPID_SORCERER_T,
+	MAPID_MINSTRELWANDERER_T,
+	MAPID_SURA_T,
+	MAPID_GENETIC_T,
+	MAPID_SHADOW_CHASER_T,
+
 };
 
 //Max size for inputs to Graffiti, Talkie Box and Vending text prompts
@@ -315,7 +292,7 @@ struct spawn_data {
 	signed short xs,ys;
 	unsigned short num; //Number of mobs using this structure
 	unsigned short active; //Number of mobs that are already spawned (for mob_remove_damaged: no)
-	unsigned int delay1,delay2; //Min delay before respawning after spawn/death
+	unsigned int delay1,delay2; //Spawn delay (fixed base + random variance)
 	struct {
 		unsigned int size :2; //Holds if mob has to be tiny/large
 		unsigned int ai :2;	//Holds if mob is special ai.
@@ -379,7 +356,7 @@ enum _sp {
 	SP_SPLASH_RANGE,SP_SPLASH_ADD_RANGE,SP_AUTOSPELL,SP_HP_DRAIN_RATE,SP_SP_DRAIN_RATE, // 1058-1062
 	SP_SHORT_WEAPON_DAMAGE_RETURN,SP_LONG_WEAPON_DAMAGE_RETURN,SP_WEAPON_COMA_ELE,SP_WEAPON_COMA_RACE, // 1063-1066
 	SP_ADDEFF2,SP_BREAK_WEAPON_RATE,SP_BREAK_ARMOR_RATE,SP_ADD_STEAL_RATE, // 1067-1070
-	SP_MAGIC_DAMAGE_RETURN,SP_RANDOM_ATTACK_INCREASE,SP_ALL_STATS,SP_AGI_VIT,SP_AGI_DEX_STR,SP_PERFECT_HIDE, // 1071-1076
+	SP_MAGIC_DAMAGE_RETURN,SP_ALL_STATS=1073,SP_AGI_VIT,SP_AGI_DEX_STR,SP_PERFECT_HIDE, // 1071-1076
 	SP_NO_KNOCKBACK,SP_CLASSCHANGE, // 1077-1078
 	SP_HP_DRAIN_VALUE,SP_SP_DRAIN_VALUE, // 1079-1080
 	SP_WEAPON_ATK,SP_WEAPON_ATK_RATE, // 1081-1082
@@ -398,7 +375,8 @@ enum _sp {
 	SP_SP_GAIN_RACE, SP_SUBRACE2, SP_UNBREAKABLE_SHOES,	// 2031-2033
 	SP_UNSTRIPABLE_WEAPON,SP_UNSTRIPABLE_ARMOR,SP_UNSTRIPABLE_HELM,SP_UNSTRIPABLE_SHIELD,  // 2034-2037
 	SP_INTRAVISION, SP_ADD_MONSTER_DROP_ITEMGROUP, SP_SP_LOSS_RATE, // 2038-2040
-	SP_ADD_SKILL_BLOW, SP_SP_VANISH_RATE, SP_MAGIC_SP_GAIN_VALUE, SP_MAGIC_HP_GAIN_VALUE //2041-2044
+	SP_ADD_SKILL_BLOW, SP_SP_VANISH_RATE, SP_MAGIC_SP_GAIN_VALUE, SP_MAGIC_HP_GAIN_VALUE, SP_ADD_CLASS_DROP_ITEM, //2041-2045
+	SP_WEAPON_MATK, SP_BASE_MATK //2046-2047
 };
 
 enum _look {
@@ -494,6 +472,7 @@ struct map_data {
 	int npc_num;
 	int areascript_num;
 	int users;
+	int users_pvp;
 	int iwall_num; // Total of invisible walls in this map
 	struct map_flag {
 		unsigned town : 1; // [Suggestion to protect Mail System]
@@ -529,7 +508,10 @@ struct map_data {
 		unsigned fireworks : 1;
 		unsigned sakura : 1; // [Valaris]
 		unsigned leaves : 1; // [Valaris]
-		unsigned rain : 1; // [Valaris]
+		/**
+		 * No longer available, keeping here just in case it's back someday. [Ind]
+		 **/
+		//unsigned rain : 1; // [Valaris]
 		unsigned nogo : 1; // [Valaris]
 		unsigned nobaseexp	: 1; // [Lorky] added by Lupus
 		unsigned nojobexp	: 1; // [Lorky]
@@ -544,6 +526,7 @@ struct map_data {
 		unsigned partylock :1;
 		unsigned guildlock :1;
 		unsigned src4instance : 1; // To flag this map when it's used as a src map for instances
+		unsigned reset :1; // [Daegaladh]
 	} flag;
 	struct point save;
 	struct npc_data *npc[MAX_NPC_PER_MAP];
@@ -697,7 +680,6 @@ int map_random_dir(struct block_list *bl, short *x, short *y); // [Skotlex]
 
 int cleanup_sub(struct block_list *bl, va_list ap);
 
-void map_helpscreen(int flag); // [Valaris]
 int map_delmap(char* mapname);
 void map_flags_init(void);
 
@@ -721,8 +703,6 @@ extern char *SCRIPT_CONF_NAME;
 extern char *MSG_CONF_NAME;
 extern char *GRF_PATH_FILENAME;
 
-extern char *map_server_dns;
-
 //Useful typedefs from jA [Skotlex]
 typedef struct map_session_data TBL_PC;
 typedef struct npc_data         TBL_NPC;
@@ -740,8 +720,6 @@ typedef struct mercenary_data   TBL_MER;
 
 extern char main_chat_nick[16];
 
-#ifndef TXT_ONLY
-
 #include "../common/sql.h"
 
 extern int db_use_sqldbs;
@@ -751,10 +729,11 @@ extern Sql* logmysql_handle;
 
 extern char item_db_db[32];
 extern char item_db2_db[32];
+extern char item_db_re_db[32];
 extern char mob_db_db[32];
 extern char mob_db2_db[32];
-
-#endif /* not TXT_ONLY */
+extern char mob_skill_db_db[32];
+extern char mob_skill_db2_db[32];
 
 void do_shutdown(void);
 

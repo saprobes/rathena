@@ -7,6 +7,7 @@
 #include "../common/timer.h"
 #include "../common/nullpo.h"
 #include "../common/mmo.h"
+#include "../common/random.h"
 #include "../common/showmsg.h"
 #include "../common/strlib.h"
 #include "../common/utils.h"
@@ -37,10 +38,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-
-
-//Better equiprobability than rand()% [orn]
-#define rand(a, b) (a+(int) ((float)(b-a+1)*rand()/(RAND_MAX+1.0)))
 
 struct s_homunculus_db homunculus_db[MAX_HOMUNCULUS_CLASS];	//[orn]
 struct skill_tree_entry hskill_tree[MAX_HOMUNCULUS_CLASS][MAX_SKILL_TREE];
@@ -233,14 +230,14 @@ int merc_hom_levelup(struct homun_data *hd)
 	max  = &hd->homunculusDB->gmax;
 	min  = &hd->homunculusDB->gmin;
 
-	growth_max_hp = rand(min->HP, max->HP);
-	growth_max_sp = rand(min->SP, max->SP);
-	growth_str = rand(min->str, max->str);
-	growth_agi = rand(min->agi, max->agi);
-	growth_vit = rand(min->vit, max->vit);
-	growth_dex = rand(min->dex, max->dex);
-	growth_int = rand(min->int_,max->int_);
-	growth_luk = rand(min->luk, max->luk);
+	growth_max_hp = rnd_value(min->HP, max->HP);
+	growth_max_sp = rnd_value(min->SP, max->SP);
+	growth_str = rnd_value(min->str, max->str);
+	growth_agi = rnd_value(min->agi, max->agi);
+	growth_vit = rnd_value(min->vit, max->vit);
+	growth_dex = rnd_value(min->dex, max->dex);
+	growth_int = rnd_value(min->int_,max->int_);
+	growth_luk = rnd_value(min->luk, max->luk);
 
 	//Aegis discards the decimals in the stat growth values!
 	growth_str-=growth_str%10;
@@ -308,14 +305,14 @@ int merc_hom_evolution(struct homun_data *hd)
 	hom = &hd->homunculus;
 	max = &hd->homunculusDB->emax;
 	min = &hd->homunculusDB->emin;
-	hom->max_hp += rand(min->HP, max->HP);
-	hom->max_sp += rand(min->SP, max->SP);
-	hom->str += 10*rand(min->str, max->str);
-	hom->agi += 10*rand(min->agi, max->agi);
-	hom->vit += 10*rand(min->vit, max->vit);
-	hom->int_+= 10*rand(min->int_,max->int_);
-	hom->dex += 10*rand(min->dex, max->dex);
-	hom->luk += 10*rand(min->luk, max->luk);
+	hom->max_hp += rnd_value(min->HP, max->HP);
+	hom->max_sp += rnd_value(min->SP, max->SP);
+	hom->str += 10*rnd_value(min->str, max->str);
+	hom->agi += 10*rnd_value(min->agi, max->agi);
+	hom->vit += 10*rnd_value(min->vit, max->vit);
+	hom->int_+= 10*rnd_value(min->int_,max->int_);
+	hom->dex += 10*rnd_value(min->dex, max->dex);
+	hom->luk += 10*rnd_value(min->luk, max->luk);
 	hom->intimacy = 500;
 
 	unit_remove_map(&hd->bl, CLR_OUTSIGHT);
@@ -445,7 +442,7 @@ int merc_hom_food(struct map_session_data *sd, struct homun_data *hd)
 		clif_hom_food(sd,foodID,0);
 		return 1;
 	}
-	pc_delitem(sd,i,1,0,0);
+	pc_delitem(sd,i,1,0,0,LOG_TYPE_CONSUME);
 
 	if ( hd->homunculus.hunger >= 91 ) {
 		merc_hom_decrease_intimacy(hd, 50);
@@ -472,7 +469,7 @@ int merc_hom_food(struct map_session_data *sd, struct homun_data *hd)
 	clif_send_homdata(sd,SP_HUNGRY,hd->homunculus.hunger);
 	clif_send_homdata(sd,SP_INTIMATE,hd->homunculus.intimacy / 100);
 	clif_hom_food(sd,foodID,1);
-       	
+
 	// Too much food :/
 	if(hd->homunculus.intimacy == 0)
 		return merc_hom_delete(sd->hd, E_OMG);
@@ -555,7 +552,10 @@ int merc_hom_change_name_ack(struct map_session_data *sd, char* name, int flag)
 {
 	struct homun_data *hd = sd->hd;
 	if (!merc_is_hom_active(hd)) return 0;
-	if (!flag) {
+
+	normalize_name(name," ");//bugreport:3032
+	
+	if ( !flag || !strlen(name) ) {
 		clif_displaymessage(sd->fd, msg_txt(280)); // You cannot use this name
 		return 0;
 	}
@@ -648,7 +648,7 @@ int merc_call_homunculus(struct map_session_data *sd)
 	struct homun_data *hd;
 
 	if (!sd->status.hom_id) //Create a new homun.
-		return merc_create_homunculus_request(sd, HM_CLASS_BASE + rand(0, 7)) ;
+		return merc_create_homunculus_request(sd, HM_CLASS_BASE + rnd_value(0, 7)) ;
 
 	// If homunc not yet loaded, load it
 	if (!sd->hd)
@@ -856,14 +856,14 @@ int merc_hom_shuffle(struct homun_data *hd)
 		//Evolved bonuses
 		struct s_homunculus *hom = &hd->homunculus;
 		struct h_stats *max = &hd->homunculusDB->emax, *min = &hd->homunculusDB->emin;
-		hom->max_hp += rand(min->HP, max->HP);
-		hom->max_sp += rand(min->SP, max->SP);
-		hom->str += 10*rand(min->str, max->str);
-		hom->agi += 10*rand(min->agi, max->agi);
-		hom->vit += 10*rand(min->vit, max->vit);
-		hom->int_+= 10*rand(min->int_,max->int_);
-		hom->dex += 10*rand(min->dex, max->dex);
-		hom->luk += 10*rand(min->luk, max->luk);
+		hom->max_hp += rnd_value(min->HP, max->HP);
+		hom->max_sp += rnd_value(min->SP, max->SP);
+		hom->str += 10*rnd_value(min->str, max->str);
+		hom->agi += 10*rnd_value(min->agi, max->agi);
+		hom->vit += 10*rnd_value(min->vit, max->vit);
+		hom->int_+= 10*rnd_value(min->int_,max->int_);
+		hom->dex += 10*rnd_value(min->dex, max->dex);
+		hom->luk += 10*rnd_value(min->luk, max->luk);
 	}
 
 	hd->homunculus.exp = exp;
@@ -1069,7 +1069,13 @@ void read_homunculus_expdb(void)
 	FILE *fp;
 	char line[1024];
 	int i, j=0;
-	char *filename[]={"exp_homun.txt","exp_homun2.txt"};
+	char *filename[]={
+#if REMODE
+		"re/exp_homun.txt",
+#else
+		"pre-re/exp_homun.txt",
+#endif
+		"exp_homun2.txt"};
 
 	memset(hexptbl,0,sizeof(hexptbl));
 	for(i=0; i<2; i++){

@@ -168,8 +168,7 @@ void vending_purchasereq(struct map_session_data* sd, int aid, int uid, const ui
 	}
 
 	//Logs (V)ending Zeny [Lupus]
-	if( log_config.zeny > 0 )
-		log_zeny(vsd, "V", sd, (int)z);
+	log_zeny(vsd, LOG_TYPE_VENDING, sd, (int)z);
 
 	pc_payzeny(sd, (int)z);
 	if( battle_config.vending_tax )
@@ -182,16 +181,10 @@ void vending_purchasereq(struct map_session_data* sd, int aid, int uid, const ui
 		short idx    = *(uint16*)(data + 4*i + 2);
 		idx -= 2;
 
-		//Logs sold (V)ending items [Lupus]
-		if(log_config.enable_logs&0x4) {
-			log_pick_pc(vsd, "V", vsd->status.cart[idx].nameid, -amount, &vsd->status.cart[idx]);
-			log_pick_pc( sd, "V", vsd->status.cart[idx].nameid,  amount, &vsd->status.cart[idx]);
-		}
-
 		// vending item
-		pc_additem(sd, &vsd->status.cart[idx], amount);
+		pc_additem(sd, &vsd->status.cart[idx], amount, LOG_TYPE_VENDING);
 		vsd->vending[vend_list[i]].amount -= amount;
-		pc_cart_delitem(vsd, idx, amount, 0);
+		pc_cart_delitem(vsd, idx, amount, 0, LOG_TYPE_VENDING);
 		clif_vendingreport(vsd, idx, amount);
 
 		//print buyer's name
@@ -254,21 +247,21 @@ void vending_openvending(struct map_session_data* sd, const char* message, bool 
 	if( !flag ) // cancelled
 		return; // nothing to do
 
-	if (pc_istrading(sd))
-		return; // can't have 2 shops at once
+	if ( pc_isdead(sd) || !sd->state.prevend || pc_istrading(sd))
+		return; // can't open vendings lying dead || didn't use via the skill (wpe/hack) || can't have 2 shops at once
 
 	vending_skill_lvl = pc_checkskill(sd, MC_VENDING);
 	// skill level and cart check
 	if( !vending_skill_lvl || !pc_iscarton(sd) )
 	{
-		clif_skill_fail(sd, MC_VENDING, 0, 0);
+		clif_skill_fail(sd, MC_VENDING, USESKILL_FAIL_LEVEL, 0);
 		return;
 	}
 
 	// check number of items in shop
 	if( count < 1 || count > MAX_VENDING || count > 2 + vending_skill_lvl )
 	{	// invalid item count
-		clif_skill_fail(sd, MC_VENDING, 0, 0);
+		clif_skill_fail(sd, MC_VENDING, USESKILL_FAIL_LEVEL, 0);
 		return;
 	}
 
@@ -303,10 +296,10 @@ void vending_openvending(struct map_session_data* sd, const char* message, bool 
 
 	if( i == 0 )
 	{	// no valid item found
-		clif_skill_fail(sd, MC_VENDING, 0, 0); // custom reply packet
+		clif_skill_fail(sd, MC_VENDING, USESKILL_FAIL_LEVEL, 0); // custom reply packet
 		return;
 	}
-
+	sd->state.prevend = 0;
 	sd->state.vending = true;
 	sd->vender_id = vending_getuid();
 	sd->vend_num = i;

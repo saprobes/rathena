@@ -381,14 +381,15 @@ int intif_create_party(struct party_member *member,char *name,int item,int item2
 	return 0;
 }
 // パーティ情報要求
-int intif_request_partyinfo(int party_id)
+int intif_request_partyinfo(int party_id, int char_id)
 {
 	if (CheckForCharServer())
 		return 0;
-	WFIFOHEAD(inter_fd,6);
+	WFIFOHEAD(inter_fd,10);
 	WFIFOW(inter_fd,0) = 0x3021;
 	WFIFOL(inter_fd,2) = party_id;
-	WFIFOSET(inter_fd,6);
+	WFIFOL(inter_fd,6) = char_id;
+	WFIFOSET(inter_fd,10);
 	return 0;
 }
 // パーティ追加要求
@@ -981,17 +982,13 @@ int intif_parse_LoadGuildStorage(int fd)
 		gstor->storage_status = 0;
 		return 1;
 	}
-	if(battle_config.save_log)
-		ShowInfo("intif_open_guild_storage: %d\n",RFIFOL(fd,4) );
+
 	memcpy(gstor,RFIFOP(fd,12),sizeof(struct guild_storage));
 	storage_guild_storageopen(sd);
 	return 0;
 }
 int intif_parse_SaveGuildStorage(int fd)
 {
-	if(battle_config.save_log) {
-		ShowInfo("intif_save_guild_storage: done %d %d %d\n",RFIFOL(fd,2),RFIFOL(fd,6),RFIFOB(fd,10) );
-	}
 	storage_guild_storagesaved(/*RFIFOL(fd,2), */RFIFOL(fd,6));
 	return 0;
 }
@@ -1007,15 +1004,15 @@ int intif_parse_PartyCreated(int fd)
 // パーティ情報
 int intif_parse_PartyInfo(int fd)
 {
-	if( RFIFOW(fd,2)==8){
-		ShowWarning("intif: party noinfo %d\n",RFIFOL(fd,4));
-		party_recv_noinfo(RFIFOL(fd,4));
+	if( RFIFOW(fd,2) == 12 ){
+		ShowWarning("intif: party noinfo (char_id=%d party_id=%d)\n", RFIFOL(fd,4), RFIFOL(fd,8));
+		party_recv_noinfo(RFIFOL(fd,8), RFIFOL(fd,4));
 		return 0;
 	}
 
-	if( RFIFOW(fd,2)!=sizeof(struct party)+4 )
-		ShowError("intif: party info : data size error %d %d %d\n",RFIFOL(fd,4),RFIFOW(fd,2),sizeof(struct party)+4);
-	party_recv_info((struct party *)RFIFOP(fd,4));
+	if( RFIFOW(fd,2) != 8+sizeof(struct party) )
+		ShowError("intif: party info : data size error (char_id=%d party_id=%d packet_len=%d expected_len=%d)\n", RFIFOL(fd,4), RFIFOL(fd,8), RFIFOW(fd,2), 8+sizeof(struct party));
+	party_recv_info((struct party *)RFIFOP(fd,8), RFIFOL(fd,4));
 	return 0;
 }
 // パーティ追加通知
@@ -1415,8 +1412,6 @@ int intif_quest_save(TBL_PC *sd)
 	return 0;
 }
 
-#ifndef TXT_ONLY
-
 /*==========================================
  * MAIL SYSTEM
  * By Zephyrus
@@ -1775,7 +1770,7 @@ static void intif_parse_Auction_register(int fd)
 	else
 	{
 		clif_Auction_message(sd->fd, 4);
-		pc_additem(sd, &auction.item, auction.item.amount);
+		pc_additem(sd, &auction.item, auction.item.amount, LOG_TYPE_AUCTION);
 		pc_getzeny(sd, auction.hours * battle_config.auction_feeperhour);
 	}
 }
@@ -1890,8 +1885,6 @@ static void intif_parse_Auction_message(int fd)
 
 	clif_Auction_message(sd->fd, result);
 }
-
-#endif
 
 /*==========================================
  * Mercenary's System
@@ -2052,7 +2045,6 @@ int intif_parse(int fd)
 	case 0x3860:	intif_parse_questlog(fd); break;
 	case 0x3861:	intif_parse_questsave(fd); break;
 
-#ifndef TXT_ONLY
 // Mail System
 	case 0x3848:	intif_parse_Mail_inboxreceived(fd); break;
 	case 0x3849:	intif_parse_Mail_new(fd); break;
@@ -2067,7 +2059,7 @@ int intif_parse(int fd)
 	case 0x3853:	intif_parse_Auction_close(fd); break;
 	case 0x3854:	intif_parse_Auction_message(fd); break;
 	case 0x3855:	intif_parse_Auction_bid(fd); break;
-#endif
+
 // Mercenary System
 	case 0x3870:	intif_parse_mercenary_received(fd); break;
 	case 0x3871:	intif_parse_mercenary_deleted(fd); break;

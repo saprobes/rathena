@@ -22,13 +22,7 @@
 
 
 --Stylist-----------------------------------------------------
-addnpc("Stylist","StylistPront","prontera.gat",170,180,1,122,"test")
-
-function test(luls,lawls)
-	mes(luls)
-	mes(lawls)
-	close()
-end
+addnpc("Stylist","StylistPront","prontera.gat",170,180,1,122,"stylemain")
 
 function stylemain()
 	npcmes "[^FF8000Stylist^000000]"

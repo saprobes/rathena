@@ -88,7 +88,12 @@ sigfunc *compat_signal(int signo, sigfunc *func)
  */
 #ifdef CYGWIN
 	#define FOPEN_ freopen
+	#ifdef __cplusplus
+	extern "C" void cygwin_stackdump();
+	#else
 	extern void cygwin_stackdump();
+	#endif
+	
 #else
 	#define FOPEN_(fn,m,s) fopen(fn,m)
 #endif
@@ -98,7 +103,7 @@ void sig_dump(int sn)
 	char file[256];
 	int no = 0;
 
-	crash_flag = 1;	
+	crash_flag = 1;
 	// search for a usable filename
 	do {
 		sprintf (file, "log/%s%04d.stackdump", server_name, ++no);
@@ -153,7 +158,7 @@ void sig_dump(int sn)
 int sig_final ()
 {
 	time_t curtime;
-	char curtime2[24];	
+	char curtime2[24];
 	FILE *fp;
 	long seconds = 0, day = 24*60*60, hour = 60*60,
 		minute = 60, days = 0, hours = 0, minutes = 0;
@@ -186,7 +191,7 @@ int sig_final ()
  */
 int sig_init ()
 {
-	void (*func) = sig_dump;
+	void (*func)(int) = sig_dump;
 #ifdef CYGWIN	// test if dumper is enabled
 	char *buf = getenv ("CYGWIN");
 	if (buf && strstr(buf, "error_start") != NULL)

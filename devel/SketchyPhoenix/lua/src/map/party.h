@@ -51,11 +51,12 @@ void do_init_party(void);
 void do_final_party(void);
 struct party_data* party_search(int party_id);
 struct party_data* party_searchname(const char* str);
+int party_getmemberid(struct party_data* p, struct map_session_data* sd);
 struct map_session_data* party_getavailablesd(struct party_data *p);
 
 int party_create(struct map_session_data *sd,char *name, int item, int item2);
 void party_created(int account_id,int char_id,int fail,int party_id,char *name);
-int party_request_info(int party_id);
+int party_request_info(int party_id, int char_id);
 int party_invite(struct map_session_data *sd,struct map_session_data *tsd);
 void party_member_joined(struct map_session_data *sd);
 int party_member_added(int party_id,int account_id,int char_id,int flag);
@@ -63,8 +64,8 @@ int party_leave(struct map_session_data *sd);
 int party_removemember(struct map_session_data *sd,int account_id,char *name);
 int party_member_withdraw(int party_id,int account_id,int char_id);
 void party_reply_invite(struct map_session_data *sd,int party_id,int flag);
-int party_recv_noinfo(int party_id);
-int party_recv_info(struct party *sp);
+int party_recv_noinfo(int party_id, int char_id);
+int party_recv_info(struct party* sp, int char_id);
 int party_recv_movemap(int party_id,int account_id,int char_id, unsigned short map,int online,int lv);
 int party_broken(int party_id);
 int party_optionchanged(int party_id,int account_id,int exp,int item,int flag);
@@ -90,5 +91,12 @@ void party_booking_register(struct map_session_data *sd, short level, short mapi
 void party_booking_update(struct map_session_data *sd, short* job);
 void party_booking_search(struct map_session_data *sd, short level, short mapid, short job, unsigned long lastindex, short resultcount);
 bool party_booking_delete(struct map_session_data *sd);
+
+#if REMODE
+void party_renewal_exp_mod(unsigned int *base_exp, unsigned int *job_exp, int lvl, int moblvl);
+#endif
+#if RE_DROP_MOD
+int party_renewal_drop_mod(int diff);
+#endif
 
 #endif /* _PARTY_H_ */

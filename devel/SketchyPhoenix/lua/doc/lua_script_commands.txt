@@ -1,0 +1,155 @@
+//===== Athena Doc ==================
+//= eAthena Script Commands
+//===== Description =================
+//= Reference Manual
+//===================================
+
+This document is a reference manual for the scripting commands and functions available
+in the Lua branch of eAthena.
+
+This document does not teach the reader the Lua programming language or contain any tutorials on how
+to use the Lua language. This strictly handles the API calls used to create and manipulate the server
+via scripts.
+
+Learning the Lua Language:
+--------------------------
+
+First things first, Lua can be learned at the official Lua website and the Lua users wiki. Both are
+amazing resources for information.
+
+The Official Lua Programming Guide : http://www.lua.org/pil/index.html
+
+Parts I, II and III teach the Lua scripting language. Part IV teaches the C API for Lua for those looking
+for how it works in the source code. New scripters should simply focus on Parts I, II and III. IV is not
+needed to use scripts.
+
+The Lua users wiki : http://lua-users.org/wiki/
+
+Another great resource.
+
+Structure and Syntax:
+--------------------------
+
+The commands will be listed in no particular order in the following format
+
+function (argument,[argument...argument])
+function (type,[type...type])
+
+Optional arguments are in brackets
+
+Some arguments will have ** prefixed to them. This means that argument is able to be run on other player objects
+by simply supplying the character ID of the player. These are almost always optional arguments.
+
+---------------------------------
+
+Scripting Commands and Functions
+---------------------------------
+
+
+
+Included Packages:
+	The following packages have been implemented and are available for you to use at your own discresion.
+	
+	_ LuaSocket
+	_ LuaSQL (mysql, sqlite, odbc)
+	
+
+	
+---------------------------------
+
+
+addnpc	(string, string, string, number, number, number, number, string)
+		(name, exname, map, x, y, direction_facing, sprite, function)
+		
+Adds a NPC object to the map. When clicked, these NPCs trigger a function
+that has been passed to them as an argument. Name is the visible name
+that will be seen on the client and exname is the name that is not seen
+by the client but is used by the server to identify NPCs that use the same client name.
+
+:: Important ::
+All functions that are called from addnpc will have 2 variables already defined, the calling character's id (char_id)
+and the npc's ID (npc_id).
+---------------------------------
+
+addareascript	(string, string, string , number, number, number, number, string)
+				(name, map, x1, y1, x2, y2, function)
+				
+Adds an invisible square area that triggers a function when entered. 
+That's about as simple as it gets.
+
+:: Important ::
+All functions that are called from addareascript will have 2 variables already defined, the calling character's id (char_id)
+and the npc's ID (npc_id).
+
+---------------------------------
+
+addwarp	(string, string, number, number, string, number, number, number, number)
+		(warp name, map, x, y, destination map, destination x, destination y, warp radius x, warp radius y)
+		
+Adds a warp portal to the map that moves a player to another location when it enters into the warp radius.
+Nearly all maps use this as a means of moving from map to map.
+
+---------------------------------
+
+addspawn	(string, string, number, number, number, number, number, number, number, number, string)
+			(name, map, x, y, xradius, yradius, monster id, amount, delay1, delay2, function)
+			
+Spawns a monster object on to the map at the given coordinates or within a square if x and y radius
+are nonzero values. Delay1 and Delay2 are monster respawn delays. Delay1 counts the time since the
+spawn last respawned in ms and Delay2 counts the time since the monster was last killed in ms.
+Whichever is highest will be used.
+
+---------------------------------
+
+mes	(string[, **number])
+	("text"[, **char id])
+	
+Creates a NPC dialog window on the screen of the player. If char id is specified, it will
+print to the screen of that player rather than the invoking player.
+
+---------------------------------
+
+npcnext	([**number])
+		([**char id])
+		
+Displays a [Next] button in the NPC dialog window.
+
+---------------------------------
+
+close	([**number])
+close	([**char id])
+
+Creates the [Close] tab on the NPC dialog window and pauses the script until it is clicked.
+
+---------------------------------
+
+halt	([**number])
+halt	([**char id])
+
+Halts the execution of a script.
+
+---------------------------------
+
+menu	(string[, ...], number)
+menu	("text"[, ...], char id)
+
+Creates the NPC menu selection window under the text dialog window. Each string argument has a return value, starting 
+with 1 from the first string. The constant NIL (not to be confused with nil) can be used to create an invisible 
+menu selection the client cannot see, but still retains its return value, allowing for menu options to be 
+easily constructed dynamically. The last argument must be either another character's ID or nil or this command will fail
+as menus must be executed under a player (if nil, menu() will assume that it should display a menu towards the currently attached character).
+
+ex:
+	select( (isnight()) and "It is dark outside." or "It is light outside",
+			(getgmlevel() >= 99) and "Access the admin menu" or NIL, nil)
+			
+---------------------------------
+
+input	(number)
+input	(input type)
+
+Displays an input window asking the player for a value. The input type defines what type of input window
+should be displayed. 0 = numeric and 1 = string. This function returns the value that was input.
+
+---------------------------------
+

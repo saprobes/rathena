@@ -10,6 +10,7 @@
 #include "../common/showmsg.h"
 #include "../common/version.h"
 #include "../common/nullpo.h"
+#include "../common/random.h"
 #include "../common/strlib.h"
 #include "../common/utils.h"
 
@@ -44,9 +45,7 @@
 #include "atcommand.h"
 #include "log.h"
 #include "luascript.h"
-#ifndef TXT_ONLY
 #include "mail.h"
-#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -56,7 +55,6 @@
 #include <unistd.h>
 #endif
 
-#ifndef TXT_ONLY
 char default_codepage[32] = "";
 
 int map_server_port = 3306;
@@ -69,8 +67,11 @@ Sql* mmysql_handle;
 int db_use_sqldbs = 0;
 char item_db_db[32] = "item_db";
 char item_db2_db[32] = "item_db2";
+char item_db_re_db[32] = "item_db_re";
 char mob_db_db[32] = "mob_db";
 char mob_db2_db[32] = "mob_db2";
+char mob_skill_db_db[32] = "mob_skill_db";
+char mob_skill_db2_db[32] = "mob_skill_db2";
 
 // log database
 char log_db_ip[32] = "127.0.0.1";
@@ -79,8 +80,6 @@ char log_db_id[32] = "ragnarok";
 char log_db_pw[32] = "ragnarok";
 char log_db_db[32] = "log";
 Sql* logmysql_handle;
-
-#endif /* not TXT_ONLY */
 
 // This param using for sending mainchat
 // messages like whispers to this nick. [LuzZza]
@@ -388,7 +387,7 @@ int map_moveblock(struct block_list *bl, int x1, int y1, unsigned int tick)
 		//Block not in map, just update coordinates, but do naught else.
 		bl->x = x1;
 		bl->y = y1;
-		return 0;	
+		return 0;
 	}
 
 	//TODO: Perhaps some outs of bounds checking should be placed here?
@@ -1268,7 +1267,7 @@ int map_searchrandfreecell(int m,int *x,int *y,int stack)
 	}
 	if(free_cell==0)
 		return 0;
-	free_cell = rand()%free_cell;
+	free_cell = rnd()%free_cell;
 	*x = free_cells[free_cell][0];
 	*y = free_cells[free_cell][1];
 	return 1;
@@ -1329,8 +1328,8 @@ int map_search_freecell(struct block_list *src, int m, short *x,short *y, int rx
 	}
 	
 	while(tries--) {
-		*x = (rx >= 0)?(rand()%rx2-rx+bx):(rand()%(map[m].xs-2)+1);
-		*y = (ry >= 0)?(rand()%ry2-ry+by):(rand()%(map[m].ys-2)+1);
+		*x = (rx >= 0)?(rnd()%rx2-rx+bx):(rnd()%(map[m].xs-2)+1);
+		*y = (ry >= 0)?(rnd()%ry2-ry+by):(rnd()%(map[m].ys-2)+1);
 		
 		if (*x == bx && *y == by)
 			continue; //Avoid picking the same target tile.
@@ -1371,7 +1370,7 @@ int map_addflooritem(struct item *item_data,int amount,int m,int x,int y,int fir
 
 	if(!map_searchrandfreecell(m,&x,&y,flags&2?1:0))
 		return 0;
-	r=rand();
+	r=rnd();
 
 	CREATE(fitem, struct flooritem_data, 1);
 	fitem->bl.type=BL_ITEM;
@@ -1566,6 +1565,8 @@ int map_quit(struct map_session_data *sd)
 	if (sd->npc_id)
 		npc_event_dequeue(sd);
 
+	if( sd->bg_id )
+		bg_team_leave(sd,1);
 	npc_script_event(sd, NPCE_LOGOUT);
 
 	//Unit_free handles clearing the player related data, 
@@ -1633,7 +1634,7 @@ int map_quit(struct map_session_data *sd)
 			sd->bl.y = pt->y;
 			sd->mapindex = pt->map;
 		}
-	}	
+	}
 
 	party_booking_delete(sd); // Party Booking [Spiria]
 	pc_makesavestatus(sd);
@@ -1784,7 +1785,7 @@ struct mob_data * map_getmob_boss(int m)
 	{
 		if( md->bl.m == m )
 		{
-			found = true;		
+			found = true;
 			break;
 		}
 	}
@@ -2335,8 +2336,8 @@ int map_random_dir(struct block_list *bl, short *x, short *y)
 	if (dist < 1) dist =1;
 	
 	do {
-		j = rand()%8; //Pick a random direction
-		segment = 1+(rand()%dist); //Pick a random interval from the whole vector in that direction
+		j = 1 + 2*(rnd()%4); //Pick a random diagonal direction
+		segment = 1+(rnd()%dist); //Pick a random interval from the whole vector in that direction
 		xi = bl->x + segment*dirx[j];
 		segment = (short)sqrt((float)(dist2 - segment*segment)); //The complement of the previously picked segment
 		yi = bl->y + segment*diry[j];
@@ -2709,7 +2710,7 @@ static char *map_init_mapcache(FILE *fp)
 	fseek(fp, 0, SEEK_SET);
 
 	// Allocate enough space
-	CREATE(buffer, unsigned char, size);
+	CREATE(buffer, char, size);
 
 	// No memory? Return..
 	nullpo_ret(buffer);
@@ -2732,7 +2733,7 @@ int map_readfromcache(struct map_data *m, char *buffer, char *decode_buffer)
 	int i;
 	struct map_cache_main_header *header = (struct map_cache_main_header *)buffer;
 	struct map_cache_map_info *info = NULL;
-	unsigned char *p = buffer + sizeof(struct map_cache_main_header);
+	char *p = buffer + sizeof(struct map_cache_main_header);
 
 	for(i = 0; i < header->map_count; i++) {
 		info = (struct map_cache_map_info *)p;
@@ -2939,8 +2940,8 @@ int map_readallmaps (void)
 	int i;
 	FILE* fp=NULL;
 	int maps_removed = 0;
-	unsigned char *map_cache_buffer = NULL; // Has the uncompressed gat data of all maps, so just one allocation has to be made
-	unsigned char map_cache_decode_buffer[MAX_MAP_SIZE];
+	char *map_cache_buffer = NULL; // Has the uncompressed gat data of all maps, so just one allocation has to be made
+	char map_cache_decode_buffer[MAX_MAP_SIZE];
 
 	if( enable_grf )
 		ShowStatus("Loading maps (using GRF files)...\n");
@@ -2992,7 +2993,7 @@ int map_readallmaps (void)
 			ShowWarning("Map %s already loaded!"CL_CLL"\n", map[i].name);
 			if (map[i].cell) {
 				aFree(map[i].cell);
-				map[i].cell = NULL;	
+				map[i].cell = NULL;
 			}
 			map_delmapid(i);
 			maps_removed++;
@@ -3241,6 +3242,9 @@ int map_config_read(char *cfgName)
 		if (strcmpi(w1, "import") == 0)
 			map_config_read(w2);
 		else
+		if (strcmpi(w1, "console_msg_log") == 0)
+			console_msg_log = atoi(w2);//[Ind]
+		else
 			ShowWarning("Unknown setting '%s' in file %s\n", w1, cfgName);
 	}
 
@@ -3267,8 +3271,6 @@ int inter_config_read(char *cfgName)
 
 		if(strcmpi(w1, "main_chat_nick")==0)
 			safestrncpy(main_chat_nick, w2, sizeof(main_chat_nick));
-			
-	#ifndef TXT_ONLY
 		else
 		if(strcmpi(w1,"item_db_db")==0)
 			strcpy(item_db_db,w2);
@@ -3278,6 +3280,9 @@ int inter_config_read(char *cfgName)
 		else
 		if(strcmpi(w1,"item_db2_db")==0)
 			strcpy(item_db2_db,w2);
+		else
+		if(strcmpi(w1,"item_db_re_db")==0)
+			strcpy(item_db_re_db,w2);
 		else
 		if(strcmpi(w1,"mob_db2_db")==0)
 			strcpy(mob_db2_db,w2);
@@ -3319,7 +3324,6 @@ int inter_config_read(char *cfgName)
 		else
 		if(strcmpi(w1,"log_db_db")==0)
 			strcpy(log_db_db, w2);
-	#endif
 		else
 		if( mapreg_config_read(w1,w2) )
 			continue;
@@ -3333,7 +3337,6 @@ int inter_config_read(char *cfgName)
 	return 0;
 }
 
-#ifndef TXT_ONLY
 /*=======================================
  *  MySQL Init
  *---------------------------------------*/
@@ -3386,8 +3389,6 @@ int log_sql_init(void)
 
 	return 0;
 }
-
-#endif /* not TXT_ONLY */
 
 int map_db_final(DBKey k,void *d,va_list ap)
 {
@@ -3508,6 +3509,8 @@ void do_final(void)
 		if(map[i].block) aFree(map[i].block);
 		if(map[i].block_mob) aFree(map[i].block_mob);
 		if(battle_config.dynamic_mobs) { //Dynamic mobs flag by [random]
+			if(map[i].mob_delete_timer != INVALID_TIMER)
+				delete_timer(map[i].mob_delete_timer, map_removemobs_timer);
 			for (j=0; j<MAX_MOB_LIST_PER_MAP; j++)
 				if (map[i].moblist[j]) aFree(map[i].moblist[j]);
 		}
@@ -3526,9 +3529,8 @@ void do_final(void)
 	iwall_db->destroy(iwall_db, NULL);
 	regen_db->destroy(regen_db, NULL);
 
-#ifndef TXT_ONLY
     map_sql_close();
-#endif /* not TXT_ONLY */
+
 	ShowStatus("Finished.\n");
 }
 
@@ -3566,41 +3568,39 @@ void do_abort(void)
 /*======================================================
  * Map-Server Version Screen [MC Cameri]
  *------------------------------------------------------*/
-void map_helpscreen(int flag)
+static void map_helpscreen(bool do_exit)
 {
-	puts("Usage: map-server [options]");
-	puts("Options:");
-	puts(CL_WHITE"  Commands\t\t\tDescription"CL_RESET);
-	puts("-----------------------------------------------------------------------------");
-	puts("  --help, --h, --?, /?		Displays this help screen");
-	puts("  --map-config <file>		Load map-server configuration from <file>");
-	puts("  --battle-config <file>	Load battle configuration from <file>");
-	puts("  --atcommand-config <file>	Load atcommand configuration from <file>");
-	puts("  --script-config <file>	Load script configuration from <file>");
-	puts("  --msg-config <file>		Load message configuration from <file>");
-	puts("  --grf-path-file <file>	Load grf path file configuration from <file>");
-	puts("  --sql-config <file>		Load inter-server configuration from <file>");
-	puts("				(SQL Only)");
-	puts("  --log-config <file>		Load logging configuration from <file>");
-	puts("				(SQL Only)");
-	puts("  --version, --v, -v, /v	Displays the server's version");
-	puts("\n");
-	if (flag) exit(EXIT_FAILURE);
+	ShowInfo("Usage: %s [options]\n", SERVER_NAME);
+	ShowInfo("\n");
+	ShowInfo("Options:\n");
+	ShowInfo("  -?, -h [--help]\t\tDisplays this help screen.\n");
+	ShowInfo("  -v [--version]\t\tDisplays the server's version.\n");
+	ShowInfo("  --run-once\t\t\tCloses server after loading (testing).\n");
+	ShowInfo("  --map-config <file>\t\tAlternative map-server configuration.\n");
+	ShowInfo("  --battle-config <file>\tAlternative battle configuration.\n");
+	ShowInfo("  --atcommand-config <file>\tAlternative atcommand configuration.\n");
+	ShowInfo("  --script-config <file>\tAlternative script configuration.\n");
+	ShowInfo("  --msg-config <file>\t\tAlternative message configuration.\n");
+	ShowInfo("  --grf-path <file>\t\tAlternative GRF path configuration.\n");
+	ShowInfo("  --inter-config <file>\t\tAlternative inter-server configuration.\n");
+	ShowInfo("  --log-config <file>\t\tAlternative logging configuration.\n");
+	if( do_exit )
+		exit(EXIT_SUCCESS);
 }
 
 /*======================================================
  * Map-Server Version Screen [MC Cameri]
  *------------------------------------------------------*/
-void map_versionscreen(int flag)
+static void map_versionscreen(bool do_exit)
 {
-	ShowInfo(CL_WHITE "eAthena version %d.%02d.%02d, Athena Mod version %d" CL_RESET"\n",
-		ATHENA_MAJOR_VERSION, ATHENA_MINOR_VERSION, ATHENA_REVISION,
-		ATHENA_MOD_VERSION);
-	ShowInfo(CL_GREEN "Website/Forum:" CL_RESET "\thttp://eathena.deltaanime.net/\n");
-	ShowInfo(CL_GREEN "IRC Channel:" CL_RESET "\tirc://irc.deltaanime.net/#athena\n");
-	ShowInfo("\nOpen " CL_WHITE "readme.html" CL_RESET " for more information.");
-	if (ATHENA_RELEASE_FLAG) ShowNotice("This version is not for release.\n");
-	if (flag) exit(EXIT_FAILURE);
+	ShowInfo(CL_WHITE"RAthena version %d.%02d.%02d, Athena Mod version %d" CL_RESET"\n", ATHENA_MAJOR_VERSION, ATHENA_MINOR_VERSION, ATHENA_REVISION, ATHENA_MOD_VERSION);
+	ShowInfo(CL_GREEN"Website/Forum:"CL_RESET"\thttp://rathena.org/\n");
+	ShowInfo(CL_GREEN"IRC Channel:"CL_RESET"\tirc://irc.rizon.net/#rthena\n");
+	ShowInfo("Open "CL_WHITE"readme.html"CL_RESET" for more information.\n");
+	if(ATHENA_RELEASE_FLAG)
+		ShowNotice("This version is not for release.\n");
+	if( do_exit )
+		exit(EXIT_SUCCESS);
 }
 
 /*======================================================
@@ -3631,6 +3631,16 @@ void do_shutdown(void)
 	}
 }
 
+static bool map_arg_next_value(const char* option, int i, int argc)
+{
+	if( i >= argc-1 )
+	{
+		ShowWarning("Missing value for option '%s'.\n", option);
+		return false;
+	}
+
+	return true;
+}
 
 int do_init(int argc, char *argv[])
 {
@@ -3649,43 +3659,108 @@ int do_init(int argc, char *argv[])
 	MSG_CONF_NAME = "conf/msg_athena.conf";
 	GRF_PATH_FILENAME = "conf/grf-files.txt";
 
-	srand(gettick());
+	rnd_init();
 
-	for (i = 1; i < argc ; i++) {
-		if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "--h") == 0 || strcmp(argv[i], "--?") == 0 || strcmp(argv[i], "/?") == 0)
-			map_helpscreen(1);
-		else if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "--v") == 0 || strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "/v") == 0)
-			map_versionscreen(1);
-		else if (strcmp(argv[i], "--map_config") == 0 || strcmp(argv[i], "--map-config") == 0)
-			MAP_CONF_NAME=argv[i+1];
-		else if (strcmp(argv[i],"--battle_config") == 0 || strcmp(argv[i],"--battle-config") == 0)
-			BATTLE_CONF_FILENAME = argv[i+1];
-		else if (strcmp(argv[i],"--atcommand_config") == 0 || strcmp(argv[i],"--atcommand-config") == 0)
-			ATCOMMAND_CONF_FILENAME = argv[i+1];
-		else if (strcmp(argv[i],"--script_config") == 0 || strcmp(argv[i],"--script-config") == 0)
-			SCRIPT_CONF_NAME = argv[i+1];
-		else if (strcmp(argv[i],"--msg_config") == 0 || strcmp(argv[i],"--msg-config") == 0)
-			MSG_CONF_NAME = argv[i+1];
-		else if (strcmp(argv[i],"--grf_path_file") == 0 || strcmp(argv[i],"--grf-path-file") == 0)
-			GRF_PATH_FILENAME = argv[i+1];
-#ifndef TXT_ONLY
-		else if (strcmp(argv[i],"--inter_config") == 0 || strcmp(argv[i],"--inter-config") == 0)
-			INTER_CONF_NAME = argv[i+1];
-#endif
-		else if (strcmp(argv[i],"--log_config") == 0 || strcmp(argv[i],"--log-config") == 0)
-			LOG_CONF_NAME = argv[i+1];
-		else if (strcmp(argv[i],"--run_once") == 0)	// close the map-server as soon as its done.. for testing [Celest]
-			runflag = 0;
+	for( i = 1; i < argc ; i++ )
+	{
+		const char* arg = argv[i];
+
+		if( arg[0] != '-' && ( arg[0] != '/' || arg[1] == '-' ) )
+		{// -, -- and /
+			ShowError("Unknown option '%s'.\n", argv[i]);
+			exit(EXIT_FAILURE);
+		}
+		else if( (++arg)[0] == '-' )
+		{// long option
+			arg++;
+
+			if( strcmp(arg, "help") == 0 )
+			{
+				map_helpscreen(true);
+			}
+			else if( strcmp(arg, "version") == 0 )
+			{
+				map_versionscreen(true);
+			}
+			else if( strcmp(arg, "map-config") == 0 )
+			{
+				if( map_arg_next_value(arg, i, argc) )
+					MAP_CONF_NAME = argv[++i];
+			}
+			else if( strcmp(arg, "battle-config") == 0 )
+			{
+				if( map_arg_next_value(arg, i, argc) )
+					BATTLE_CONF_FILENAME = argv[++i];
+			}
+			else if( strcmp(arg, "atcommand-config") == 0 )
+			{
+				if( map_arg_next_value(arg, i, argc) )
+					ATCOMMAND_CONF_FILENAME = argv[++i];
+			}
+			else if( strcmp(arg, "script-config") == 0 )
+			{
+				if( map_arg_next_value(arg, i, argc) )
+					SCRIPT_CONF_NAME = argv[++i];
+			}
+			else if( strcmp(arg, "msg-config") == 0 )
+			{
+				if( map_arg_next_value(arg, i, argc) )
+					MSG_CONF_NAME = argv[++i];
+			}
+			else if( strcmp(arg, "grf-path-file") == 0 )
+			{
+				if( map_arg_next_value(arg, i, argc) )
+					GRF_PATH_FILENAME = argv[++i];
+			}
+			else if( strcmp(arg, "inter-config") == 0 )
+			{
+				if( map_arg_next_value(arg, i, argc) )
+					INTER_CONF_NAME = argv[++i];
+			}
+			else if( strcmp(arg, "log-config") == 0 )
+			{
+				if( map_arg_next_value(arg, i, argc) )
+					LOG_CONF_NAME = argv[++i];
+			}
+			else if( strcmp(arg, "run-once") == 0 ) // close the map-server as soon as its done.. for testing [Celest]
+			{
+				runflag = CORE_ST_STOP;
+			}
+			else
+			{
+				ShowError("Unknown option '%s'.\n", argv[i]);
+				exit(EXIT_FAILURE);
+			}
+		}
+		else switch( arg[0] )
+		{// short option
+			case '?':
+			case 'h':
+				map_helpscreen(true);
+				break;
+			case 'v':
+				map_versionscreen(true);
+				break;
+			default:
+				ShowError("Unknown option '%s'.\n", argv[i]);
+				exit(EXIT_FAILURE);
+		}
 	}
 
 	map_config_read(MAP_CONF_NAME);
+#if REMODE
+	/**
+	 * to make pre-re conflict safe
+	 **/
+	map_config_read("npc/scripts_renewal.conf");
+#endif
 	chrif_checkdefaultlogin();
 
 	if (!map_ip_set || !char_ip_set) {
 		char ip_str[16];
 		ip2str(addr_[0], ip_str);
 
-		ShowError("\nNot all IP addresses in map_athena.conf configured, autodetecting...\n");
+		ShowError("Not all IP addresses in map_athena.conf configured, autodetecting...\n");
 
 		if (naddr_ == 0)
 			ShowError("Unable to determine your IP address...\n");
@@ -3702,7 +3777,6 @@ int do_init(int argc, char *argv[])
 
 	battle_config_read(BATTLE_CONF_FILENAME);
 	msg_config_read(MSG_CONF_NAME);
-	atcommand_config_read(ATCOMMAND_CONF_FILENAME);
 	script_config_read(SCRIPT_CONF_NAME);
 	inter_config_read(INTER_CONF_NAME);
 	log_config_read(LOG_CONF_NAME);
@@ -3718,11 +3792,9 @@ int do_init(int argc, char *argv[])
 
 	iwall_db = strdb_alloc(DB_OPT_RELEASE_DATA,2*NAME_LENGTH+2+1); // [Zephyrus] Invisible Walls
 
-#ifndef TXT_ONLY
 	map_sql_init();
 	if (log_config.sql_logs)
 		log_sql_init();
-#endif /* not TXT_ONLY */
 
 	mapindex_init();
 	if(enable_grf)
@@ -3776,6 +3848,10 @@ int do_init(int argc, char *argv[])
 		shutdown_callback = do_shutdown;
 		runflag = MAPSERVER_ST_RUNNING;
 	}
+#if defined(BUILDBOT)
+	if( buildbotflag )
+		exit(EXIT_FAILURE);
+#endif
 
 	return 0;
 }

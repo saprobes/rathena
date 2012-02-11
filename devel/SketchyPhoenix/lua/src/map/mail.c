@@ -1,8 +1,6 @@
 // Copyright (c) Athena Dev Teams - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
-#ifndef TXT_ONLY
-
 #include "../common/nullpo.h"
 #include "../common/showmsg.h"
 
@@ -33,13 +31,8 @@ int mail_removeitem(struct map_session_data *sd, short flag)
 
 	if( sd->mail.amount )
 	{
-		if (flag)
-		{ // Item send
-			if(log_config.enable_logs&0x2000)
-				log_pick_pc(sd, "E", sd->mail.nameid, -sd->mail.amount, &sd->status.inventory[sd->mail.index]);
-
-			pc_delitem(sd, sd->mail.index, sd->mail.amount, 1, 0);
-		}
+		if (flag) // Item send
+			pc_delitem(sd, sd->mail.index, sd->mail.amount, 1, 0, LOG_TYPE_MAIL);
 		else
 			clif_additem(sd, sd->mail.index, sd->mail.amount, 0);
 	}
@@ -56,8 +49,7 @@ int mail_removezeny(struct map_session_data *sd, short flag)
 
 	if (flag && sd->mail.zeny > 0)
 	{  //Zeny send
-		if(log_config.zeny)
-			log_zeny(sd, "E", sd, -sd->mail.zeny);
+		log_zeny(sd, LOG_TYPE_MAIL, sd, -sd->mail.zeny);
 
 		sd->status.zeny -= sd->mail.zeny;
 	}
@@ -142,18 +134,13 @@ void mail_getattachment(struct map_session_data* sd, int zeny, struct item* item
 {
 	if( item->nameid > 0 && item->amount > 0 )
 	{
-		pc_additem(sd, item, item->amount);
-
-		if(log_config.enable_logs&0x2000)
-			log_pick_pc(sd, "E", item->nameid, item->amount, item);
-
+		pc_additem(sd, item, item->amount, LOG_TYPE_MAIL);
 		clif_Mail_getattachment(sd->fd, 0);
 	}
 
 	if( zeny > 0 )
-	{  //Zeny recieve
-		if(log_config.zeny)
-			log_zeny(sd, "E", sd, zeny);
+	{  //Zeny receive
+		log_zeny(sd, LOG_TYPE_MAIL, sd, zeny);
 		pc_getzeny(sd, zeny);
 	}
 }
@@ -177,18 +164,14 @@ void mail_deliveryfail(struct map_session_data *sd, struct mail_message *msg)
 
 	if( msg->item.amount > 0 )
 	{
-		// Item recieve (due to failure)
-		if(log_config.enable_logs&0x2000)
-			log_pick_pc(sd, "E", msg->item.nameid, msg->item.amount, &msg->item);
-
-		pc_additem(sd, &msg->item, msg->item.amount);
+		// Item receive (due to failure)
+		pc_additem(sd, &msg->item, msg->item.amount, LOG_TYPE_MAIL);
 	}
 
 	if( msg->zeny > 0 )
 	{
-		//Zeny recieve (due to failure)
-		if(log_config.zeny)
-			log_zeny(sd, "E", sd, msg->zeny);
+		//Zeny receive (due to failure)
+		log_zeny(sd, LOG_TYPE_MAIL, sd, msg->zeny);
 
 		sd->status.zeny += msg->zeny;
 		clif_updatestatus(sd, SP_ZENY);
@@ -200,7 +183,7 @@ void mail_deliveryfail(struct map_session_data *sd, struct mail_message *msg)
 // This function only check if the mail operations are valid
 bool mail_invalid_operation(struct map_session_data *sd)
 {
-	if( !map[sd->bl.m].flag.town && pc_isGM(sd) < get_atcommand_level(atcommand_mail) )
+	if( !map[sd->bl.m].flag.town && pc_isGM(sd) < get_atcommand_level("mail") )
 	{
 		ShowWarning("clif_parse_Mail: char '%s' trying to do invalid mail operations.\n", sd->status.name);
 		return true;
@@ -208,5 +191,3 @@ bool mail_invalid_operation(struct map_session_data *sd)
 
 	return false;
 }
-
-#endif

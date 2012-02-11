@@ -52,10 +52,9 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>..\3rdparty\mysql\include;..\3rdparty\msinttypes\include;..\3rdparty\mt19937ar;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_WIN32;__WIN32;_DEBUG;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE;FD_SETSIZE=4096;DB_MANUAL_CAST_TO_UNION;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_WIN32;__WIN32;_DEBUG;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE;FD_SETSIZE=4096;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessToFile>false</PreprocessToFile>
       <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
-      <MinimalRebuild>true</MinimalRebuild>
       <ExceptionHandling>
       </ExceptionHandling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -69,6 +68,7 @@
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <CompileAs>CompileAsC</CompileAs>
       <DisableSpecificWarnings>4800;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <AdditionalDependencies>libcmtd.lib;oldnames.lib;ws2_32.lib;libmysql.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -95,7 +95,7 @@
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <WholeProgramOptimization>true</WholeProgramOptimization>
       <AdditionalIncludeDirectories>..\3rdparty\mysql\include;..\3rdparty\msinttypes\include;..\3rdparty\mt19937ar;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_WIN32;__WIN32;NDEBUG;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE;FD_SETSIZE=4096;DB_MANUAL_CAST_TO_UNION;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_WIN32;__WIN32;NDEBUG;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE;FD_SETSIZE=4096;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalOptions>
@@ -106,6 +106,7 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>CompileAsC</CompileAs>
       <DisableSpecificWarnings>4800;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <AdditionalDependencies>libcmt.lib;oldnames.lib;ws2_32.lib;libmysql.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -131,7 +132,6 @@
     <ClInclude Include="..\src\common\core.h" />
     <ClInclude Include="..\src\common\db.h" />
     <ClInclude Include="..\src\common\ers.h" />
-    <ClInclude Include="..\src\common\lock.h" />
     <ClInclude Include="..\src\common\malloc.h" />
     <ClInclude Include="..\src\common\mapindex.h" />
     <ClInclude Include="..\src\common\mmo.h" />
@@ -146,24 +146,23 @@
     <ClInclude Include="..\src\common\timer.h" />
     <ClInclude Include="..\src\common\utils.h" />
     <ClInclude Include="..\src\common\version.h" />
-    <ClInclude Include="..\src\char_sql\char.h" />
-    <ClInclude Include="..\src\char_sql\int_auction.h" />
-    <ClInclude Include="..\src\char_sql\int_guild.h" />
-    <ClInclude Include="..\src\char_sql\int_homun.h" />
-    <ClInclude Include="..\src\char_sql\int_mail.h" />
-    <ClInclude Include="..\src\char_sql\int_mercenary.h" />
-    <ClInclude Include="..\src\char_sql\int_party.h" />
-    <ClInclude Include="..\src\char_sql\int_pet.h" />
-    <ClInclude Include="..\src\char_sql\int_quest.h" />
-    <ClInclude Include="..\src\char_sql\int_storage.h" />
-    <ClInclude Include="..\src\char_sql\inter.h" />
+    <ClInclude Include="..\src\char\char.h" />
+    <ClInclude Include="..\src\char\int_auction.h" />
+    <ClInclude Include="..\src\char\int_guild.h" />
+    <ClInclude Include="..\src\char\int_homun.h" />
+    <ClInclude Include="..\src\char\int_mail.h" />
+    <ClInclude Include="..\src\char\int_mercenary.h" />
+    <ClInclude Include="..\src\char\int_party.h" />
+    <ClInclude Include="..\src\char\int_pet.h" />
+    <ClInclude Include="..\src\char\int_quest.h" />
+    <ClInclude Include="..\src\char\int_storage.h" />
+    <ClInclude Include="..\src\char\inter.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\3rdparty\mt19937ar\mt19937ar.c" />
     <ClCompile Include="..\src\common\core.c" />
     <ClCompile Include="..\src\common\db.c" />
     <ClCompile Include="..\src\common\ers.c" />
-    <ClCompile Include="..\src\common\lock.c" />
     <ClCompile Include="..\src\common\malloc.c" />
     <ClCompile Include="..\src\common\mapindex.c" />
     <ClCompile Include="..\src\common\nullpo.c" />
@@ -175,17 +174,17 @@
     <ClCompile Include="..\src\common\strlib.c" />
     <ClCompile Include="..\src\common\timer.c" />
     <ClCompile Include="..\src\common\utils.c" />
-    <ClCompile Include="..\src\char_sql\char.c" />
-    <ClCompile Include="..\src\char_sql\int_auction.c" />
-    <ClCompile Include="..\src\char_sql\int_guild.c" />
-    <ClCompile Include="..\src\char_sql\int_homun.c" />
-    <ClCompile Include="..\src\char_sql\int_mail.c" />
-    <ClCompile Include="..\src\char_sql\int_mercenary.c" />
-    <ClCompile Include="..\src\char_sql\int_party.c" />
-    <ClCompile Include="..\src\char_sql\int_pet.c" />
-    <ClCompile Include="..\src\char_sql\int_quest.c" />
-    <ClCompile Include="..\src\char_sql\int_storage.c" />
-    <ClCompile Include="..\src\char_sql\inter.c" />
+    <ClCompile Include="..\src\char\char.c" />
+    <ClCompile Include="..\src\char\int_auction.c" />
+    <ClCompile Include="..\src\char\int_guild.c" />
+    <ClCompile Include="..\src\char\int_homun.c" />
+    <ClCompile Include="..\src\char\int_mail.c" />
+    <ClCompile Include="..\src\char\int_mercenary.c" />
+    <ClCompile Include="..\src\char\int_party.c" />
+    <ClCompile Include="..\src\char\int_pet.c" />
+    <ClCompile Include="..\src\char\int_quest.c" />
+    <ClCompile Include="..\src\char\int_storage.c" />
+    <ClCompile Include="..\src\char\inter.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

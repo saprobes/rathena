@@ -48,30 +48,6 @@ end
 
 --
 
-function Save_P(_db,cid)
-	if _db == 1 then --TXT ONLY
-		Save_P_TXT(cid)
-	else
-		Save_P_SQL(cid)
-	end
-end
+function Save_P(cid)
 
--- This one is likely to change. With support for sqlite already implemented, it's
--- likely there won't be a text database for these in the future.
--- Alternatively, I could construct these as lua files in lua format so I don't have to create
--- any routines to load them into memory since lua will do the magic on its own with a simple command :)
-function Save_P_TXT(cid)
-	local fname = "save/reg/char_" .. cid ..".txt"
-	file = io.open(fname,"w")
-	if file == nil then return end
-	if _P[cid] == nil then return end
-	file:write(cid .. "\n\n")
-	for k,v in pairs(_P[cid]) do
-		file:write(k .. " "..v.. "\n")
-	end
-	file:write("\n\n")
-	file:close()
-end
-
-function Save_P_SQL(cid)
 end

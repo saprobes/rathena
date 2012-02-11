@@ -30,7 +30,7 @@ int intif_send_guild_storage(int account_id, struct guild_storage *gstor);
 
 
 int intif_create_party(struct party_member *member,char *name,int item,int item2);
-int intif_request_partyinfo(int party_id);
+int intif_request_partyinfo(int party_id, int char_id);
 
 int intif_party_addmember(int party_id,struct party_member *member);
 int intif_party_changeoption(int party_id, int account_id, int exp, int item);
@@ -83,7 +83,6 @@ int intif_mercenary_request(int merc_id, int char_id);
 int intif_mercenary_delete(int merc_id);
 int intif_mercenary_save(struct s_mercenary *merc);
 
-#ifndef TXT_ONLY
 // MAIL SYSTEM
 int intif_Mail_requestinbox(int char_id, unsigned char flag);
 int intif_Mail_read(int mail_id);
@@ -97,7 +96,6 @@ int intif_Auction_register(struct auction_data *auction);
 int intif_Auction_cancel(int char_id, unsigned int auction_id);
 int intif_Auction_close(int char_id, unsigned int auction_id);
 int intif_Auction_bid(int char_id, const char* name, unsigned int auction_id, int bid);
-#endif
 
 int CheckForCharServer(void);
 

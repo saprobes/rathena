@@ -79,15 +79,19 @@ struct areascript_data {
 
 #define START_NPC_NUM 110000000
 
-#define WARP_CLASS 45
-#define WARP_DEBUG_CLASS 722
-#define FLAG_CLASS 722
-#define INVISIBLE_CLASS 32767
+enum actor_classes
+{
+	WARP_CLASS = 45,
+	HIDDEN_WARP_CLASS = 139,
+	WARP_DEBUG_CLASS = 722,
+	FLAG_CLASS = 722,
+	INVISIBLE_CLASS = 32767,
+};
 
 #define MAX_NPC_CLASS 1000
 //Checks if a given id is a valid npc id. [Skotlex]
 //Since new npcs are added all the time, the max valid value is the one before the first mob (Scorpion = 1001)
-#define npcdb_checkid(id) ( ( (id) >= 46 && (id) <= 125) || (id) == 139 || ( (id) > 400 && (id) < MAX_NPC_CLASS ) || (id) == INVISIBLE_CLASS )
+#define npcdb_checkid(id) ( ( (id) >= 46 && (id) <= 125) || (id) == HIDDEN_WARP_CLASS || ( (id) > 400 && (id) < MAX_NPC_CLASS ) || (id) == INVISIBLE_CLASS )
 
 #ifdef PCRE_SUPPORT
 void npc_chat_finalize(struct npc_data* nd);
@@ -177,5 +181,14 @@ int npc_areascript_unload (struct areascript_data *ad);
 int npc_add_lua_timer(int tick,const char *name);
 int npc_del_lua_eventtimer(const char *name);
 int npc_addluaeventtimercount(const char *name,int tick);
+
+int npc_cashshop_buylist(struct map_session_data *sd, int points, int count, unsigned short* item_list);
+
+/**
+ * For the Secure NPC Timeout option (check config/Secure.h) [RR]
+ **/
+#if SECURE_NPCTIMEOUT
+int npc_rr_secure_timeout_timer(int tid, unsigned int tick, int id, intptr_t data);
+#endif
 
 #endif /* _NPC_H_ */

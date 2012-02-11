@@ -140,7 +140,7 @@ int instance_add_map(const char *name, int instance_id, bool usebasename)
 		map[im].name[0] = '\0';
 		ShowError("instance_add_map: no more free map indexes.\n");
 		return -3; // No free map index
-	}	
+	}
 
 	// Reallocate cells
 	num_cell = map[im].xs * map[im].ys;
@@ -260,14 +260,13 @@ int instance_del_load(struct map_session_data* sd, va_list args)
  *--------------------------------------*/
 void instance_del_map(int m)
 {
-	int sm, i;
+	int i;
 	if( m <= 0 || !map[m].instance_id )
 	{
 		ShowError("Tried to remove non-existing instance map (%d)\n", m);
 		return;
 	}
 
-	sm = map[m].instance_src_map;
 	map_foreachpc(instance_del_load, m);
 	map_foreachinmap(cleanup_sub, m, BL_ALL);
 

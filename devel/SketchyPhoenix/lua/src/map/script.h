@@ -4,6 +4,8 @@
 #ifndef _SCRIPT_H_
 #define _SCRIPT_H_
 
+#define NUM_WHISPER_VAR 10
+
 struct map_session_data;
 
 extern int potion_flag; //For use on Alchemist improved potions/Potion Pitcher. [Skotlex]
@@ -125,6 +127,7 @@ struct script_state {
 	//For backing up purposes
 	struct script_state *bk_st;
 	int bk_npcid;
+	unsigned freeloop : 1;// used by buildin_freeloop
 };
 
 struct script_reg {

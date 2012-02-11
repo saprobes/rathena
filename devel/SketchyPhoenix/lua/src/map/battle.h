@@ -35,7 +35,7 @@ struct block_list;
 
 struct Damage battle_calc_attack(int attack_type,struct block_list *bl,struct block_list *target,int skill_num,int skill_lv,int count);
 
-int battle_calc_return_damage(struct block_list *bl, int damage, int flag);
+int battle_calc_return_damage(struct block_list *bl, struct block_list *src, int *, int flag);
 
 void battle_drain(struct map_session_data *sd, struct block_list *tbl, int rdamage, int ldamage, int race, int boss);
 
@@ -116,13 +116,14 @@ extern struct Battle_Config
 	int left_cardfix_to_right;
 	int skill_add_range;
 	int skill_out_range_consume;
+	int skill_amotion_leniency;
 	int skillrange_by_distance; //[Skotlex]
 	int use_weapon_skill_range; //[Skotlex]
 	int pc_damage_delay_rate;
 	int defnotenemy;
-	int vs_traps_bctall;	
+	int vs_traps_bctall;
 	int traps_setting;
-	int summon_flora; //[Skotlex]	
+	int summon_flora; //[Skotlex]
 	int clear_unit_ondeath; //[Skotlex]
 	int clear_unit_onwarp; //[Skotlex]
 	int random_monster_checklv;
@@ -235,11 +236,10 @@ extern struct Battle_Config
 	int max_hp;
 	int max_sp;
 	int max_lv, aura_lv;
-	int max_parameter, max_baby_parameter, max_third_parameter, max_baby_third_parameter;
+	int max_parameter, max_baby_parameter;
 	int max_cart_weight;
 	int skill_log;
 	int battle_log;
-	int save_log;
 	int etc_log;
 	int save_clothcolor;
 	int undead_detect_type;
@@ -267,7 +267,6 @@ extern struct Battle_Config
 	int gvg_magic_damage_rate;
 	int gvg_misc_damage_rate;
 	int gvg_flee_penalty;
-	int gvg_eliminate_time;
 	int pk_short_damage_rate;
 	int pk_long_damage_rate;
 	int pk_weapon_damage_rate;
@@ -276,7 +275,6 @@ extern struct Battle_Config
 	int mob_changetarget_byskill;
 	int attack_direction_change;
 	int land_skill_limit;
-	int party_skill_penalty;
 	int monster_class_change_recover;
 	int produce_item_name_input;
 	int display_skill_fail;
@@ -410,7 +408,6 @@ extern struct Battle_Config
 	int show_hp_sp_drain, show_hp_sp_gain;	//[Skotlex]
 
 	int mob_npc_event_type; //Determines on who the npc_event is executed. [Skotlex]
-	int mob_clear_delay; // [Valaris]
 
 	int character_size; // if riders have size=2, and baby class riders size=1 [Lupus]
 	int mob_max_skilllvl; // Max possible skill level [Lupus]
@@ -487,6 +484,7 @@ extern struct Battle_Config
 	int display_party_name;
 	int cashshop_show_points;
 	int mail_show_status;
+	int client_limit_unit_lv;
 
 	// [BattleGround Settings]
 	int bg_update_interval;
@@ -496,6 +494,9 @@ extern struct Battle_Config
 	int bg_magic_damage_rate;
 	int bg_misc_damage_rate;
 	int bg_flee_penalty;
+	// rAthena
+	int max_third_parameter;
+	int atcommand_max_stat_bypass;
 } battle_config;
 
 void do_init_battle(void);
@@ -505,5 +506,12 @@ extern void battle_validate_conf(void);
 extern void battle_set_defaults(void);
 int battle_set_value(const char* w1, const char* w2);
 int battle_get_value(const char* w1);
+
+//
+struct block_list* battle_getenemyarea(struct block_list *src, int x, int y, int range, int type, int ignore_id);
+/**
+ * Royal Guard
+ **/
+int battle_damage_area( struct block_list *bl, va_list ap);
 
 #endif /* _BATTLE_H_ */

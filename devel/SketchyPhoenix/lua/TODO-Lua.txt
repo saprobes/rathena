@@ -1,12 +1,13 @@
-TODO:
-	*Document the commands
-	
-	*Cleanup
-	
-	*Write NPCs
+:: Todo ::
 
-	*Convert item scripts to lua
+	:: Write NPCs
 	
-	*Fix potential bugs with lua string type checking. 
-	
-	*Decide on what system of states to use to identify certain conditions when script execution should pause.
+	:: Document script commands
+
+	:: Cleanup
+
+	:: Item based scripts, namely autobonus scripts, should be updated to use lua.
+
+	:: Removal of txt databases (replacing it with sqlite since luaSQL is already installed).
+		Eventually I'll move all SQL operations into Lua, but that's not a major issue at
+		the moment.

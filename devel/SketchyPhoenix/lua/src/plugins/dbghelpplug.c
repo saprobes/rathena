@@ -51,7 +51,7 @@
  *   - globals
  * - Portability to MinGW
  *
- * $Id: dbghelpplug.c 13945 2009-07-11 07:05:05Z ultramage $
+ * $Id: dbghelpplug.c 15527 2012-01-30 20:17:55Z brianluau $
  */
 
 #ifdef _WIN32
@@ -538,7 +538,7 @@ Dhp__PrintTypeName(
 	switch( symtag )
 	{
 	case SymTagEnum:
-		{			
+		{
 			WCHAR* pwszTypeName;
 
 			if( SymGetTypeInfo_(hProcess, modBase, typeIndex, TI_GET_SYMNAME, &pwszTypeName) )
