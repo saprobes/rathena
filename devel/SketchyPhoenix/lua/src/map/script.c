@@ -2935,7 +2935,7 @@ void op_2str(struct script_state* st, int op, const char* s1, const char* s2)
 	case C_LE: a = (strcmp(s1,s2) <= 0); break;
 	case C_ADD:
 		{
-			char* buf = (char *)aMallocA((strlen(s1)+strlen(s2)+1)*sizeof(char));
+			char* buf = (char *)aMalloc((strlen(s1)+strlen(s2)+1)*sizeof(char));
 			strcpy(buf, s1);
 			strcat(buf, s2);
 			script_pushstr(st, buf);
@@ -7345,7 +7345,22 @@ BUILDIN_FUNC(getgmlevel)
 	if( sd == NULL )
 		return 0;// no player attached, report source
 
-	script_pushint(st, pc_isGM(sd));
+	script_pushint(st, pc_get_group_level(sd));
+
+	return 0;
+}
+
+/// Returns the group ID of the player.
+///
+/// getgroupid() -> <int>
+BUILDIN_FUNC(getgroupid)
+{
+	TBL_PC* sd;
+
+	sd = script_rid2sd(st);
+	if (sd == NULL)
+		return 1; // no player attached, report source
+	script_pushint(st, pc_get_group_id(sd));
 
 	return 0;
 }
@@ -7709,7 +7724,7 @@ BUILDIN_FUNC(gettimestr)
 	fmtstr=script_getstr(st,2);
 	maxlen=script_getnum(st,3);
 
-	tmpstr=(char *)aMallocA((maxlen+1)*sizeof(char));
+	tmpstr=(char *)aMalloc((maxlen+1)*sizeof(char));
 	strftime(tmpstr,maxlen,fmtstr,localtime(&now));
 	tmpstr[maxlen]='\0';
 
@@ -8704,17 +8719,18 @@ BUILDIN_FUNC(getusers)
 BUILDIN_FUNC(getusersname)
 {
 	TBL_PC *sd, *pl_sd;
-	int disp_num=1;
+	int disp_num=1, group_level = 0;
 	struct s_mapiterator* iter;
 
 	sd = script_rid2sd(st);
 	if (!sd) return 0;
 
+	group_level = pc_get_group_level(sd);
 	iter = mapit_getallusers();
 	for( pl_sd = (TBL_PC*)mapit_first(iter); mapit_exists(iter); pl_sd = (TBL_PC*)mapit_next(iter) )
 	{
-		if( battle_config.hide_GM_session && pc_isGM(pl_sd) )
-			continue; // skip hidden GMs
+		if (pc_has_permission(pl_sd, PC_PERM_HIDE_SESSION) && pc_get_group_level(pl_sd) > group_level)
+			continue; // skip hidden sessions
 
 		if((disp_num++)%10==0)
 			clif_scriptnext(sd,st->oid);
@@ -10829,7 +10845,7 @@ BUILDIN_FUNC(getitemname)
 		script_pushconststr(st,"null");
 		return 0;
 	}
-	item_name=(char *)aMallocA(ITEM_NAME_LENGTH*sizeof(char));
+	item_name=(char *)aMalloc(ITEM_NAME_LENGTH*sizeof(char));
 
 	memcpy(item_name, i_data->jname, ITEM_NAME_LENGTH);
 	script_pushstr(st,item_name);
@@ -11586,9 +11602,6 @@ BUILDIN_FUNC(nude)
 
 /*==========================================
  * gmcommand [MouseJstr]
- *
- * suggested on the forums...
- * splitted into atcommand & charcommand by [Skotlex]
  *------------------------------------------*/
 BUILDIN_FUNC(atcommand)
 {
@@ -11616,51 +11629,12 @@ BUILDIN_FUNC(atcommand)
 		}
 	}
 
-	// compatibility with previous implementation (deprecated!)
-	if(cmd[0] != atcommand_symbol)
-	{
-		cmd += strlen(sd->status.name);
-		while(*cmd != atcommand_symbol && *cmd != 0)
-			cmd++;
-	}
-
-	is_atcommand(fd, sd, cmd, 0);
-	return 0;
-}
-
-BUILDIN_FUNC(charcommand)
-{
-	TBL_PC dummy_sd;
-	TBL_PC* sd;
-	int fd;
-	const char* cmd;
-
-	cmd = script_getstr(st,2);
-
-	if (st->rid) {
-		sd = script_rid2sd(st);
-		fd = sd->fd;
-	} else { //Use a dummy character.
-		sd = &dummy_sd;
-		fd = 0;
-
-		memset(&dummy_sd, 0, sizeof(TBL_PC));
-		if (st->oid)
-		{
-			struct block_list* bl = map_id2bl(st->oid);
-			memcpy(&dummy_sd.bl, bl, sizeof(struct block_list));
-			if (bl->type == BL_NPC)
-				safestrncpy(dummy_sd.status.name, ((TBL_NPC*)bl)->name, NAME_LENGTH);
-		}
-	}
-
-	if (*cmd != charcommand_symbol) {
-		ShowWarning("script: buildin_charcommand: No '#' symbol!\n");
+	if (!is_atcommand(fd, sd, cmd, 0)) {
+		ShowWarning("script: buildin_atcommand: failed to execute command '%s'\n", cmd);
 		script_reportsrc(st);
 		return 1;
 	}
-	
-	is_atcommand(fd, sd, cmd, 0);
+
 	return 0;
 }
 
@@ -12604,7 +12578,7 @@ BUILDIN_FUNC(charat)
 	int pos = script_getnum(st,3);
 	char *output;
 
-	output = (char*)aMallocA(2*sizeof(char));
+	output = (char*)aMalloc(2*sizeof(char));
 	output[0] = '\0';
 
 	if(str && pos >= 0 && (unsigned int)pos < strlen(str))
@@ -12622,15 +12596,10 @@ BUILDIN_FUNC(setchar)
 	const char *str = script_getstr(st,2);
 	const char *c = script_getstr(st,3);
 	int index = script_getnum(st,4);
-	char *output;
-	size_t len = strlen(str);
+	char *output = aStrdup(str);
 
-	output = (char*)aMallocA(len + 1);
-	memcpy(output, str, len);
-	output[len] = '\0';
-
-	if(index >= 0 && index < len)
-		output[index] = c[0];
+	if(index >= 0 && index < strlen(output))
+		output[index] = *c;
 
 	script_pushstr(st, output);
 	return 0;
@@ -12652,7 +12621,7 @@ BUILDIN_FUNC(insertchar)
 	else if(index > len)
 		index = len;
 
-	output = (char*)aMallocA(len + 2);
+	output = (char*)aMalloc(len + 2);
 
 	memcpy(output, str, index);
 	output[index] = c[0];
@@ -12675,14 +12644,12 @@ BUILDIN_FUNC(delchar)
 
 	if(index < 0 || index > len) {
 		//return original
-		++len;
-		output = (char*)aMallocA(len);
-		memcpy(output, str, len);
+		output = aStrdup(str);
 		script_pushstr(st, output);
 		return 0;
 	}
 
-	output = (char*)aMallocA(len);
+	output = (char*)aMalloc(len);
 
 	memcpy(output, str, index);
 	memcpy(&output[index], &str[index+1], len - index);
@@ -12697,16 +12664,13 @@ BUILDIN_FUNC(delchar)
 BUILDIN_FUNC(strtoupper)
 {
 	const char *str = script_getstr(st,2);
-	char *output;
-	int i = 0;
-	
-	output = (char*)aMallocA(strlen(str) + 1);
+	char *output = aStrdup(str);
+	char *cursor = output;
 
-	while(str[i] != '\0') {
-		i = i + 1;
-		output[i] = TOUPPER(str[i]);
+	while (*cursor != '\0') {
+		*cursor = TOUPPER(*cursor);
+		cursor++;
 	}
-	output[i] = '\0';
 
 	script_pushstr(st, output);
 	return 0;
@@ -12718,16 +12682,13 @@ BUILDIN_FUNC(strtoupper)
 BUILDIN_FUNC(strtolower)
 {
 	const char *str = script_getstr(st,2);
-	char *output;
-	int i = 0;
-	
-	output = (char*)aMallocA(strlen(str) + 1);
+	char *output = aStrdup(str);
+	char *cursor = output;
 
-	while(str[i] != '\0') {
-		i = i + 1;
-		output[i] = TOLOWER(str[i]);
+	while (*cursor != '\0') {
+		*cursor = TOLOWER(*cursor);
+		cursor++;
 	}
-	output[i] = '\0';
 
 	script_pushstr(st, output);
 	return 0;
@@ -12747,10 +12708,10 @@ BUILDIN_FUNC(substr)
 
 	if(start >= 0 && end < strlen(str) && start <= end) {
 		len = end - start + 1;
-		output = (char*)aMallocA(len + 1);
+		output = (char*)aMalloc(len + 1);
 		memcpy(output, &str[start], len);
 	} else 
-		output = (char*)aMallocA(1);
+		output = (char*)aMalloc(1);
 
 	output[len] = '\0';
 
@@ -12778,7 +12739,7 @@ BUILDIN_FUNC(explode)
 
 	TBL_PC* sd = NULL;
 
-	temp = (char*)aMallocA(len + 1);
+	temp = (char*)aMalloc(len + 1);
 
 	if( !data_isreference(data) )
 	{
@@ -12889,7 +12850,7 @@ BUILDIN_FUNC(implode)
 	if(array_size == -1) //empty array check (AmsTaff)
     {
         ShowWarning("script:implode: array length = 0\n");
-        output = (char*)aMallocA(sizeof(char)*5);
+        output = (char*)aMalloc(sizeof(char)*5);
         sprintf(output,"%s","NULL");
 	} else {
 		for(i = 0; i <= array_size; ++i) {
@@ -12904,7 +12865,7 @@ BUILDIN_FUNC(implode)
 			glue_len = strlen(glue);
 			len += glue_len * (array_size);
 		}
-		output = (char*)aMallocA(len + 1);
+		output = (char*)aMalloc(len + 1);
 
 		//build output
 		for(i = 0; i < array_size; ++i) {
@@ -13480,7 +13441,7 @@ BUILDIN_FUNC(md5)
 	char *md5str;
 
 	tmpstr = script_getstr(st,2);
-	md5str = (char *)aMallocA((32+1)*sizeof(char));
+	md5str = (char *)aMalloc((32+1)*sizeof(char));
 	MD5_String(tmpstr, md5str);
 	script_pushstr(st, md5str);
 	return 0;
@@ -13644,7 +13605,7 @@ BUILDIN_FUNC(escape_sql)
 
 	str = script_getstr(st,2);
 	len = strlen(str);
-	esc_str = (char*)aMallocA(len*2+1);
+	esc_str = (char*)aMalloc(len*2+1);
 	Sql_EscapeStringLen(mmysql_handle, esc_str, str, len);
 	script_pushstr(st, esc_str);
 	return 0;
@@ -16032,6 +15993,7 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(getgdskilllv,"iv"),
 	BUILDIN_DEF(basicskillcheck,""),
 	BUILDIN_DEF(getgmlevel,""),
+	BUILDIN_DEF(getgroupid,""),
 	BUILDIN_DEF(end,""),
 	BUILDIN_DEF(checkoption,"i"),
 	BUILDIN_DEF(setoption,"i?"),
@@ -16170,7 +16132,7 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(nude,""), // nude command [Valaris]
 	BUILDIN_DEF(mapwarp,"ssii??"),		// Added by RoVeRT
 	BUILDIN_DEF(atcommand,"s"), // [MouseJstr]
-	BUILDIN_DEF(charcommand,"s"), // [MouseJstr]
+	BUILDIN_DEF2(atcommand,"charcommand","s"), // [MouseJstr]
 	BUILDIN_DEF(movenpc,"sii?"), // [MouseJstr]
 	BUILDIN_DEF(message,"ss"), // [MouseJstr]
 	BUILDIN_DEF(npctalk,"s"), // [Valaris]

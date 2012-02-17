@@ -6,7 +6,6 @@
 #include "../common/timer.h"
 #include "../common/grfio.h"
 #include "../common/malloc.h"
-#include "../common/version.h"
 #include "../common/nullpo.h"
 #include "../common/random.h"
 #include "../common/showmsg.h"
@@ -274,7 +273,7 @@ static inline unsigned char clif_bl_type(struct block_list *bl) {
 	case BL_SKILL: return 0x3; //SKILL_TYPE
 	case BL_CHAT:  return 0x4; //UNKNOWN_TYPE
 	case BL_MOB:   return pcdb_checkid(status_get_viewdata(bl)->class_)?0x0:0x5; //NPC_MOB_TYPE
-	case BL_NPC:   return 0x6; //NPC_EVT_TYPE
+	case BL_NPC:   return pcdb_checkid(status_get_viewdata(bl)->class_)?0x0:0x6; //NPC_EVT_TYPE
 	case BL_PET:   return pcdb_checkid(status_get_viewdata(bl)->class_)?0x0:0x7; //NPC_PET_TYPE
 	case BL_HOM:   return 0x8; //NPC_HOM_TYPE
 	case BL_MER:   return 0x9; //NPC_MERSOL_TYPE
@@ -1783,7 +1782,7 @@ void clif_selllist(struct map_session_data *sd)
 	{
 		if( sd->status.inventory[i].nameid > 0 && sd->inventory_data[i] )
 		{
-			if( !itemdb_cansell(&sd->status.inventory[i], pc_isGM(sd)) )
+			if( !itemdb_cansell(&sd->status.inventory[i], pc_get_group_level(sd)) )
 				continue;
 
 			if( sd->status.inventory[i].expire_time )
@@ -2291,8 +2290,8 @@ void clif_inventorylist(struct map_session_data *sd)
 	const int se = 28;
 #endif
 
-	buf = (unsigned char*)aMallocA(MAX_INVENTORY * s + 4);
-	bufe = (unsigned char*)aMallocA(MAX_INVENTORY * se + 4);
+	buf = (unsigned char*)aMalloc(MAX_INVENTORY * s + 4);
+	bufe = (unsigned char*)aMalloc(MAX_INVENTORY * se + 4);
 	
 	for( i = 0, n = 0, ne = 0; i < MAX_INVENTORY; i++ )
 	{
@@ -2431,8 +2430,8 @@ void clif_storagelist(struct map_session_data* sd, struct item* items, int items
 	const int cmd = 28;
 #endif
 
-	buf = (unsigned char*)aMallocA(items_length * s + 4);
-	bufe = (unsigned char*)aMallocA(items_length * cmd + 4);
+	buf = (unsigned char*)aMalloc(items_length * s + 4);
+	bufe = (unsigned char*)aMalloc(items_length * cmd + 4);
 
 	for( i = 0, n = 0, ne = 0; i < items_length; i++ )
 	{
@@ -2511,8 +2510,8 @@ void clif_cartlist(struct map_session_data *sd)
 	const int cmd = 28;
 #endif
 
-	buf = (unsigned char*)aMallocA(MAX_CART * s + 4);
-	bufe = (unsigned char*)aMallocA(MAX_CART * cmd + 4);
+	buf = (unsigned char*)aMalloc(MAX_CART * s + 4);
+	bufe = (unsigned char*)aMalloc(MAX_CART * cmd + 4);
 	
 	for( i = 0, n = 0, ne = 0; i < MAX_CART; i++ )
 	{
@@ -2630,6 +2629,59 @@ void clif_guild_xy_remove(struct map_session_data *sd)
 	clif_send(buf,packet_len(0x1eb),&sd->bl,GUILD_SAMEMAP_WOS);
 }
 
+/*==========================================
+ *
+ *------------------------------------------*/
+static int clif_hpmeter_sub(struct block_list *bl, va_list ap)
+{
+	struct map_session_data *sd, *tsd;
+#if PACKETVER < 20100126
+	const int cmd = 0x106;
+#else
+	const int cmd = 0x80e;
+#endif
+
+	sd = va_arg(ap, struct map_session_data *);
+	tsd = (TBL_PC *)bl;
+
+	nullpo_ret(sd);
+	nullpo_ret(tsd);
+
+	if( !tsd->fd || tsd == sd )
+		return 0;
+
+	if( !pc_has_permission(tsd, PC_PERM_VIEW_HPMETER) )
+		return 0;
+	WFIFOHEAD(tsd->fd,packet_len(cmd));
+	WFIFOW(tsd->fd,0) = cmd;
+	WFIFOL(tsd->fd,2) = sd->status.account_id;
+#if PACKETVER < 20100126
+	if( sd->battle_status.max_hp > INT16_MAX )
+	{ //To correctly display the %hp bar. [Skotlex]
+		WFIFOW(tsd->fd,6) = sd->battle_status.hp/(sd->battle_status.max_hp/100);
+		WFIFOW(tsd->fd,8) = 100;
+	} else {
+		WFIFOW(tsd->fd,6) = sd->battle_status.hp;
+		WFIFOW(tsd->fd,8) = sd->battle_status.max_hp;
+	}
+#else
+	WFIFOL(tsd->fd,6) = sd->battle_status.hp;
+	WFIFOL(tsd->fd,10) = sd->battle_status.max_hp;
+#endif
+	WFIFOSET(tsd->fd,packet_len(cmd));
+	return 0;
+}
+
+/*==========================================
+ * Server tells all players that are allowed to view HP bars
+ * and are nearby 'sd' that 'sd' hp bar was updated.
+ *------------------------------------------*/
+static int clif_hpmeter(struct map_session_data *sd)
+{
+	nullpo_ret(sd);
+	map_foreachinarea(clif_hpmeter_sub, sd->bl.m, sd->bl.x-AREA_SIZE, sd->bl.y-AREA_SIZE, sd->bl.x+AREA_SIZE, sd->bl.y+AREA_SIZE, BL_PC, sd);
+	return 0;
+}
 
 /// Notifies client of a character parameter change.
 /// 00b0 <var id>.W <value>.L (ZC_PAR_CHANGE)
@@ -2705,8 +2757,7 @@ void clif_updatestatus(struct map_session_data *sd,int type)
 	case SP_HP:
 		WFIFOL(fd,4)=sd->battle_status.hp;
 		// TODO: Won't these overwrite the current packet?
-		if( battle_config.disp_hpmeter )
-			clif_hpmeter(sd);
+		clif_hpmeter(sd);
 		if( !battle_config.party_hp_mode && sd->status.party_id )
 			clif_party_hp(sd);
 		if( sd->bg_id )
@@ -3927,7 +3978,6 @@ int clif_status_load_single(int fd, int id,int type,int flag,int val1, int val2,
  *------------------------------------------*/
 static void clif_getareachar_pc(struct map_session_data* sd,struct map_session_data* dstsd)
 {
-	int gmlvl;
 	struct block_list *d_bl;
 	int i;
 
@@ -3948,7 +3998,8 @@ static void clif_getareachar_pc(struct map_session_data* sd,struct map_session_d
 	}
 	if( (sd->status.party_id && dstsd->status.party_id == sd->status.party_id) || //Party-mate, or hpdisp setting.
 		(sd->bg_id && sd->bg_id == dstsd->bg_id) || //BattleGround
-		(battle_config.disp_hpmeter && (gmlvl = pc_isGM(sd)) >= battle_config.disp_hpmeter && gmlvl >= pc_isGM(dstsd)) )
+		pc_has_permission(sd, PC_PERM_VIEW_HPMETER)
+	)
 		clif_hpmeter_single(sd->fd, dstsd->bl.id, dstsd->battle_status.hp, dstsd->battle_status.max_hp);
 
 	// display link (sd - dstsd) to sd
@@ -5240,32 +5291,37 @@ void clif_status_change(struct block_list *bl,int type,int flag,unsigned int tic
 /// 008e <packet len>.W <message>.?B
 void clif_displaymessage(const int fd, const char* mes)
 {
-	// invalid pointer?
 	nullpo_retv(mes);
 	
 	//Scrapped, as these are shared by disconnected players =X [Skotlex]
 	if (fd == 0)
 		;
 	else {
-		int len_mes = strlen(mes);
+		char *message, *line;
 
-		if (len_mes > 0) { // don't send a void message (it's not displaying on the client chat). @help can send void line.
-			WFIFOHEAD(fd, 5 + len_mes);
-			WFIFOW(fd,0) = 0x8e;
-			WFIFOW(fd,2) = 5 + len_mes; // 4 + len + NULL teminate
-			memcpy(WFIFOP(fd,4), mes, len_mes + 1);
-			WFIFOSET(fd, 5 + len_mes);
+		message = aStrdup(mes);
+		line = strtok(message, "\n");
+		while(line != NULL) {
+			int len = strlen(line);
+			if (len > 0) { // don't send a void message (it's not displaying on the client chat). @help can send void line.
+				WFIFOHEAD(fd, 5 + len);
+				WFIFOW(fd,0) = 0x8e;
+				WFIFOW(fd,2) = 5 + len; // 4 + len + NULL teminate
+				memcpy(WFIFOP(fd,4), line, len + 1);
+				WFIFOSET(fd, 5 + len);
+			}
+			line = strtok(NULL, "\n");
 		}
+		aFree(message);
 	}
 }
-
 
 /// Send broadcast message in yellow or blue without font formatting (ZC_BROADCAST).
 /// 009a <packet len>.W <message>.?B
 void clif_broadcast(struct block_list* bl, const char* mes, int len, int type, enum send_target target)
 {
 	int lp = type ? 4 : 0;
-	unsigned char *buf = (unsigned char*)aMallocA((4 + lp + len)*sizeof(unsigned char));
+	unsigned char *buf = (unsigned char*)aMalloc((4 + lp + len)*sizeof(unsigned char));
 
 	WBUFW(buf,0) = 0x9a;
 	WBUFW(buf,2) = 4 + lp + len;
@@ -5338,7 +5394,7 @@ void clif_MainChatMessage(const char* message)
 /// 01c3 <packet len>.W <fontColor>.L <fontType>.W <fontSize>.W <fontAlign>.W <fontY>.W <message>.?B
 void clif_broadcast2(struct block_list* bl, const char* mes, int len, unsigned long fontColor, short fontType, short fontSize, short fontAlign, short fontY, enum send_target target)
 {
-	unsigned char *buf = (unsigned char*)aMallocA((16 + len)*sizeof(unsigned char));
+	unsigned char *buf = (unsigned char*)aMalloc((16 + len)*sizeof(unsigned char));
 
 	WBUFW(buf,0)  = 0x1c3;
 	WBUFW(buf,2)  = len + 16;
@@ -5523,7 +5579,7 @@ void clif_wis_message(int fd, const char* nick, const char* mes, int mes_len)
 	WFIFOW(fd,2) = mes_len + NAME_LENGTH + 8;
 	safestrncpy((char*)WFIFOP(fd,4), nick, NAME_LENGTH);
 	WFIFOL(fd,28) = 0; // isAdmin; if nonzero, also displays text above char
-	// TODO: WFIFOL(fd,28) = ( pc_isGM(ssd) >= battle_config.lowest_gm_level );
+	// TODO: WFIFOL(fd,28) = pc_get_group_level(ssd);
 	safestrncpy((char*)WFIFOP(fd,32), mes, mes_len);
 	WFIFOSET(fd,WFIFOW(fd,2));
 #endif
@@ -6423,64 +6479,6 @@ void clif_hpmeter_single(int fd, int id, unsigned int hp, unsigned int maxhp)
 #endif
 	WFIFOSET(fd, packet_len(cmd));
 }
-
-/*==========================================
- *
- *------------------------------------------*/
-int clif_hpmeter_sub(struct block_list *bl, va_list ap)
-{
-	struct map_session_data *sd, *tsd;
-	int level;
-#if PACKETVER < 20100126
-	const int cmd = 0x106;
-#else
-	const int cmd = 0x80e;
-#endif
-
-	sd = va_arg(ap, struct map_session_data *);
-	tsd = (TBL_PC *)bl;
-
-	nullpo_ret(sd);
-	nullpo_ret(tsd);
-
-	if( !tsd->fd || tsd == sd )
-		return 0;
-
-	if( (level = pc_isGM(tsd)) < battle_config.disp_hpmeter || level < pc_isGM(sd) )
-		return 0;
-	WFIFOHEAD(tsd->fd,packet_len(cmd));
-	WFIFOW(tsd->fd,0) = cmd;
-	WFIFOL(tsd->fd,2) = sd->status.account_id;
-#if PACKETVER < 20100126
-	if( sd->battle_status.max_hp > INT16_MAX )
-	{ //To correctly display the %hp bar. [Skotlex]
-		WFIFOW(tsd->fd,6) = sd->battle_status.hp/(sd->battle_status.max_hp/100);
-		WFIFOW(tsd->fd,8) = 100;
-	} else {
-		WFIFOW(tsd->fd,6) = sd->battle_status.hp;
-		WFIFOW(tsd->fd,8) = sd->battle_status.max_hp;
-	}
-#else
-	WFIFOL(tsd->fd,6) = sd->battle_status.hp;
-	WFIFOL(tsd->fd,10) = sd->battle_status.max_hp;
-#endif
-	WFIFOSET(tsd->fd,packet_len(cmd));
-	return 0;
-}
-
-/*==========================================
- * Server tells all nearby gms to 'sd' that 'sd' hp bar was updated
- *------------------------------------------*/
-int clif_hpmeter(struct map_session_data *sd)
-{
-	nullpo_ret(sd);
-
-	if( battle_config.disp_hpmeter )
-		map_foreachinarea(clif_hpmeter_sub, sd->bl.m, sd->bl.x-AREA_SIZE, sd->bl.y-AREA_SIZE, sd->bl.x+AREA_SIZE, sd->bl.y+AREA_SIZE, BL_PC, sd);
-
-	return 0;
-}
-
 
 /// Notifies the client, that it's attack target is too far (ZC_ATTACK_FAILURE_FOR_DISTANCE).
 /// 0139 <target id>.L <target x>.W <target y>.W <x>.W <y>.W <atk range>.W
@@ -9422,7 +9420,7 @@ void clif_parse_GetCharNameRequest(int fd, struct map_session_data *sd)
 	sc = status_get_sc(bl);
 	if (sc && sc->option&OPTION_INVISIBLE && !disguised(bl) &&
 		bl->type != BL_NPC && //Skip hidden NPCs which can be seen using Maya Purple
-		pc_isGM(sd) < battle_config.hack_info_GM_level
+		pc_get_group_level(sd) < battle_config.hack_info_GM_level
 	) {
 		char gm_msg[256];
 		sprintf(gm_msg, "Hack on NameRequest: character '%s' (account: %d) requested the name of an invisible target (id: %d).\n", sd->status.name, sd->status.account_id, id);
@@ -9517,21 +9515,13 @@ void clif_parse_GlobalMessage(int fd, struct map_session_data* sd)
 /// 0140 <map name>.16B <x>.W <y>.W
 void clif_parse_MapMove(int fd, struct map_session_data *sd)
 {
-	char output[MAP_NAME_LENGTH_EXT+15]; // Max length of a short: ' -6XXXX' -> 7 digits
-	char message[MAP_NAME_LENGTH_EXT+15+5]; // "/mm "+output
+	char command[MAP_NAME_LENGTH_EXT+25];
 	char* map_name;
-
-	if (battle_config.atc_gmonly && !pc_isGM(sd))
-		return;
-	if(pc_isGM(sd) < get_atcommand_level("warp"))
-		return;
 
 	map_name = (char*)RFIFOP(fd,2);
 	map_name[MAP_NAME_LENGTH_EXT-1]='\0';
-	sprintf(output, "%s %d %d", map_name, RFIFOW(fd,18), RFIFOW(fd,20));
-	atcommand_mapmove(fd, sd, "@mapmove", output);
-	sprintf(message, "/mm %s", output);
-	log_atcommand(sd, get_atcommand_level("warp"), message);
+	sprintf(command, "@mapmove %s %d %d", map_name, RFIFOW(fd,18), RFIFOW(fd,20));
+	is_atcommand(fd, sd, command, 1);
 }
 
 
@@ -9872,7 +9862,7 @@ void clif_parse_WisMessage(int fd, struct map_session_data* sd)
 	// if player ignores everyone
 	if (dstsd->state.ignoreAll)
 	{
-		if (dstsd->sc.option & OPTION_INVISIBLE && pc_isGM(sd) < pc_isGM(dstsd))
+		if (dstsd->sc.option & OPTION_INVISIBLE && pc_get_group_level(sd) < pc_get_group_level(dstsd))
 			clif_wis_end(fd, 1); // 1: target character is not loged in
 		else
 			clif_wis_end(fd, 3); // 3: everyone ignored by target
@@ -9908,25 +9898,14 @@ void clif_parse_WisMessage(int fd, struct map_session_data* sd)
 /// 0099 <packet len>.W <text>.?B 00
 void clif_parse_Broadcast(int fd, struct map_session_data* sd)
 {
+	char command[CHAT_SIZE_MAX+11];
 	char* msg = (char*)RFIFOP(fd,4);
 	unsigned int len = RFIFOW(fd,2)-4;
-	int lv;
-
-	if( battle_config.atc_gmonly && !pc_isGM(sd) )
-		return;
-	if( pc_isGM(sd) < (lv=get_atcommand_level("broadcast")) )
-		return;
 
 	// as the length varies depending on the command used, just block unreasonably long strings
 	len = mes_len_check(msg, len, CHAT_SIZE_MAX);
-
-	intif_broadcast(msg, len, 0);
-
-	{
-		char logmsg[CHAT_SIZE_MAX+4];
-		sprintf(logmsg, "/b %s", msg);
-		log_atcommand(sd, lv, logmsg);
-	}
+	sprintf(command, "@broadcast %s", msg);
+	is_atcommand(fd, sd, command, 1);
 }
 
 
@@ -10815,8 +10794,15 @@ void clif_parse_RequestMemo(int fd,struct map_session_data *sd)
 /// 018e <name id>.W { <material id>.W }*3
 void clif_parse_ProduceMix(int fd,struct map_session_data *sd)
 {
-	if( sd->menuskill_id != -1 && sd->menuskill_id != AM_PHARMACY && sd->menuskill_id != RK_RUNEMASTERY )
-		return;
+	switch( sd->menuskill_id ) {
+		case -1:
+		case AM_PHARMACY:
+		case RK_RUNEMASTERY:
+		case GC_CREATENEWPOISON:
+			break;
+		default:
+			return;
+	}
 	if (pc_istrading(sd)) {
 		//Make it fail to avoid shop exploits where you sell something different than you see.
 		clif_skill_fail(sd,sd->ud.skillid,USESKILL_FAIL_LEVEL,0);
@@ -11097,23 +11083,10 @@ void clif_parse_SolveCharName(int fd, struct map_session_data *sd)
 ///     1 = skill
 void clif_parse_ResetChar(int fd, struct map_session_data *sd)
 {
-	if( battle_config.atc_gmonly && !pc_isGM(sd) )
-		return;
-
-	if( pc_isGM(sd) < get_atcommand_level("reset") )
-		return;
-
 	if( RFIFOW(fd,2) )
-		pc_resetskill(sd,1);
-	else {
-		pc_resetstate(sd);
-		if( sd->mission_mobid ) { //bugreport:2200
-			sd->mission_mobid = 0;
-			sd->mission_count = 0;
-			pc_setglobalreg(sd,"TK_MISSION_ID", 0);
-		}
-	}
-	log_atcommand(sd, get_atcommand_level("reset"), RFIFOW(fd,2) ? "/resetskill" : "/resetstate");
+		is_atcommand(fd, sd, "@resetskill", 1);
+	else
+		is_atcommand(fd, sd, "@resetstat", 1);
 }
 
 
@@ -11122,26 +11095,15 @@ void clif_parse_ResetChar(int fd, struct map_session_data *sd)
 /// 019c <packet len>.W <text>.?B
 void clif_parse_LocalBroadcast(int fd, struct map_session_data* sd)
 {
+	char command[CHAT_SIZE_MAX+16];
 	char* msg = (char*)RFIFOP(fd,4);
 	unsigned int len = RFIFOW(fd,2)-4;
-	int lv;
-
-	if( battle_config.atc_gmonly && !pc_isGM(sd) )
-		return;
-
-	if( pc_isGM(sd) < (lv=get_atcommand_level("localbroadcast")) )
-		return;
-
+	
 	// as the length varies depending on the command used, just block unreasonably long strings
 	len = mes_len_check(msg, len, CHAT_SIZE_MAX);
 
-	clif_broadcast(&sd->bl, msg, len, 0, ALL_SAMEMAP);
-
-	{
-		char logmsg[CHAT_SIZE_MAX+5];
-		sprintf(logmsg, "/lb %s", msg);
-		log_atcommand(sd, lv, logmsg);
-	}
+	sprintf(command, "@localbroadcast %s", msg);
+	is_atcommand(fd, sd, command, 1);
 }
 
 
@@ -12199,10 +12161,7 @@ void clif_parse_ChangePetName(int fd, struct map_session_data *sd)
 void clif_parse_GMKick(int fd, struct map_session_data *sd)
 {
 	struct block_list *target;
-	int tid,lv;
-
-	if( battle_config.atc_gmonly && !pc_isGM(sd) )
-		return;
+	int tid;
 
 	tid = RFIFOL(fd,2);
 	target = map_id2bl(tid);
@@ -12214,69 +12173,36 @@ void clif_parse_GMKick(int fd, struct map_session_data *sd)
 	switch (target->type) {
 	case BL_PC:
 	{
-		struct map_session_data *tsd = (struct map_session_data *)target;
-		if (pc_isGM(sd) <= pc_isGM(tsd))
-		{
-			clif_GM_kickack(sd, 0);
-			return;
-		}
-
-		lv = get_atcommand_level("kick");
-		if( pc_isGM(sd) < lv )
-		{
-			clif_GM_kickack(sd, 0);
-			return;
-		}
-
-		{
-			char message[256];
-			sprintf(message, "/kick %s (%d)", tsd->status.name, tsd->status.char_id);
-			log_atcommand(sd, lv, message);
-		}
-
-		clif_GM_kick(sd, tsd);
+		char command[NAME_LENGTH+6];
+		sprintf(command, "@kick %s", status_get_name(target));
+		is_atcommand(fd, sd, command, 1);
 	}
 	break;
+
+	/**
+	 * This one does not invoke any atcommand, so we need to check for permissions.
+	 */
 	case BL_MOB:
 	{
-		lv = get_atcommand_level("killmonster");
-		if( pc_isGM(sd) < lv )
-		{
+		char command[100];
+		if( !pc_can_use_command(sd, "killmonster", COMMAND_ATCOMMAND)) {
 			clif_GM_kickack(sd, 0);
 			return;
 		}
-
-		{
-			char message[256];
-			sprintf(message, "/kick %s (%d)", status_get_name(target), status_get_class(target));
-			log_atcommand(sd, lv, message);
-		}
-
+		sprintf(command, "/kick %s (%d)", status_get_name(target), status_get_class(target));
+		log_atcommand(sd, command);
 		status_percent_damage(&sd->bl, target, 100, 0, true); // can invalidate 'target'
 	}
 	break;
+
 	case BL_NPC:
 	{
-		struct npc_data* nd = (struct npc_data *)target;
-		lv = get_atcommand_level("unloadnpc");
-		if( pc_isGM(sd) < lv )
-		{
-			clif_GM_kickack(sd, 0);
-			return;
-		}
-
-		{
-			char message[256];
-			sprintf(message, "/kick %s (%d)", status_get_name(target), status_get_class(target));
-			log_atcommand(sd, lv, message);
-		}
-
-		// copy-pasted from atcommand_unloadnpc
-		npc_unload_duplicates(nd);
-		npc_unload(nd); // invalidates 'target'
-		npc_read_event_script();
+		char command[NAME_LENGTH+11];
+		sprintf(command, "@unloadnpc %s", status_get_name(target));
+		is_atcommand(fd, sd, command, 1);
 	}
 	break;
+
 	default:
 		clif_GM_kickack(sd, 0);
 	}
@@ -12302,21 +12228,13 @@ void clif_parse_GMKickAll(int fd, struct map_session_data* sd)
 void clif_parse_GMShift(int fd, struct map_session_data *sd)
 {// FIXME: remove is supposed to receive account name for clients prior 20100803RE
 	char *player_name;
-	int lv;
-
-	if( battle_config.atc_gmonly && !pc_isGM(sd) )
-		return;
-	if( pc_isGM(sd) < (lv=get_atcommand_level("goto")) )
-		return;
+	char command[NAME_LENGTH+8];
 
 	player_name = (char*)RFIFOP(fd,2);
 	player_name[NAME_LENGTH-1] = '\0';
-	atcommand_jumpto(fd, sd, "@jumpto", player_name); // as @jumpto
-	{
-		char message[NAME_LENGTH+7];
-		sprintf(message, "/shift %s", player_name);
-		log_atcommand(sd, lv, message);
-	}
+	
+	sprintf(command, "@jumpto %s", player_name);
+	is_atcommand(fd, sd, command, 1);
 }
 
 
@@ -12325,31 +12243,15 @@ void clif_parse_GMShift(int fd, struct map_session_data *sd)
 /// 0843 <account id>.L
 void clif_parse_GMRemove2(int fd, struct map_session_data* sd)
 {
-	int account_id, lv;
+	int account_id;
 	struct map_session_data* pl_sd;
 
-	if( battle_config.atc_gmonly && !pc_isGM(sd) )
-	{
-		return;
-	}
-
-	if( pc_isGM(sd) < ( lv = get_atcommand_level("goto") ) )
-	{
-		return;
-	}
-
 	account_id = RFIFOL(fd,packet_db[sd->packet_ver][RFIFOW(fd,0)].pos[0]);
-
-	if( ( pl_sd = map_id2sd(account_id) ) != NULL && pc_isGM(sd) >= pc_isGM(pl_sd) )
+	if( (pl_sd = map_id2sd(account_id)) != NULL )
 	{
-		pc_warpto(sd, pl_sd);
-	}
-
-	{
-		char message[32];
-
-		sprintf(message, "/remove %d", account_id);
-		log_atcommand(sd, lv, message);
+		char command[NAME_LENGTH+8];
+		sprintf(command, "@jumpto %s", pl_sd->status.name);
+		is_atcommand(fd, sd, command, 1);
 	}
 }
 
@@ -12364,22 +12266,13 @@ void clif_parse_GMRemove2(int fd, struct map_session_data* sd)
 void clif_parse_GMRecall(int fd, struct map_session_data *sd)
 {// FIXME: recall is supposed to receive account name for clients prior 20100803RE
 	char *player_name;
-	int lv;
-
-	if( battle_config.atc_gmonly && !pc_isGM(sd) )
-		return;
-
-	if( pc_isGM(sd) < (lv=get_atcommand_level("recall")) )
-		return;
+	char command [NAME_LENGTH+8];
 
 	player_name = (char*)RFIFOP(fd,2);
 	player_name[NAME_LENGTH-1] = '\0';
-	atcommand_recall(fd, sd, "@recall", player_name); // as @recall
-	{
-		char message[NAME_LENGTH+8];
-		sprintf(message, "/recall %s", player_name);
-		log_atcommand(sd, lv, message);
-	}
+	
+	sprintf(command, "@recall %s", player_name);
+	is_atcommand(fd, sd, command, 1);
 }
 
 
@@ -12388,31 +12281,15 @@ void clif_parse_GMRecall(int fd, struct map_session_data *sd)
 /// 0842 <account id>.L
 void clif_parse_GMRecall2(int fd, struct map_session_data* sd)
 {
-	int account_id, lv;
+	int account_id;
 	struct map_session_data* pl_sd;
 
-	if( battle_config.atc_gmonly && !pc_isGM(sd) )
-	{
-		return;
-	}
-
-	if( pc_isGM(sd) < ( lv = get_atcommand_level("recall") ) )
-	{
-		return;
-	}
-
 	account_id = RFIFOL(fd,packet_db[sd->packet_ver][RFIFOW(fd,0)].pos[0]);
-
-	if( ( pl_sd = map_id2sd(account_id) ) != NULL && pc_isGM(sd) >= pc_isGM(pl_sd) )
+	if( (pl_sd = map_id2sd(account_id)) != NULL )
 	{
-		pc_recall(sd, pl_sd);
-	}
-
-	{
-		char message[32];
-
-		sprintf(message, "/recall %d", account_id);
-		log_atcommand(sd, lv, message);
+		char command[NAME_LENGTH+8];
+		sprintf(command, "@recall %s", pl_sd->status.name);
+		is_atcommand(fd, sd, command, 1);
 	}
 }
 
@@ -12423,33 +12300,21 @@ void clif_parse_GMRecall2(int fd, struct map_session_data* sd)
 void clif_parse_GM_Monster_Item(int fd, struct map_session_data *sd)
 {
 	char *monster_item_name;
-	char message[NAME_LENGTH+10]; //For logging.
-	int level;
-
-	if( battle_config.atc_gmonly && !pc_isGM(sd) )
-		return;
+	char command[NAME_LENGTH+10];
 
 	monster_item_name = (char*)RFIFOP(fd,2);
 	monster_item_name[NAME_LENGTH-1] = '\0';
 
 	if( mobdb_searchname(monster_item_name) ) {
-		if( pc_isGM(sd) < (level=get_atcommand_level("monster")) )
-			return;
-		atcommand_monster(fd, sd, "@monster", monster_item_name); // as @monster
-		{	//Log action. [Skotlex]
-			snprintf(message, sizeof(message)-1, "@monster %s", monster_item_name);
-			log_atcommand(sd, level, message);
-		}
+		snprintf(command, sizeof(command)-1, "@monster %s", monster_item_name);
+		is_atcommand(fd, sd, command, 1);
 		return;
 	}
-	if( itemdb_searchname(monster_item_name) == NULL )
+
+	if( itemdb_searchname(monster_item_name) ) {
+		snprintf(command, sizeof(command)-1, "@item %s", monster_item_name);
+		is_atcommand(fd, sd, command, 1);
 		return;
-	if( pc_isGM(sd) < (level = get_atcommand_level("item")) )
-		return;
-	atcommand_item(fd, sd, "@item", monster_item_name); // as @item
-	{	//Log action. [Skotlex]
-		sprintf(message, "@item %s", monster_item_name);
-		log_atcommand(sd, level, message);
 	}
 }
 
@@ -12460,26 +12325,7 @@ void clif_parse_GM_Monster_Item(int fd, struct map_session_data *sd)
 ///     TODO: Any OPTION_* ?
 void clif_parse_GMHide(int fd, struct map_session_data *sd)
 {
-	if( battle_config.atc_gmonly && !pc_isGM(sd) )
-		return;
-
-	if( pc_isGM(sd) < get_atcommand_level("hide") )
-		return;
-
-	if( sd->sc.option & OPTION_INVISIBLE ) {
-		sd->sc.option &= ~OPTION_INVISIBLE;
-		if (sd->disguise)
-			status_set_viewdata(&sd->bl, sd->disguise);
-		else
-			status_set_viewdata(&sd->bl, sd->status.class_);
-		clif_displaymessage(fd, "Invisible: Off.");
-	} else {
-		sd->sc.option |= OPTION_INVISIBLE;
-		sd->vd.class_ = INVISIBLE_CLASS;
-		clif_displaymessage(fd, "Invisible: On.");
-		log_atcommand(sd, get_atcommand_level("hide"), "/hide");
-	}
-	clif_changeoption(&sd->bl);
+	is_atcommand(fd, sd, "@hide", 1);
 }
 
 
@@ -12491,41 +12337,28 @@ void clif_parse_GMHide(int fd, struct map_session_data *sd)
 ///     2 = self mute (+10 minutes)
 void clif_parse_GMReqNoChat(int fd,struct map_session_data *sd)
 {
-	int id, type, value, level;
+	int id, type, value;
 	struct map_session_data *dstsd;
+	char command[NAME_LENGTH+15];
 
 	id = RFIFOL(fd,2);
 	type = RFIFOB(fd,6);
 	value = RFIFOW(fd,7);
 
 	if( type == 0 )
-		value = 0 - value;
+		value = -value;
 
 	//If type is 2 and the ids don't match, this is a crafted hacked packet!
 	//Disabled because clients keep self-muting when you give players public @ commands... [Skotlex]
-	if (type == 2 /* && (pc_isGM(sd) > 0 || sd->bl.id != id)*/)
+	if (type == 2 /* && (pc_get_group_level(sd) > 0 || sd->bl.id != id)*/)
 		return;
 
 	dstsd = map_id2sd(id);
 	if( dstsd == NULL )
 		return;
 
-	if( (level = pc_isGM(sd)) > pc_isGM(dstsd) && level >= get_atcommand_level("mute") )
-	{
-		clif_manner_message(sd, 0);
-		clif_manner_message(dstsd, 5);
-
-		if( dstsd->status.manner < value ) {
-			dstsd->status.manner -= value;
-			sc_start(&dstsd->bl,SC_NOCHAT,100,0,0);
-		} else {
-			dstsd->status.manner = 0;
-			status_change_end(&dstsd->bl, SC_NOCHAT, INVALID_TIMER);
-		}
-
-		if( type != 2 )
-			clif_GM_silence(sd, dstsd, type);
-	}
+	sprintf(command, "@mute %d %s", value, dstsd->status.name);
+	is_atcommand(fd, sd, command, 1);
 }
 
 
@@ -12534,23 +12367,12 @@ void clif_parse_GMReqNoChat(int fd,struct map_session_data *sd)
 /// 0212 <char name>.24B
 void clif_parse_GMRc(int fd, struct map_session_data* sd)
 {
-	char* name = (char*)RFIFOP(fd,2);
-	struct map_session_data* dstsd;
-	name[23] = '\0';
-	dstsd = map_nick2sd(name);
-	if( dstsd == NULL )
-		return;
+	char command[NAME_LENGTH+15];
+	char *name = (char*)RFIFOP(fd,2);
 
-	if( pc_isGM(sd) > pc_isGM(dstsd) && pc_isGM(sd) >= get_atcommand_level("mute") )
-	{
-		clif_manner_message(sd, 0);
-		clif_manner_message(dstsd, 3);
-
-		dstsd->status.manner -= 60;
-		sc_start(&dstsd->bl,SC_NOCHAT,100,0,0);
-
-		clif_GM_silence(sd, dstsd, 1);
-	}
+	name[NAME_LENGTH-1] = '\0';
+	sprintf(command, "@mute %d %s", 60, name);
+	is_atcommand(fd, sd, command, 1);
 }
 
 
@@ -12583,10 +12405,7 @@ void clif_parse_GMChangeMapType(int fd, struct map_session_data *sd)
 {
 	int x,y,type;
 
-	if( battle_config.atc_gmonly && !pc_isGM(sd) )
-		return;
-
-	if( pc_isGM(sd) < 99 ) //TODO: add proper check
+	if( pc_has_permission(sd, PC_PERM_USE_CHANGEMAPTYPE) )
 		return;
 
 	x = RFIFOW(fd,2);
@@ -12607,7 +12426,6 @@ void clif_parse_GMChangeMapType(int fd, struct map_session_data *sd)
 ///     1 = (/in nick) allow speech from nick
 void clif_parse_PMIgnore(int fd, struct map_session_data* sd)
 {
-	char output[512];
 	char* nick;
 	uint8 type;
 	int i;
@@ -12623,12 +12441,7 @@ void clif_parse_PMIgnore(int fd, struct map_session_data* sd)
 	
 	if( type == 0 )
 	{	// Add name to ignore list (block)
-
-		// Bot-check...
-		if (strcmp(wisp_server_name, nick) == 0)
-		{	// to find possible bot users who automaticaly ignore people
-			sprintf(output, "Character '%s' (account: %d) has tried to block wisps from '%s' (wisp name of the server). Bot user?", sd->status.name, sd->status.account_id, wisp_server_name);
-			intif_wis_message_to_gm(wisp_server_name, battle_config.hack_info_GM_level, output);
+		if (strcmp(wisp_server_name, nick) == 0) {
 			WFIFOB(fd,3) = 1; // fail
 			WFIFOSET(fd, packet_len(0x0d1));
 			return;
@@ -13443,14 +13256,12 @@ void clif_parse_Check(int fd, struct map_session_data *sd)
 	char charname[NAME_LENGTH];
 	struct map_session_data* pl_sd;
 
-	if( pc_isGM(sd) < battle_config.gm_check_minlevel )
-	{
+	if(!pc_has_permission(sd, PC_PERM_USE_CHECK))
 		return;
-	}
 
 	safestrncpy(charname, (const char*)RFIFOP(fd,packet_db[sd->packet_ver][RFIFOW(fd,0)].pos[0]), sizeof(charname));
 
-	if( ( pl_sd = map_nick2sd(charname) ) == NULL || pc_isGM(sd) < pc_isGM(pl_sd) )
+	if( ( pl_sd = map_nick2sd(charname) ) == NULL || pc_get_group_level(sd) < pc_get_group_level(pl_sd) )
 	{
 		return;
 	}
@@ -14034,8 +13845,9 @@ void clif_parse_Auction_setitem(int fd, struct map_session_data *sd)
 		return;
 	}
 	
-	if( !pc_candrop(sd, &sd->status.inventory[idx]) || !sd->status.inventory[idx].identify )
-	{ // Quest Item or something else
+	if( !pc_can_give_items(sd) || sd->status.inventory[idx].expire_time ||
+			!sd->status.inventory[idx].identify ||
+				!itemdb_canauction(&sd->status.inventory[idx],pc_get_group_level(sd)) ) { // Quest Item or something else
 		clif_Auction_setitem(sd->fd, idx, true);
 		return;
 	}
@@ -14188,7 +14000,7 @@ void clif_parse_Auction_bid(int fd, struct map_session_data *sd)
 	unsigned int auction_id = RFIFOL(fd,2);
 	int bid = RFIFOL(fd,6);
 
-	if( !pc_can_give_items(pc_isGM(sd)) ) { //They aren't supposed to give zeny [Inkfish]
+	if( !pc_can_give_items(sd) ) { //They aren't supposed to give zeny [Inkfish]
 		clif_displaymessage(sd->fd, msg_txt(246));
 		return;
 	}
@@ -14486,7 +14298,7 @@ void clif_parse_ViewPlayerEquip(int fd, struct map_session_data* sd)
 	if (!tsd)
 		return;
 
-	if( tsd->status.show_equip || (battle_config.gm_viewequip_min_lv && pc_isGM(sd) >= battle_config.gm_viewequip_min_lv) )
+	if( tsd->status.show_equip || pc_has_permission(sd, PC_PERM_VIEW_EQUIPMENT) )
 		clif_viewequip_ack(sd, tsd);
 	else
 		clif_viewequip_fail(sd);
@@ -14967,7 +14779,7 @@ void clif_bg_message(struct battleground_data *bg, int src_id, const char *name,
 	if( (sd = bg_getavailablesd(bg)) == NULL )
 		return;
 
-	buf = (unsigned char*)aMallocA((len + NAME_LENGTH + 8)*sizeof(unsigned char));
+	buf = (unsigned char*)aMalloc((len + NAME_LENGTH + 8)*sizeof(unsigned char));
 
 	WBUFW(buf,0) = 0x2dc;
 	WBUFW(buf,2) = len + NAME_LENGTH + 8;
@@ -16025,11 +15837,11 @@ static int clif_parse(int fd)
 				//Disassociate character from the socket connection.
 				session[fd]->session_data = NULL;
 				sd->fd = 0;
-				ShowInfo("%sCharacter '"CL_WHITE"%s"CL_RESET"' logged off (using @autotrade).\n", (pc_isGM(sd))?"GM ":"", sd->status.name);
+				ShowInfo("Character '"CL_WHITE"%s"CL_RESET"' logged off (using @autotrade).\n", sd->status.name);
 			} else
 			if (sd->state.active) {
 				// Player logout display [Valaris]
-				ShowInfo("%sCharacter '"CL_WHITE"%s"CL_RESET"' logged off.\n", (pc_isGM(sd))?"GM ":"", sd->status.name);
+				ShowInfo("Character '"CL_WHITE"%s"CL_RESET"' logged off.\n", sd->status.name);
 				clif_quitsave(fd, sd);
 			} else {
 				//Unusual logout (during log on/off/map-changer procedure)

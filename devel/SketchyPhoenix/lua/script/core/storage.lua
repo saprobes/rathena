@@ -1,7 +1,11 @@
--- Both implementations of temporary and global storage have the same base idea
--- StorageTable[CharID][variablename] = value
--- this is stored like a dictionary so it's rather easy to access variables without
--- having to do a long string of loops to figure it out.
+--[[
+	Temporary script variables are stored in Lua and are organized like this:
+	
+	StorageTable[CharID][VariableName] = Value
+	
+	this is stored like a dictionary so it's rather easy to access variables without
+	having to do a long string of loops to figure it out.
+--]]
 
 module("storage",package.seeall)
 --
@@ -9,14 +13,14 @@ module("storage",package.seeall)
 --
 local _V = {}
 
-function setv(oid, name, value)
+function SetV(oid, name, value)
 	local buf = "O_" .. oid
 	if _V[buf] == nil then _V[buf] = {} end
 	_V[buf][name] = value
 	return _V[buf][name]
 end
 
-function getv(oid, name)
+function GetV(oid, name)
 	local buf = "O_" .. oid
 	return _V[buf][name]
 end
@@ -29,6 +33,14 @@ function npcgetv(oid, name, value)
 	return getv(oid,name,value)
 end
 
+function setv( oid, name, value )
+	return SetV( oid, name, value )
+end
+
+function getv( oid, name, value )
+	return GetV( oid, name, value )
+end
+
 
 --
 -- Permanent Player Variable Storage
@@ -36,13 +48,13 @@ end
 
 local _P = {}
 
-function setlocal(cid, name, value)
+function setstatic(cid, name, value)
 	if _P[cid] == nil then _P[cid] = {} end
 	_P[cid][name] = value
 	return _P[cid][name]
 end
 
-function getlocal(cid, name)
+function getstatic(cid, name)
 	return _P[cid][name]
 end
 

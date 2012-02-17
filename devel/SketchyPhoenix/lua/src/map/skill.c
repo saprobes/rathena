@@ -436,8 +436,8 @@ int skillnotok (int skillid, struct map_session_data *sd)
 	if (i == 0)
 		return 1; // invalid skill id
 
-	if (battle_config.gm_skilluncond && pc_isGM(sd) >= battle_config.gm_skilluncond)
-		return 0; // GMs can do any damn thing they want
+	if (pc_has_permission(sd, PC_PERM_SKILL_UNCONDITIONAL))
+		return 0; // can do any damn thing they want
 
 	if( skillid == AL_TELEPORT && sd->skillitem == skillid && sd->skillitemlv > 2 )
 		return 0; // Teleport lv 3 bypasses this check.[Inkfish]
@@ -446,7 +446,8 @@ int skillnotok (int skillid, struct map_session_data *sd)
 	// This code will compare the player's attack motion value which is influenced by ASPD before
 	// allowing a skill to be cast. This is to prevent no-delay ACT files from spamming skills such as
 	// AC_DOUBLE which do not have a skill delay and are not regarded in terms of attack motion.
-	if( sd->canskill_tick && DIFF_TICK(gettick(), sd->canskill_tick) < (sd->battle_status.amotion * (100 + battle_config.skill_amotion_leniency) / 100) )
+	if( sd->skillitem != skillid && sd->canskill_tick &&
+		DIFF_TICK(gettick(), sd->canskill_tick) < (sd->battle_status.amotion * (100 + battle_config.skill_amotion_leniency) / 100) )
 	{// attempted to cast a skill before the attack motion has finished
 		return 1;
 	}
@@ -2913,6 +2914,8 @@ int skill_addtimerskill (struct block_list *src, unsigned int tick, int target, 
 	int i;
 	struct unit_data *ud;
 	nullpo_retr(1, src);
+	if (src->prev == NULL)
+		return 0;
 	ud = unit_bl2ud(src);
 	nullpo_retr(1, ud);
 
@@ -5411,7 +5414,7 @@ int skill_castend_nodamage_id (struct block_list *src, struct block_list *bl, in
 	case MC_VENDING:
 		if(sd)
 		{	//Prevent vending of GMs with unnecessary Level to trade/drop. [Skotlex]
-			if ( !pc_can_give_items(pc_isGM(sd)) )
+			if ( !pc_can_give_items(sd) )
 				clif_skill_fail(sd,skillid,USESKILL_FAIL_LEVEL,0);
 			else {
 				sd->state.prevend = 1;
@@ -9709,8 +9712,8 @@ int skill_unit_onplace_timer (struct skill_unit *src, struct block_list *bl, uns
 		case UNT_APPLEIDUN: //Apple of Idun [Skotlex]
 		{
 			int heal;
-			struct mob_data *md = BL_CAST(BL_MOB, bl);
 #if REMODE
+			struct mob_data *md = BL_CAST(BL_MOB, bl);
 			if( md && md->class_ == MOBID_EMPERIUM )
 				break;
 #endif
@@ -10255,8 +10258,7 @@ int skill_check_pc_partner (struct map_session_data *sd, short skill_id, short* 
 	static int p_sd[2] = { 0, 0 };
 	int i;
 
-	if (!battle_config.player_skill_partner_check ||
-		(battle_config.gm_skilluncond && pc_isGM(sd) >= battle_config.gm_skilluncond))
+	if (!battle_config.player_skill_partner_check || pc_has_permission(sd, PC_PERM_SKILL_UNCONDITIONAL))
 		return 99; //As if there were infinite partners.
 
 	if (cast_flag)
@@ -10351,7 +10353,7 @@ int skill_check_condition_castbegin(struct map_session_data* sd, short skill, sh
 
 	if (lv <= 0 || sd->chatID) return 0;
 
-	if( battle_config.gm_skilluncond && pc_isGM(sd)>= battle_config.gm_skilluncond && sd->skillitem != skill )
+	if( pc_has_permission(sd, PC_PERM_SKILL_UNCONDITIONAL) && sd->skillitem != skill )
 	{	//GMs don't override the skillItem check, otherwise they can use items without them being consumed! [Skotlex]
 		sd->state.arrow_atk = skill_get_ammotype(skill)?1:0; //Need to do arrow state check.
 		sd->spiritball_old = sd->spiritball; //Need to do Spiritball check.
@@ -11027,7 +11029,7 @@ int skill_check_condition_castend(struct map_session_data* sd, short skill, shor
 	if( lv <= 0 || sd->chatID )
 		return 0;
 
-	if( battle_config.gm_skilluncond && pc_isGM(sd) >= battle_config.gm_skilluncond && sd->skillitem != skill )
+	if( pc_has_permission(sd, PC_PERM_SKILL_UNCONDITIONAL) && sd->skillitem != skill )
 	{	//GMs don't override the skillItem check, otherwise they can use items without them being consumed! [Skotlex]
 		sd->state.arrow_atk = skill_get_ammotype(skill)?1:0; //Need to do arrow state check.
 		sd->spiritball_old = sd->spiritball; //Need to do Spiritball check.
