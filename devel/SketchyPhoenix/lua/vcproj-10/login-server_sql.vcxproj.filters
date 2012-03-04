@@ -58,6 +58,17 @@
     <ClCompile Include="..\src\common\utils.c">
       <Filter>common</Filter>
     </ClCompile>
+    <ClCompile Include="..\3rdparty\libconfig\grammar.c" />
+    <ClCompile Include="..\3rdparty\libconfig\libconfig.c" />
+    <ClCompile Include="..\3rdparty\libconfig\scanctx.c" />
+    <ClCompile Include="..\3rdparty\libconfig\scanner.c" />
+    <ClCompile Include="..\3rdparty\libconfig\strbuf.c" />
+    <ClCompile Include="..\src\common\luaengine.c">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\login\loginscript.c">
+      <Filter>login_sql</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\login\account.h">
@@ -76,9 +87,6 @@
       <Filter>3rdparty</Filter>
     </ClInclude>
     <ClInclude Include="..\src\common\cbasetypes.h">
-      <Filter>common</Filter>
-    </ClInclude>
-    <ClInclude Include="..\src\common\version.h">
       <Filter>common</Filter>
     </ClInclude>
     <ClInclude Include="..\src\common\core.h">
@@ -127,6 +135,16 @@
       <Filter>common</Filter>
     </ClInclude>
     <ClInclude Include="..\src\common\utils.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rdparty\libconfig\grammar.h" />
+    <ClInclude Include="..\3rdparty\libconfig\libconfig.h" />
+    <ClInclude Include="..\3rdparty\libconfig\parsectx.h" />
+    <ClInclude Include="..\3rdparty\libconfig\scanctx.h" />
+    <ClInclude Include="..\3rdparty\libconfig\scanner.h" />
+    <ClInclude Include="..\3rdparty\libconfig\strbuf.h" />
+    <ClInclude Include="..\3rdparty\libconfig\wincompat.h" />
+    <ClInclude Include="..\src\common\luaengine.h">
       <Filter>common</Filter>
     </ClInclude>
   </ItemGroup>

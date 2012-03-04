@@ -10,6 +10,7 @@
 #include "../common/socket.h"
 #include "../common/strlib.h"
 #include "../common/timer.h"
+#include "../common/luaengine.h"
 #include "account.h"
 #include "ipban.h"
 #include "login.h"
@@ -1647,6 +1648,7 @@ void do_final(void)
 	if( login_config.log_login )
 		loginlog_final();
 
+	do_final_luaengine();
 	ipban_final();
 
 	for( i = 0; account_engines[i].constructor; ++i )
@@ -1725,6 +1727,9 @@ int do_init(int argc, char** argv)
 	
 	for( i = 0; i < ARRAYLENGTH(server); ++i )
 		chrif_server_init(i);
+		
+	// initialize lua
+	do_init_luaengine();
 
 	// initialize logging
 	if( login_config.log_login )

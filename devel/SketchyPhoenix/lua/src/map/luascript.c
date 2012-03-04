@@ -1,11 +1,5 @@
 // Copyright (c) Athena Dev Teams - Licensed under GNU GPL
-// For more information, see LICENCE in the main folder
-
-//#define DEBUG_DISP
-//#define DEBUG_DISASM
-//#define DEBUG_RUN
-//#define DEBUG_HASH
-//#define DEBUG_DUMP_STACK
+// For more information, see LICENCE in the main
 
 #include "../common/cbasetypes.h"
 #include "../common/malloc.h"
@@ -17,6 +11,7 @@
 #include "../common/timer.h"
 #include "../common/utils.h"
 #include "../common/mmo.h"
+#include "../common/luaengine.h"
 
 #include "map.h"
 #include "path.h"
@@ -203,7 +198,6 @@ static void stackDump (lua_State *L) {
  lua_get_target will execute that command under the specified target. If no target
  is supplied, it is executed under the caller of the script.
 */
-#define LUA_FUNC(x) static int buildin_ ## x (lua_State *NL)
 #define lua_get_target(x) struct map_session_data *sd = script_get_target(NL,x)
 
 //Exits the script
@@ -869,40 +863,21 @@ LUA_FUNC(getcharid)
 	return 1;
 }
 
-static char *buildin_getpartyname_sub(int party_id)
-{
-	struct party_data *p;
-
-	p=party_search(party_id);
-
-	if(p!=NULL){
-		char *buf;
-		buf=(char *)aMallocA(NAME_LENGTH*sizeof(char));
-		memcpy(buf, p->party.name, NAME_LENGTH);
-		buf[NAME_LENGTH-1] = '\0';
-		return buf;
-	}
-
-	return 0;
-}
-
 LUA_FUNC(getpartyname)
 {
-	char *name;
 	int party_id;
-	lua_get_target(2);
+	struct party_data* p;
 	
 	party_id = luaL_checkint(NL,1);
-	
-	name = buildin_getpartyname_sub(party_id);
-	
-	if ( name != NULL )
+	if( ( p = party_search( party_id ) ) != NULL )
 	{
-		lua_pushstring(NL,name);
-		return 1;
+		lua_pushstring(NL,p->party.name);
 	}
-	
-	return 0;
+	else
+	{
+		lua_pushnil(NL);
+	}
+	return 1;
 }
 
 LUA_FUNC(getpartymember)
@@ -1264,78 +1239,48 @@ LUA_FUNC(getpartyleader)
 	return 1;
 }
 
-static char *buildin_getguildname_sub(int guild_id)
-{
-	struct guild *g=NULL;
-	g=guild_search(guild_id);
-
-	if(g!=NULL){
-		char *buf;
-		buf=(char *)aMallocA(NAME_LENGTH*sizeof(char));
-		memcpy(buf, g->name, NAME_LENGTH);
-		buf[NAME_LENGTH-1] = '\0';
-		return buf;
-	}
-	return NULL;
-}
-
-static char *buildin_getguildmaster_sub(int guild_id)
-{
-	struct guild *g=NULL;
-	g=guild_search(guild_id);
-
-	if(g!=NULL){
-		char *buf;
-		buf=(char *)aMallocA(NAME_LENGTH*sizeof(char));
-		memcpy(buf, g->master, NAME_LENGTH);
-		buf[NAME_LENGTH-1] = '\0';
-		return buf;
-	}
-
-	return 0;
-}
-
 LUA_FUNC(getguildname)
 {
-	char *name;
-	int guild_id=luaL_checkint(NL,1);
-	name=buildin_getguildname_sub(guild_id);
+	int guild_id;
+	struct guild* g;
 	
-	name = buildin_getguildname_sub(guild_id);
+	guild_id = luaL_checkint( NL , 1 );
 	
-	if(name != NULL) {
-		lua_pushstring(NL,name);
-		return 1;
+	if( ( g = guild_search( guild_id ) ) != NULL )
+	{
+		lua_pushstring( NL , g->name );
+	}
+	else
+	{
+		lua_pushnil( NL );
 	}
 	
-	return 0;
+	return 1;
 }
 
-LUA_FUNC(getguildmaster)
+LUA_FUNC(getguildmasterinfo)
 {
-	char *master;
-	int guild_id=luaL_checkint(NL,1);
-	master=buildin_getguildmaster_sub(guild_id);
-	if(master!=0) {
-		lua_pushstring(NL,master);
-		return 1;
-	}
-	return 0;
-}
-
-LUA_FUNC(getguildmasterid)
-{
-	char *master;
-	TBL_PC *sd=NULL;
-	int guild_id=luaL_checkint(NL,1);
-	master=buildin_getguildmaster_sub(guild_id);
-	if(master!=0){
-		if((sd=map_nick2sd(master)) == NULL){
-			return 0;
+	int guild_id , flag;
+	struct guild* g;
+	
+	guild_id = luaL_checkint( NL , 1 );
+	flag = luaL_checkint( NL , 2 );
+	
+	if( ( g = guild_search( guild_id ) ) != NULL )
+	{
+		switch( flag )
+		{
+			case 0:
+				lua_pushstring( NL , g->member[0].name );
+			default:
+				lua_pushinteger( NL , g->member[0].char_id );
 		}
-		lua_pushinteger(NL,sd->status.char_id);
-		return 1;
 	}
+	else
+	{
+		lua_pushnil( NL );
+	}
+	
 	return 0;
 }
 
@@ -1343,38 +1288,49 @@ LUA_FUNC(strcharinfo)
 {
 	lua_get_target(2);
 	int num;
-	char *buf;
-
-	if ( sd == NULL )
-		return 0;
-		
-	num = luaL_checkint(NL,1);
-	switch(num){
-		case 0:
-			lua_pushstring(NL,sd->status.name);
-			break;
-		case 1:
-			buf=buildin_getpartyname_sub(sd->status.party_id);
-			if(buf!=0)
-				lua_pushstring(NL,buf);
-			else
-				return 0;
-			break;
-		case 2:
-			buf=buildin_getguildname_sub(sd->status.guild_id);
-			if(buf != NULL)
-				lua_pushstring(NL,buf);
-			else
-				return 0;
-			break;
-		case 3:
-			lua_pushstring(NL,map[sd->bl.m].name);
-			break;
-		default:
-			return 0;
+	struct guild* g;
+	struct party_data* p;
+	
+	if ( !sd )
+	{
+		lua_pushnil( NL );
 	}
-
-	return 1;
+	else
+	{
+		num = luaL_checkint( NL , 1 );
+		switch( num )
+		{
+			case 0:
+				lua_pushstring( NL , sd->status.name );
+				break;
+			case 1:
+				if( ( p = party_search( sd->status.party_id ) ) != NULL )
+				{
+					lua_pushstring( NL , p->party.name );
+				}
+				else
+				{
+					lua_pushnil( NL );
+				}
+				break;
+			case 2:
+				if( ( g = guild_search( sd->status.guild_id ) ) != NULL )
+				{
+					lua_pushstring( NL , g->name );
+				}
+				else
+				{
+					lua_pushnil( NL );
+				}
+			case 3:
+				lua_pushstring( NL , map[sd->bl.m].name );
+				break;
+			default:
+				luaL_error( NL , "buildin_strcharinfo: unknown parameter.\n" );
+				break;
+		}
+	}
+	return 0;
 }
 
 LUA_FUNC(strnpcinfo)
@@ -1872,7 +1828,7 @@ LUA_FUNC(basicskillcheck)
 LUA_FUNC(getgmlevel)
 {
 	lua_get_target(1);
-	lua_pushinteger(NL, pc_isGM(sd));
+	lua_pushinteger( NL , pc_get_group_level( sd ) );
 	return 1;
 }
 
@@ -2071,14 +2027,19 @@ LUA_FUNC(gettime)
 LUA_FUNC(gettimestr)
 {
 	char *tmpstr;
-	const char *fmtstr=luaL_checkstring(NL,1);
-	int maxlen=luaL_checkint(NL,2);
+	const char *fmtstr;
+	int maxlen;
 	time_t now = time(NULL);
-	tmpstr=(char *)aMallocA((maxlen+1)*sizeof(char));
-	strftime(tmpstr,maxlen,fmtstr,localtime(&now));
-	tmpstr[maxlen]='\0';
-	lua_pushstring(NL,tmpstr);
-	return 1;
+	
+	fmtstr = luaL_checkstring( NL , 1 );
+	maxlen = luaL_checkint( NL , 2 );
+	
+	tmpstr = (char *)aMalloc( ( maxlen + 1 )  * sizeof( char ) );
+	strftime( tmpstr , maxlen , fmtstr , localtime( &now ) );
+	tmpstr[maxlen] = '\0';
+	
+	lua_pushstring( NL , tmpstr );
+	return 0;
 }
 
 LUA_FUNC(openstorage)
@@ -2613,23 +2574,8 @@ LUA_FUNC(getusers)
 
 LUA_FUNC(getusersname)
 {
-	lua_get_target(1);
-	TBL_PC *pl_sd;
-	int disp_num=1;
-	struct s_mapiterator* iter;
-	iter = mapit_getallusers();
-	for( pl_sd = (TBL_PC*)mapit_first(iter); mapit_exists(iter); pl_sd = (TBL_PC*)mapit_next(iter) )
-	{
-		if( battle_config.hide_GM_session && pc_isGM(pl_sd) ) {
-			continue; // skip hidden GMs
-		}
-		if((disp_num++)%10==0) {
-			clif_scriptnext(sd,sd->npc_id);
-		}
-		clif_scriptmes(sd,sd->npc_id,pl_sd->status.name);
-	}
-	mapit_free(iter);
-	return 0;
+//todo
+return 0;
 }
 
 LUA_FUNC(getmapguildusers)
@@ -3887,22 +3833,41 @@ static int buildin_mobcount_sub(struct block_list *bl,va_list ap)
 
 LUA_FUNC(mobcount)
 {
-	const char *mapname,*event;
+	const char *mapname, *event;
 	int m, instance_id;
-	mapname=luaL_checkstring(NL,1);
-	event=luaL_checkstring(NL,2);
-	instance_id = luaL_checkint(NL,3);
-
-	if( (m = map_mapname2mapid(mapname)) < 0 ) {
-		return 0;
+	mapname = luaL_checkstring( NL , 1 );
+	event = luaL_checkstring( NL , 2 );
+	instance_id = luaL_checkint( NL , 3 );
+	
+	if( strcmp( event, "all" ) == 0 )
+	{
+		event = NULL;
 	}
 	
-	if( map[m].flag.src4instance && map[m].instance_id == 0 && instance_id && (m = instance_mapid2imapid(m, instance_id)) < 0 )
+	if( strcmp( mapname, "this" ) == 0 )
+	{
+		struct map_session_data *sd = script_get_target( NL , 4 );
+		if( sd )
+		{
+			m = sd->bl.m;
+		}
+		else
+		{
+			lua_pushnil( NL );
+			return 1;
+		}
+	}
+	else if( ( m = map_mapname2mapid( mapname ) ) < 0 )
+	{
+		lua_pushnil( NL );
+	}
+	if( map[m].flag.src4instance && map[m].instance_id == 0 && instance_id && ( m = instance_mapid2imapid( m , instance_id ) ) < 0 )
 	{
 		return 0;
 	}
-	lua_pushinteger(NL,map_foreachinmap(buildin_mobcount_sub, m, BL_MOB, event));
-	return 0;
+	
+	lua_pushinteger( NL , map_foreachinmap( buildin_mobcount_sub , m , BL_MOB , event ) );
+	return 1;
 }
 
 LUA_FUNC(marriage)
@@ -4120,15 +4085,7 @@ LUA_FUNC(guardianinfo)
 
 LUA_FUNC(getitemname)
 {
-	struct item_data *i_data;
-	char *item_name;
-	int item_id = luaL_checkint(NL,1);
-	i_data = itemdb_exists(item_id);
-	if (i_data == NULL)
-		return 0;
-	item_name=(char *)aMallocA(ITEM_NAME_LENGTH*sizeof(char));
-	memcpy(item_name, i_data->jname, ITEM_NAME_LENGTH);
-	lua_pushstring(NL,item_name);
+	//todo
 	return 0;
 }
 
@@ -4741,35 +4698,8 @@ LUA_FUNC(checkequipedcard)
 
 LUA_FUNC(getmapmobs)
 {
-	const char *str=NULL;
-	int m=-1,bx,by;
-	int count=0;
-	struct block_list *bl;
-
-	str=luaL_checkstring(NL,1);
-
-	if(strcmp(str,"this")==0){
-		TBL_PC *sd=map_charid2sd(luaL_checkint(NL,2));
-		if(sd)
-			m=sd->bl.m;
-		else{
-			lua_pushnil(NL);
-			return 1;
-		}
-	}else
-		m=map_mapname2mapid(str);
-
-	if(m < 0)
-		lua_pushnil(NL);
-	else {
-		for(by=0;by<=(map[m].ys-1)/BLOCK_SIZE;by++)
-			for(bx=0;bx<=(map[m].xs-1)/BLOCK_SIZE;bx++)
-				for( bl = map[m].block_mob[bx+by*map[m].bxs] ; bl != NULL ; bl = bl->next )
-					if(bl->x>=0 && bl->x<=map[m].xs-1 && bl->y>=0 && bl->y<=map[m].ys-1)
-						count++;
-	lua_pushinteger(NL,count);
-	}
-	return 1;
+//todo
+	return 0;
 }
 
 LUA_FUNC(movenpc)
@@ -5328,13 +5258,7 @@ LUA_FUNC(setnpcdisplay)
 
 LUA_FUNC(md5)
 {
-	const char *tmpstr;
-	char *md5str;
-
-	tmpstr = luaL_checkstring(NL,1);
-	md5str = (char *)aMallocA((32+1)*sizeof(char));
-	MD5_String(tmpstr, md5str);
-	lua_pushstring(NL,md5str);
+//
 	return 1;
 }
 
@@ -6749,7 +6673,6 @@ LUA_FUNC(scmd_flag)
 //TODO: PCRE
 
 // List of commands to build into Lua, format : {"function_name_in_lua", C_function_name}
-#define LUA_DEF(x) {#x, buildin_ ##x}
 static struct LuaCommandInfo commands[] = {
 	LUA_DEF(scriptend),
 	LUA_DEF(_addnpc),
@@ -6792,7 +6715,7 @@ static struct LuaCommandInfo commands[] = {
 	LUA_DEF(deleteitem2),
 	LUA_DEF(getpartyleader),
 	LUA_DEF(getguildname),
-	LUA_DEF(getguildmasterid),
+	LUA_DEF(getguildmasterinfo),
 	LUA_DEF(strnpcinfo),
 	LUA_DEF(getequipid),
 	LUA_DEF(getequipname),
@@ -7048,27 +6971,10 @@ static struct LuaCommandInfo commands[] = {
 	{"-End of list-", NULL},
 };
 
-//-----------------------------------------------------------------------------
-// LUA SCRIPT FUNCTIONS
-//
-
-int do_init_luascript()
-{
-	L = lua_open();
-	luaL_openlibs(L);	
-	lua_pushliteral(L,"char_id");
-	lua_pushnumber(L,0);
-	lua_rawset(L,LUA_GLOBALSINDEX);	
-	script_buildin_commands_lua();
-	return 0;
-}
-
-void do_final_luascript()
-{
-	lua_close(L);
-}
-
-void script_buildin_commands_lua()
+/*
+	Load commands into Lua
+*/
+void load_script_commands()
 {
 	int i=0;
 	

@@ -12,6 +12,7 @@
 #include "../common/strlib.h"
 #include "../common/timer.h"
 #include "../common/utils.h"
+#include "../common/luaengine.h"
 #include "inter.h"
 #include "int_guild.h"
 #include "int_homun.h"
@@ -4454,9 +4455,8 @@ void do_final(void)
 	set_all_offline_sql();
 
 	inter_final();
-
 	flush_fifos();
-	
+	do_final_luaengine();
 	do_final_mapif();
 	do_final_loginif();
 
@@ -4535,6 +4535,7 @@ int do_init(int argc, char **argv)
 	ShowInfo("Initializing char server.\n");
 	auth_db = idb_alloc(DB_OPT_RELEASE_DATA);
 	online_char_db = idb_alloc(DB_OPT_RELEASE_DATA);
+	do_init_luaengine();
 	mmo_char_sql_init();
 	char_read_fame_list(); //Read fame lists.
 	ShowInfo("char server initialized.\n");

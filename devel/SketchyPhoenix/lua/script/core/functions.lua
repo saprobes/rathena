@@ -189,6 +189,14 @@ function talk(...)
 	end
 end
 
+function getguildmaster( guild_id )
+	return getguildmasterinfo( guild_id )
+end
+
+function getguildmasterid( guild_id )
+	return getguildmasterinfo( guild_id )
+end
+
 -- Scriptable GM commands system.
 -- Basic implementation is here. The commands are stored in a dictionary
 -- I found this to be a good method of doing this implementation without having

@@ -12,6 +12,7 @@
 #include "../common/random.h"
 #include "../common/strlib.h"
 #include "../common/utils.h"
+#include "../common/luaengine.h"
 
 #include "map.h"
 #include "path.h"
@@ -3500,7 +3501,7 @@ void do_final(void)
 	do_final_unit();
 	do_final_battleground();
 	do_final_duel();
-	do_final_luascript();
+	do_final_luaengine();
 	
 	map_db->destroy(map_db, map_db_final);
 	
@@ -3811,7 +3812,7 @@ int do_init(int argc, char *argv[])
 	do_init_chrif();
 	do_init_clif();
 	do_init_script();
-	do_init_luascript();
+	do_init_luaengine();
 	do_init_itemdb();
 	do_init_skill();
 	do_init_mob();

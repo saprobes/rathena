@@ -79,6 +79,17 @@
     <ClCompile Include="..\src\char\inter.c">
       <Filter>char_sql</Filter>
     </ClCompile>
+    <ClCompile Include="..\3rdparty\libconfig\grammar.c" />
+    <ClCompile Include="..\3rdparty\libconfig\libconfig.c" />
+    <ClCompile Include="..\3rdparty\libconfig\scanctx.c" />
+    <ClCompile Include="..\3rdparty\libconfig\scanner.c" />
+    <ClCompile Include="..\3rdparty\libconfig\strbuf.c" />
+    <ClCompile Include="..\src\common\luaengine.c">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\char\charscript.c">
+      <Filter>char_sql</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\3rdparty\mt19937ar\mt19937ar.h">
@@ -135,9 +146,6 @@
     <ClInclude Include="..\src\common\utils.h">
       <Filter>common</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\common\version.h">
-      <Filter>common</Filter>
-    </ClInclude>
     <ClInclude Include="..\src\char\inter.h">
       <Filter>char_sql</Filter>
     </ClInclude>
@@ -170,6 +178,16 @@
     </ClInclude>
     <ClInclude Include="..\src\char\int_storage.h">
       <Filter>char_sql</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rdparty\libconfig\grammar.h" />
+    <ClInclude Include="..\3rdparty\libconfig\libconfig.h" />
+    <ClInclude Include="..\3rdparty\libconfig\parsectx.h" />
+    <ClInclude Include="..\3rdparty\libconfig\scanctx.h" />
+    <ClInclude Include="..\3rdparty\libconfig\scanner.h" />
+    <ClInclude Include="..\3rdparty\libconfig\strbuf.h" />
+    <ClInclude Include="..\3rdparty\libconfig\wincompat.h" />
+    <ClInclude Include="..\src\common\luaengine.h">
+      <Filter>common</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

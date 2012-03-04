@@ -11,6 +11,7 @@
 #include "../common/ers.h"
 #include "../common/db.h"
 #include "../common/socket.h"
+#include "../common/luaengine.h"
 #include "map.h"
 #include "log.h"
 #include "clif.h"
@@ -1150,7 +1151,7 @@ int npc_click(struct map_session_data* sd, struct npc_data* nd)
 		run_script(nd->u.scr.script,0,sd->bl.id,nd->bl.id);
 		break;
 	case LUA:
-		script_run_function(nd->function,sd->status.char_id,"ii",sd->status.char_id,nd->bl.id);
+		script_run_function(nd->function,sd->status.char_id,"i",nd->bl.id);
 		break;
 	}
 
@@ -3601,8 +3602,8 @@ int npc_reload(void)
 	npc_mob = npc_cache_mob = npc_delay_mob = 0;
 	// reset mapflags
 	map_flags_init();
-	do_final_luascript(); 
-	do_init_luascript();
+	do_final_luaengine(); 
+	do_init_luaengine();
 	//TODO: the following code is copy-pasted from do_init_npc(); clean it up
 	// Reloading npcs now
 	for (nsl = npc_src_files; nsl; nsl = nsl->next)
