@@ -273,7 +273,7 @@ static inline unsigned char clif_bl_type(struct block_list *bl) {
 	case BL_SKILL: return 0x3; //SKILL_TYPE
 	case BL_CHAT:  return 0x4; //UNKNOWN_TYPE
 	case BL_MOB:   return pcdb_checkid(status_get_viewdata(bl)->class_)?0x0:0x5; //NPC_MOB_TYPE
-	case BL_NPC:   return pcdb_checkid(status_get_viewdata(bl)->class_)?0x0:0x6; //NPC_EVT_TYPE
+	case BL_NPC:   return 0x6; //NPC_EVT_TYPE
 	case BL_PET:   return pcdb_checkid(status_get_viewdata(bl)->class_)?0x0:0x7; //NPC_PET_TYPE
 	case BL_HOM:   return 0x8; //NPC_HOM_TYPE
 	case BL_MER:   return 0x9; //NPC_MERSOL_TYPE
@@ -1028,8 +1028,9 @@ static int clif_set_unit_idle(struct block_list* bl, unsigned char* buffer, bool
 
 	if( bl->type == BL_NPC && vd->class_ == FLAG_CLASS )
 	{	//The hell, why flags work like this?
-		WBUFL(buf,22) = status_get_emblem_id(bl);
-		WBUFL(buf,26) = status_get_guild_id(bl);
+		WBUFW(buf,22) = status_get_emblem_id(bl);
+		WBUFW(buf,24) = GetWord(status_get_guild_id(bl), 1);
+		WBUFW(buf,26) = GetWord(status_get_guild_id(bl), 0);
 	}
 
 	WBUFW(buf,28) = vd->hair_color;
@@ -1325,7 +1326,7 @@ int clif_spawn(struct block_list *bl)
 		return 0;
 		
 	/**
-	* Hide NPC from maya puprle card.
+	* Hide NPC from maya purple card.
 	**/
 	if(bl->type == BL_NPC && !((TBL_NPC*)bl)->chat_id && (((TBL_NPC*)bl)->sc.option&OPTION_INVISIBLE))
 		return 0;
@@ -1596,7 +1597,7 @@ void clif_move(struct unit_data *ud)
 		return; //This performance check is needed to keep GM-hidden objects from being notified to bots.
 		
 	/**
-	* Hide NPC from maya puprle card.
+	* Hide NPC from maya purple card.
 	**/
 	if(bl->type == BL_NPC && !((TBL_NPC*)bl)->chat_id && (((TBL_NPC*)bl)->sc.option&OPTION_INVISIBLE))
 		return;
@@ -2770,7 +2771,7 @@ void clif_updatestatus(struct map_session_data *sd,int type)
 		WFIFOL(fd,4)=sd->battle_status.amotion;
 		break;
 	case SP_ATK1:
-		WFIFOL(fd,4)=sd->battle_status.batk +sd->battle_status.rhw.atk +sd->battle_status.lhw.atk;
+		WFIFOL(fd,4)=pc_leftside_atk(sd);
 		break;
 	case SP_DEF1:
 		WFIFOL(fd,4)=sd->battle_status.def;
@@ -2779,7 +2780,7 @@ void clif_updatestatus(struct map_session_data *sd,int type)
 		WFIFOL(fd,4)=sd->battle_status.mdef;
 		break;
 	case SP_ATK2:
-		WFIFOL(fd,4)=sd->battle_status.rhw.atk2 + sd->battle_status.lhw.atk2;
+		WFIFOL(fd,4)=pc_rightside_atk(sd);
 		break;
 	case SP_DEF2:
 		WFIFOL(fd,4)=sd->battle_status.def2;
@@ -3128,8 +3129,8 @@ void clif_initialstatus(struct map_session_data *sd)
 	WBUFB(buf,14)=min(sd->status.luk, UINT8_MAX);
 	WBUFB(buf,15)=pc_need_status_point(sd,SP_LUK,1);
 
-	WBUFW(buf,16) = sd->battle_status.batk + sd->battle_status.rhw.atk + sd->battle_status.lhw.atk;
-	WBUFW(buf,18) = sd->battle_status.rhw.atk2 + sd->battle_status.lhw.atk2; //atk bonus
+	WBUFW(buf,16) = pc_leftside_atk(sd);
+	WBUFW(buf,18) = pc_rightside_atk(sd);
 	WBUFW(buf,20) = sd->battle_status.matk_max;
 	WBUFW(buf,22) = sd->battle_status.matk_min;
 	WBUFW(buf,24) = sd->battle_status.def; // def
@@ -3971,7 +3972,6 @@ void clif_storageclose(struct map_session_data* sd)
 	WFIFOW(fd,0) = 0xf8; // Storage Closed
 	WFIFOSET(fd,packet_len(0xf8));
 }
-int clif_status_load_single(int fd, int id,int type,int flag,int val1, int val2, int val3);
 
 /*==========================================
  * Server tells 'sd' player client the abouts of 'dstsd' player
@@ -4025,7 +4025,7 @@ void clif_getareachar_unit(struct map_session_data* sd,struct block_list *bl)
 		return;
 		
 	/**
-	* Hide NPC from maya puprle card.
+	* Hide NPC from maya purple card.
 	**/
 	if(bl->type == BL_NPC && !((TBL_NPC*)bl)->chat_id && (((TBL_NPC*)bl)->sc.option&OPTION_INVISIBLE))
 		return;
@@ -4320,6 +4320,9 @@ static void clif_getareachar_skillunit(struct map_session_data *sd, struct skill
 {
 	int fd = sd->fd;
 
+	if( unit->group->state.guildaura )
+		return;
+
 #if PACKETVER >= 3
 	if(unit->group->unit_id==UNT_GRAFFITI)	{ // Graffiti [Valaris]
 		WFIFOHEAD(fd,packet_len(0x1c9));
@@ -4539,6 +4542,10 @@ void clif_skillinfoblock(struct map_session_data *sd)
 	{
 		if( (id = sd->status.skill[i].id) != 0 )
 		{
+			// workaround for bugreport:5348
+			if (len + 37 > 8192)
+				break;
+
 			WFIFOW(fd,len)   = id;
 			WFIFOL(fd,len+2) = skill_get_inf(id);
 			WFIFOW(fd,len+6) = sd->status.skill[i].lv;
@@ -4554,6 +4561,16 @@ void clif_skillinfoblock(struct map_session_data *sd)
 	}
 	WFIFOW(fd,2)=len;
 	WFIFOSET(fd,len);
+
+	// workaround for bugreport:5348; send the remaining skills one by one to bypass packet size limit
+	for ( ; i < MAX_SKILL; i++)
+	{
+		if( (id = sd->status.skill[i].id) != 0 )
+		{
+			clif_addskill(sd, id);
+			clif_skillinfo(sd, id, 0); 
+		}
+	}
 }
 /**
  * Server tells client 'sd' to add skill of id 'id' to it's skill tree (e.g. with Ice Falcion item)
@@ -4999,6 +5016,9 @@ void clif_skill_setunit(struct skill_unit *unit)
 
 	nullpo_retv(unit);
 
+	if( unit->group->state.guildaura )
+		return;
+
 #if PACKETVER >= 3
 	if(unit->group->unit_id==UNT_GRAFFITI)	{ // Graffiti [Valaris]
 		WBUFW(buf, 0)=0x1c9;
@@ -5222,68 +5242,42 @@ void clif_cooking_list(struct map_session_data *sd, int trigger)
 	}
 }
 
-
-/*==========================================
- * Sends a status change packet to the object only, used for loading status changes. [Skotlex]
- *------------------------------------------*/
-int clif_status_load(struct block_list *bl,int type, int flag)
-{
-	int fd;
-	if (type == SI_BLANK)  //It shows nothing on the client...
-		return 0;
-	
-	if (bl->type != BL_PC)
-		return 0;
-
-	fd = ((struct map_session_data*)bl)->fd;
-	
-	WFIFOHEAD(fd,packet_len(0x196));
-	WFIFOW(fd,0)=0x0196;
-	WFIFOW(fd,2)=type;
-	WFIFOL(fd,4)=bl->id;
-	WFIFOB(fd,8)=flag; //Status start
-	WFIFOSET(fd, packet_len(0x196));
-	return 0;
-}
-
-
 /// Notifies clients of a status change.
-/// 0196 <index>.W <id>.L <state>.B (ZC_MSG_STATE_CHANGE)
-/// 043f <index>.W <id>.L <state>.B <remain msec>.L { <val>.L }*3 (ZC_MSG_STATE_CHANGE2)
-void clif_status_change(struct block_list *bl,int type,int flag,unsigned int tick,int val1, int val2, int val3)
+/// 0196 <index>.W <id>.L <state>.B (ZC_MSG_STATE_CHANGE) [used for ending status changes and starting them on non-pc units (when needed)]
+/// 043f <index>.W <id>.L <state>.B <remain msec>.L { <val>.L }*3 (ZC_MSG_STATE_CHANGE2) [used exclusively for starting statuses on pcs]
+void clif_status_change(struct block_list *bl,int type,int flag,int tick,int val1, int val2, int val3)
 {
 	unsigned char buf[32];
+	struct map_session_data *sd;
 
 	if (type == SI_BLANK)  //It shows nothing on the client...
 		return;
 
 	nullpo_retv(bl);
 
-	if (type == SI_BLANK || type == SI_MAXIMIZEPOWER || type == SI_RIDING ||
-		type == SI_FALCON || type == SI_TRICKDEAD || type == SI_BROKENARMOR ||
-		type == SI_BROKENWEAPON || type == SI_WEIGHT50 || type == SI_WEIGHT90 ||
-		type == SI_TENSIONRELAX || type == SI_LANDENDOW || type == SI_AUTOBERSERK ||
-		type == SI_BUMP || type == SI_READYSTORM || type == SI_READYDOWN ||
-		type == SI_READYTURN || type == SI_READYCOUNTER || type == SI_DODGE ||
-		type == SI_DEVIL || type == SI_NIGHT || type == SI_INTRAVISION)
-		tick=0;
+	sd = BL_CAST(BL_PC, bl);
 
-// TODO: 0x43f PACKETVER?
-	if( battle_config.display_status_timers && tick>0 )
+	if (!(status_type2relevant_bl_types(type)&bl->type)) // only send status changes that actually matter to the client
+		return;
+
+	if(flag && battle_config.display_status_timers && sd)
 		WBUFW(buf,0)=0x43f;
 	else
 		WBUFW(buf,0)=0x196;
 	WBUFW(buf,2)=type;
 	WBUFL(buf,4)=bl->id;
 	WBUFB(buf,8)=flag;
-	if( battle_config.display_status_timers && tick>0 )
+	if(flag && battle_config.display_status_timers && sd)
 	{
-		WBUFL(buf,9)=tick;
+		if (tick <= 0)
+				tick = 9999; // this is indeed what official servers do
+
+		WBUFL(buf,9) = tick;
 		WBUFL(buf,13) = val1;
 		WBUFL(buf,17) = val2;
 		WBUFL(buf,21) = val3;
 	}
-	clif_send(buf,packet_len(WBUFW(buf,0)),bl,AREA);
+	clif_send(buf,packet_len(WBUFW(buf,0)),bl, (sd && sd->status.option&OPTION_INVISIBLE) ? SELF : AREA);
 }
 
 
@@ -7042,11 +7036,9 @@ void clif_guild_masterormember(struct map_session_data *sd)
 /// Guild basic information (Territories [Valaris])
 /// 0150 <guild id>.L <level>.L <member num>.L <member max>.L <exp>.L <max exp>.L <points>.L <honor>.L <virtue>.L <emblem id>.L <name>.24B <master name>.24B <manage land>.16B (ZC_GUILD_INFO)
 /// 01b6 <guild id>.L <level>.L <member num>.L <member max>.L <exp>.L <max exp>.L <points>.L <honor>.L <virtue>.L <emblem id>.L <name>.24B <master name>.24B <manage land>.16B <zeny>.L (ZC_GUILD_INFO2)
-void clif_guild_basicinfo(struct map_session_data *sd)
-{
-	int fd,i,t;
+void clif_guild_basicinfo(struct map_session_data *sd) {
+	int fd;
 	struct guild *g;
-	struct guild_castle *gc = NULL;
 
 	nullpo_retv(sd);
 	fd = sd->fd;
@@ -7070,13 +7062,7 @@ void clif_guild_basicinfo(struct map_session_data *sd)
 	memcpy(WFIFOP(fd,46),g->name, NAME_LENGTH);
 	memcpy(WFIFOP(fd,70),g->master, NAME_LENGTH);
 
-	for(i = 0, t = 0; i < MAX_GUILDCASTLE; i++)
-	{
-		gc = guild_castle_search(i);
-		if(gc && g->guild_id == gc->guild_id)
-			t++;
-	}
-	safestrncpy((char*)WFIFOP(fd,94),msg_txt(300+t),16); // "'N' castles"
+	safestrncpy((char*)WFIFOP(fd,94),msg_txt(300+guild_checkcastles(g)),16); // "'N' castles"
 	WFIFOL(fd,110) = 0;  // zeny
 
 	WFIFOSET(fd,packet_len(0x1b6));
@@ -8967,6 +8953,8 @@ void clif_parse_LoadEndAck(int fd,struct map_session_data *sd)
 		clif_changemap(sd, sd->mapindex, sd->bl.x, sd->bl.y);
 		return;
 	}
+	
+	sd->state.warping = 0;
 
 	// look
 #if PACKETVER < 4
@@ -9208,6 +9196,14 @@ void clif_parse_LoadEndAck(int fd,struct map_session_data *sd)
 	
 	mail_clear(sd);
 
+	/* Guild Aura Init */
+	if( sd->state.gmaster_flag ) {
+		guild_guildaura_refresh(sd,GD_LEADERSHIP,guild_checkskill(sd->state.gmaster_flag,GD_LEADERSHIP));
+		guild_guildaura_refresh(sd,GD_GLORYWOUNDS,guild_checkskill(sd->state.gmaster_flag,GD_GLORYWOUNDS));
+		guild_guildaura_refresh(sd,GD_SOULCOLD,guild_checkskill(sd->state.gmaster_flag,GD_SOULCOLD));
+		guild_guildaura_refresh(sd,GD_HAWKEYES,guild_checkskill(sd->state.gmaster_flag,GD_HAWKEYES));
+	}
+
 	if(map[sd->bl.m].flag.loadevent) // Lance
 		npc_script_event(sd, NPCE_LOADMAP);
 
@@ -9228,9 +9224,11 @@ void clif_parse_LoadEndAck(int fd,struct map_session_data *sd)
 	// If player is dead, and is spawned (such as @refresh) send death packet. [Valaris]
 	if(pc_isdead(sd))
 		clif_clearunit_area(&sd->bl, CLR_DEAD);
+	else {
+		skill_usave_trigger(sd);
 // Uncomment if you want to make player face in the same direction he was facing right before warping. [Skotlex]
-//	else
 //		clif_changed_dir(&sd->bl, SELF);
+	}
 
 //	Trigger skill effects if you appear standing on them
 	if(!battle_config.pc_invincible_time)
@@ -9904,7 +9902,7 @@ void clif_parse_Broadcast(int fd, struct map_session_data* sd)
 
 	// as the length varies depending on the command used, just block unreasonably long strings
 	len = mes_len_check(msg, len, CHAT_SIZE_MAX);
-	sprintf(command, "@broadcast %s", msg);
+	sprintf(command, "@kami %s", msg);
 	is_atcommand(fd, sd, command, 1);
 }
 
@@ -10809,7 +10807,8 @@ void clif_parse_ProduceMix(int fd,struct map_session_data *sd)
 		sd->menuskill_val = sd->menuskill_id = 0;
 		return;
 	}
-	skill_produce_mix(sd,0,RFIFOW(fd,2),RFIFOW(fd,4),RFIFOW(fd,6),RFIFOW(fd,8), 1);
+	if( skill_can_produce_mix(sd,RFIFOW(fd,2),sd->menuskill_val, 1) )
+		skill_produce_mix(sd,0,RFIFOW(fd,2),RFIFOW(fd,4),RFIFOW(fd,6),RFIFOW(fd,8), 1);
 	sd->menuskill_val = sd->menuskill_id = 0;
 }
 
@@ -10828,8 +10827,7 @@ void clif_parse_Cooking(int fd,struct map_session_data *sd)
 	//int type = RFIFOW(fd,2);
 	int nameid = RFIFOW(fd,4);
 
-	if( sd->menuskill_id != AM_PHARMACY )
-	{
+	if( sd->menuskill_id != AM_PHARMACY ) {
 		return;
 	}
 
@@ -10839,7 +10837,8 @@ void clif_parse_Cooking(int fd,struct map_session_data *sd)
 		sd->menuskill_val = sd->menuskill_id = 0;
 		return;
 	}
-	skill_produce_mix(sd,0,nameid,0,0,0,1);
+	if( skill_can_produce_mix(sd,nameid,sd->menuskill_val, 1) )
+		skill_produce_mix(sd,0,nameid,0,0,0,1);
 	sd->menuskill_val = sd->menuskill_id = 0;
 }
 
@@ -11102,7 +11101,7 @@ void clif_parse_LocalBroadcast(int fd, struct map_session_data* sd)
 	// as the length varies depending on the command used, just block unreasonably long strings
 	len = mes_len_check(msg, len, CHAT_SIZE_MAX);
 
-	sprintf(command, "@localbroadcast %s", msg);
+	sprintf(command, "@lkami %s", msg);
 	is_atcommand(fd, sd, command, 1);
 }
 
@@ -15756,6 +15755,38 @@ int clif_poison_list(struct map_session_data *sd, int skill_lv) {
 	} else {
 		clif_skill_fail(sd,GC_POISONINGWEAPON,USESKILL_FAIL_GUILLONTINE_POISON,0);
 		return 0;
+	}
+
+	return 1;
+}
+int clif_autoshadowspell_list(struct map_session_data *sd) {
+	int fd, i, c;
+	nullpo_ret(sd);
+	fd = sd->fd;
+	if( !fd ) return 0;
+
+	if( sd->menuskill_id == SC_AUTOSHADOWSPELL )
+		return 0;
+
+	WFIFOHEAD(fd, 2 * 6 + 4);
+	WFIFOW(fd,0) = 0x442;
+	for( i = 0, c = 0; i < MAX_SKILL; i++ )
+		if( sd->status.skill[i].flag == 13 && sd->status.skill[i].id > 0 &&
+				sd->status.skill[i].id < GS_GLITTERING && skill_get_type(sd->status.skill[i].id) == BF_MAGIC )
+		{ // Can't auto cast both Extended class and 3rd class skills.
+			WFIFOW(fd,8+c*2) = sd->status.skill[i].id;
+			c++;
+		}
+
+	if( c > 0 ) {
+		WFIFOW(fd,2) = 8 + c * 2;
+		WFIFOL(fd,4) = c;
+		WFIFOSET(fd,WFIFOW(fd,2));
+		sd->menuskill_id = SC_AUTOSHADOWSPELL;
+		sd->menuskill_val = c;
+	} else {
+		status_change_end(&sd->bl,SC_STOP,-1);
+		clif_skill_fail(sd,SC_AUTOSHADOWSPELL,0x15,0);
 	}
 
 	return 1;

@@ -18,6 +18,7 @@ struct status_change_entry;
 #define MAX_SKILL_ARROW_DB		150
 #define MAX_ARROW_RESOURCE		5
 #define MAX_SKILL_ABRA_DB		350
+#define MAX_SKILL_IMPROVISE_DB 50
 
 #define MAX_SKILL_LEVEL 100
 
@@ -64,7 +65,8 @@ enum e_skill_inf2
 	INF2_PARTY_ONLY     = 0x0400,
 	INF2_GUILD_ONLY     = 0x0800,
 	INF2_NO_ENEMY       = 0x1000,
-	INF2_NOLP           = 0x2000,  // Spells that can ignore Land Protector
+	INF2_NOLP           = 0x2000, // Spells that can ignore Land Protector
+	INF2_CHORUS_SKILL	= 0x4000, // Chorus skill 
 };
 
 //Walk intervals at which chase-skills are attempted to be triggered.
@@ -152,8 +154,8 @@ struct skill_unit_group {
 	struct skill_unit *unit;
 	struct {
 		unsigned ammo_consume : 1;
-		unsigned magic_power : 1;
 		unsigned song_dance : 2; //0x1 Song/Dance, 0x2 Ensemble
+		unsigned guildaura : 1;
 	} state;
 };
 
@@ -350,6 +352,11 @@ int skill_blockhomun_start (struct homun_data*,int,int);
 int skill_blockmerc_start (struct mercenary_data*,int,int);
 
 #define skill_blockpc_start(sd, skillid, tick) skill_blockpc_start_( sd, skillid, tick, false )
+
+// (Epoque:) To-do: replace this macro with some sort of skill tree check (rather than hard-coded skill names)
+#define skill_ischangesex(id) ( \
+	((id) >= BD_ADAPTATION     && (id) <= DC_SERVICEFORYOU) || ((id) >= CG_ARROWVULCAN && (id) <= CG_MARIONETTE) || \
+	((id) >= CG_LONGINGFREEDOM && (id) <= CG_TAROTCARD)     || ((id) >= WA_SWING_DANCE && (id) <= WM_UNLIMITED_HUMMING_VOICE))
 
 // ƒXƒLƒ‹U?ˆêŠ‡?—
 int skill_attack( int attack_type, struct block_list* src, struct block_list *dsrc,struct block_list *bl,int skillid,int skilllv,unsigned int tick,int flag );
@@ -1534,7 +1541,7 @@ enum {
 	UNT_SEVERE_RAINSTORM, //TODO
 	UNT_FIREWALK, //TODO
 	UNT_ELECTRICWALK, //TODO
-	UNT_POEMOFNETHERWORLD, //TODO
+	UNT_NETHERWORLD, //TODO
 	UNT_PSYCHIC_WAVE, //TODO
 	UNT_CLOUD_KILL, //TODO
 	UNT_POISONSMOKE, //TODO
@@ -1557,9 +1564,22 @@ enum {
 	UNT_WATER_INSIGNIA, //TODO
 	UNT_WIND_INSIGNIA, //TODO
 	UNT_EARTH_INSIGNIA, //TODO
+	
+	/**
+	 * Guild Auras
+	 **/
+	UNT_GD_LEADERSHIP = 0xc1,
+	UNT_GD_GLORYWOUNDS = 0xc2,
+	UNT_GD_SOULCOLD = 0xc3,
+	UNT_GD_HAWKEYES = 0xc4,
 
 	UNT_MAX = 0x190
 };
+/**
+ * Skill Unit Save
+ **/
+void skill_usave_add(struct map_session_data * sd, int skill_num, int skill_lv);
+void skill_usave_trigger(struct map_session_data *sd);
 /**
  * Skill Cool Downs - load from pc.c when the character logs in
  **/
@@ -1575,6 +1595,7 @@ enum wl_spheres {
 	WLS_STONE,
 };
 int skill_spellbook (struct map_session_data *sd, int nameid);
+int skill_stasis_check(struct block_list *bl, int src_id, int skillid);
 /**
  * Guilottine Cross
  **/

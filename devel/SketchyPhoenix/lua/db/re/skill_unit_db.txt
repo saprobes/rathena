@@ -1,7 +1,7 @@
 // ID,unit ID,unit ID 2,layout,range,interval,target,flag
 //
 // layout = -1:special, 0:1*1, 1:3*3, 2:5*5, up to 5:11*11
-// target = friend (party +guildmates +neutral players) / party /
+// target = friend (party +guildmates +neutral players) / party / guild
 //          ally (party +guildmates) / all / enemy
 // flag 0x001(UF_DEFNOTENEMY)		If 'defunit_not_enemy' is set, the target is changed to 'friend'
 //      0x002(UF_NOREITERRATION)	Spell cannot be stacked
@@ -115,10 +115,26 @@
 2273,0xe2,    ,  1, 0, 500,friend,0x000	//NC_NEUTRALBARRIER
 2274,0xe3,    ,  1, 0, 500,all,   0x000	//NC_STEALTHFIELD
 
+2299,0xcc,    ,  0, 1,1000,all,   0x006	//SC_MANHOLE
+2300,0xcd,    ,  0, 1,1000,all,   0x006	//SC_DIMENSIONDOOR
+2301,0xce,    ,  0, 2,  -1,all,   0x00E	//SC_CHAOSPANIC
+2302,0xcf,    ,  0, 2,  -1,all,   0x002	//SC_MAELSTROM
+2303,0xd0,    ,  0, 2,  -1,all,   0x018	//SC_BLOODYLUST
+2304,0xd1,    ,  0, 2,  -1,enemy, 0x000	//SC_FEINTBOMB
+
 2319,0xec,    ,  0, 3,5000,all,   0x000	//LG_BANDING
+
+2414,0xda,    ,  0, 1,1000,enemy, 0x008	//WM_REVERBERATION
+2418,0xdb,    ,  0, 5, 300,enemy, 0x800	//WM_SEVERE_RAINSTORM
+2419,0xde,    ,  0, 1,1000,enemy, 0x010  //WM_POEMOFNETHERWORLD
 
 8208,0x86,    ,  0, 2,1000,enemy, 0x080	//MA_SHOWER
 8209,0x90,    ,  0, 1,1000,enemy, 0x006	//MA_SKIDTRAP
 8210,0x93,    ,  0, 0,1000,enemy, 0x006	//MA_LANDMINE
 8211,0x95,    ,  0, 1,1000,enemy, 0x006	//MA_SANDMAN
 8212,0x97,    ,  0, 1,1000,enemy, 0x006	//MA_FREEZINGTRAP
+
+10006,0xc1,   ,  2, 0,  -1,guild, 0x040	//GD_LEADERSHIP 
+10007,0xc2,   ,  2, 0,  -1,guild, 0x040	//GD_GLORYWOUNDS 
+10008,0xc3,   ,  2, 0,  -1,guild, 0x040	//GD_SOULCOLD 
+10009,0xc4,   ,  2, 0,  -1,guild, 0x040	//GD_HAWKEYES 

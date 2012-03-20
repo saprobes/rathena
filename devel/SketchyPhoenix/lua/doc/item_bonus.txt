@@ -328,6 +328,103 @@ bonus2 bAddSkillBlow,x,y;	Pushback the target by y cells when using skill x (sup
 bonus bSPDrainValue,n;			When hitting a monster by physical attack, you gain n SP
 					(use negative numbers so the user loses SP)
 bonus2 bSPDrainValue,n,x;		When hitting a monster by physical attack, ...
-					x:					
-					0=you gain n SP
-					1=you drain n SP from target
+					x:
+						0=you gain n SP, 1=you drain n SP from target
+
+bonus2 bIgnoreDefRate,n,x;		Disregard x% of the target's DEF if the target belongs to race n;
+
+bonus3 bAddEle,n,x,t;			+x% physical damage against element n
+					n: 	0=Neutral, 1=Water, 2=Earth, 3=Fire, 4=Wind, 5=Poison,
+						6=Holy, 7=Dark, 8=Spirit, 9=Undead
+					t: Trigger criteria:
+					   BF_SHORT: Trigger on melee attack
+					   BF_LONG: Trigger on ranged attack
+					   ( Default: BF_SHORT+BF_LONG )
+					   
+					   BF_WEAPON: Trigger on weapon skills 
+					   BF_MAGIC: Trigger on magic skills 
+					   BF_MISC: Trigger on misc skills
+					   ( Default: BF_WEAPON )
+					   
+					   BF_NORMAL: Trigger on normal
+					   attacks.
+					   BF_SKILL: Trigger on skills
+					   (Default: BF_SKILL if type is BF_MISC or BF_MAGIC, BF_NORMAL if type is BF_WEAPON)
+					   
+					   i: 1=cast on enemy, not on self
+					   2=use random skill lv in [1..y]
+					   3=1+2 (random lv on enemy)
+bonus3 bSubEle,n,x,t;			x% Damage reduction against element n.
+					n: 	0=Neutral, 1=Water, 2=Earth, 3=Fire, 4=Wind, 5=Poison,
+						6=Holy, 7=Dark, 8=Spirit, 9=Undead
+					t: Trigger criteria:
+					   BF_SHORT: Trigger on melee attack
+					   BF_LONG: Trigger on ranged attack
+					   ( Default: BF_SHORT+BF_LONG )
+					   
+					   BF_WEAPON: Trigger on weapon skills 
+					   BF_MAGIC: Trigger on magic skills 
+					   BF_MISC: Trigger on misc skills
+					   ( Default: BF_WEAPON )
+					   
+					   BF_NORMAL: Trigger on normal
+					   attacks.
+					   BF_SKILL: Trigger on skills
+					   (Default: BF_SKILL if type is BF_MISC or BF_MAGIC, BF_NORMAL if type is BF_WEAPON)
+					   
+					   i: 1=cast on enemy, not on self
+					   2=use random skill lv in [1..y]
+					   3=1+2 (random lv on enemy)
+bonus4 bAutoSpellOnSkill,s,x,l,n	Adds a n/10% chance to autospell skill x at level l when using skill s. (supports skill names)
+					Supportive spells are casted on self, others on target of skill s.
+bonus5 bAutoSpellOnSkill,s,x,l,n,i	Adds a n/10% chance to autospell skill x at level l when using skill s. (supports skill names)
+					i: Flags (bitfield)
+						&1: Forces the skill to be casted on self, rather than on the target of skill s.
+						&2: Random skill level between 1 and l is chosen.
+bonus bAddItemHealRate,x;		Increases HP recovered by x% for healing items.
+bonus bUnbreakableGarment,n;		Garment cannot be damaged/broken by any means (n is meaningless)
+bonus bUnbreakableWeapon,n;		Weapon cannot be damaged/broken by any means (n is meaningless)
+bonus bUnbreakableArmor,n;		Armor cannot be damaged/broken by any means (n is meaningless)
+bonus bUnbreakableHelm,n;		Helm cannot be damaged/broken by any means (n is meaningless)
+bonus bUnbreakableShield,n;		Shield cannot be damaged/broken by any means (n is meaningless)
+bonus bUnbreakableShoes,n;		Shoes cannot be damaged/broken by any means (n is meaningless)
+bonus bBreakWeaponRate,n;		Adds a n/100% chance to break enemy's weapon while attacking (stacks with other break chances).
+bonus bBreakArmorRate,n;		Adds a n/100% chance to break enemy's armor while attacking (stacks with other break chances).
+bonus bUnbreakable,n;			Reduces the break chance of all equipped equipment by n%.
+bonus bShortWeaponDamageReturn,n;	Reflects n% of received melee damage back to the enemy that caused it.
+bonus bLongWeaponDamageReturn,n;	Reflects n% of received ranged damage back to the enemy that caused it.
+bonus2 bWeaponComaEle,x,n;		Adds a n/100% chance to cause Coma when attacking a monster of element x with normal attack.
+					x:	0=Neutral, 1=Water, 2=Earth, 3=Fire, 4=Wind, 5=Poison,
+						6=Holy, 7=Dark, 8=Spirit, 9=Undead
+bonus2 bAddEff2,x,n;			Adds a n/100% chance to cause status change x on self when attacking.
+					x:	Eff_Blind, Eff_Sleep, Eff_Poison, Eff_Freeze, Eff_Silence,
+						Eff_Stun, Eff_Curse, Eff_Confusion, Eff_Stone, Eff_Bleeding
+bonus bMagicDamageReturn,n;		Adds a n% chance to reflect targetted magic spells back to the enemy that caused it.
+bonus bPerfectHide,n;			Hidden/cloaked character is no longer detected by monsters with 'detector' mode (n is meaningless).
+bonus bNoKnockback,n;			Character is no longer knocked back by enemy skills with such effect (n is meaningless).
+bonus bClassChange,n;			Gives a n/100% chance to change the attacked monster's class with normal attack.
+bonus bHPDrainValue,n;			Heals +n HP with normal attack.
+bonus2 bHPDrainValue,n,x;		Heals +n HP with normal attack. When x is non-zero, the HP is drained instead.
+bonus2 bWeaponAtk,x,n;			Adds n ATK when weapon of type x is equipped.
+					x:	see doc/item_db.txt -> view -> weapons for possible values
+bonus2 bWeaponAtkRate,x,n;		Adds n% damage to normal attacks when weapon of type x is equipped.
+					x:	see doc/item_db.txt -> view -> weapons for possible values
+bonus bDelayrate,n;			Increases skill delay by n%.
+bonus3 bHPDrainRateRace,r,n,x;		Adds a n/10% chance to receive x% of dealed damage as HP from a monster of race r with normal attack.
+bonus3 bSPDrainRateRace,r,n,x;		Adds a n/10% chance to receive x% of dealed damage as SP from a monster of race r with normal attack.
+bonus3 bAddEffOnSkill,s,x,n;		Adds a n/100% chance to cause status change x on enemy when using skill s (supports skill names)
+bonus4 bAddEffOnSkill,s,x,n,t;		Adds a n/100% chance to cause status change x when using skill s (supports skill names)
+					t:	ATF_SELF   = causes status change to oneself
+						ATF_TARGET = causes status change to the enemy
+bonus bNoMiscDamage,n;			Adds n% reduction to received misc damage.
+bonus bLongAtkRate,n;			Increases damage of ranged attacks by n%.
+bonus bUnstripable,n;			Armor cannot be taken off via strip skills (n is meaningless)
+bonus2 bHPDrainValueRace,r,n;		Heals +n HP when attacking a monster of race r with normal attack.
+bonus2 bSPDrainValueRace,r,n;		Heals +n SP when attacking a monster of race r with normal attack.
+bonus bMagicSPGainValue,n;		Heals +n SP when killing an enemy with magic attack.
+bonus bMagicHPGainValue,n;		Heals +n HP when killing an enemy with magic attack.
+
+bonus3 bAddClassDropItem,s,x,n;		Adds an n/100% chance of dropping item s when killing monster class x.
+
+bonus2 bHPGainRaceAttack,x,n;		Heals n HP when attacking x Race on every hit
+bonus2 bSPGainRaceAttack,x,n;		Heals n SP when attacking x Race on every hit

@@ -595,7 +595,7 @@ ACMD_FUNC(who)
 	for (pl_sd = (TBL_PC*)mapit_first(iter); mapit_exists(iter); pl_sd = (TBL_PC*)mapit_next(iter))	{
 		if (!((pc_has_permission(pl_sd, PC_PERM_HIDE_SESSION) || (pl_sd->sc.option & OPTION_INVISIBLE)) && pc_get_group_level(pl_sd) > level)) { // you can look only lower or same level
 			if (stristr(pl_sd->status.name, player_name) == NULL // search with no case sensitive
-				|| map_id >= 0 && pl_sd->bl.m != map_id)
+				|| (map_id >= 0 && pl_sd->bl.m != map_id))
 				continue;
 			switch (display_type) {
 				case 2: {
@@ -896,14 +896,12 @@ ACMD_FUNC(hide)
 			status_set_viewdata(&sd->bl, sd->status.class_);
 		clif_displaymessage(fd, msg_txt(10)); // Invisible: Off
 
-		if( map[sd->bl.m].flag.pvp )
-		{// increment the number of pvp players on the map
-			map[sd->bl.m].users_pvp++;
+		// increment the number of pvp players on the map
+		map[sd->bl.m].users_pvp++;
 
-			if( !map[sd->bl.m].flag.pvp_nocalcrank )
-			{// register the player for ranking calculations
-				sd->pvp_timer = add_timer( gettick() + 200, pc_calc_pvprank_timer, sd->bl.id, 0 );
-			}
+		if( map[sd->bl.m].flag.pvp && !map[sd->bl.m].flag.pvp_nocalcrank )
+		{// register the player for ranking calculations
+			sd->pvp_timer = add_timer( gettick() + 200, pc_calc_pvprank_timer, sd->bl.id, 0 );
 		}
 		//bugreport:2266
 		map_foreachinmovearea(clif_insight, &sd->bl, AREA_SIZE, sd->bl.x, sd->bl.y, BL_ALL, &sd->bl);
@@ -912,15 +910,13 @@ ACMD_FUNC(hide)
 		sd->vd.class_ = INVISIBLE_CLASS;
 		clif_displaymessage(fd, msg_txt(11)); // Invisible: On
 
-		if( map[sd->bl.m].flag.pvp )
-		{// decrement the number of pvp players on the map
-			map[sd->bl.m].users_pvp--;
+		// decrement the number of pvp players on the map
+		map[sd->bl.m].users_pvp--;
 
-			if( !map[sd->bl.m].flag.pvp_nocalcrank && sd->pvp_timer != INVALID_TIMER )
-			{// unregister the player for ranking
-				delete_timer( sd->pvp_timer, pc_calc_pvprank_timer );
-				sd->pvp_timer = INVALID_TIMER;
-			}
+		if( map[sd->bl.m].flag.pvp && !map[sd->bl.m].flag.pvp_nocalcrank && sd->pvp_timer != INVALID_TIMER )
+		{// unregister the player for ranking
+			delete_timer( sd->pvp_timer, pc_calc_pvprank_timer );
+			sd->pvp_timer = INVALID_TIMER;
 		}
 	}
 	clif_changeoption(&sd->bl);
@@ -1219,17 +1215,17 @@ ACMD_FUNC(kami)
 	memset(atcmd_output, '\0', sizeof(atcmd_output));
 
 	if(*(command + 5) != 'c' && *(command + 5) != 'C') {
-
 		if (!message || !*message) {
 			clif_displaymessage(fd, "Please, enter a message (usage: @kami <message>).");
 			return -1;
 		}
 
 		sscanf(message, "%199[^\n]", atcmd_output);
-		intif_broadcast(atcmd_output, strlen(atcmd_output) + 1, (*(command + 5) == 'b' || *(command + 5) == 'B') ? 0x10 : 0);
-	
+		if (strstr(command, "l") != NULL)
+			clif_broadcast(&sd->bl, atcmd_output, strlen(atcmd_output) + 1, 0, ALL_SAMEMAP);
+		else
+			intif_broadcast(atcmd_output, strlen(atcmd_output) + 1, (*(command + 5) == 'b' || *(command + 5) == 'B') ? 0x10 : 0);
 	} else {
-	
 		if(!message || !*message || (sscanf(message, "%lx %199[^\n]", &color, atcmd_output) < 2)) {
 			clif_displaymessage(fd, "Please, enter color and message (usage: @kamic <color> <message>).");
 			return -1;
@@ -1239,7 +1235,6 @@ ACMD_FUNC(kami)
 			clif_displaymessage(fd, "Invalid color.");
 			return -1;
 		}
-	
 		intif_broadcast2(atcmd_output, strlen(atcmd_output) + 1, color, 0x190, 12, 0, 0);
 	}
 	return 0;
@@ -1613,13 +1608,13 @@ ACMD_FUNC(help)
 		StringBuf_AppendStr(&buf, "Available aliases:");
 		command_info = get_atcommandinfo_byname(command_name);
 		iter = db_iterator(atcommand_alias_db);
-		for (alias_info = (AliasInfo*)dbi_first(iter); dbi_exists(iter); alias_info = (AliasInfo*)dbi_next(iter)) {
+		for (alias_info = dbi_first(iter); dbi_exists(iter); alias_info = dbi_next(iter)) {
 			if (alias_info->command == command_info) {
 				StringBuf_Printf(&buf, " %s", alias_info->alias);
 				has_aliases = true;
 			}
 		}
-		iter->destroy(iter);
+		dbi_destroy(iter);
 		if (has_aliases)
 			clif_displaymessage(fd, StringBuf_Value(&buf));
 		StringBuf_Destroy(&buf);
@@ -5403,7 +5398,7 @@ ACMD_FUNC(skilltree)
 	c = pc_calc_skilltree_normalize_job(pl_sd);
 	c = pc_mapid2jobid(c, pl_sd->status.sex);
 
-	sprintf(atcmd_output, "Player is using %s skill tree (%d basic points)", job_name(c), pc_checkskill(pl_sd, 1));
+	sprintf(atcmd_output, "Player is using %s skill tree (%d basic points)", job_name(c), pc_checkskill(pl_sd, NV_BASIC));
 	clif_displaymessage(fd, atcmd_output);
 
 	ARR_FIND( 0, MAX_SKILL_TREE, j, skill_tree[c][j].id == 0 || skill_tree[c][j].id == skillnum );
@@ -6401,6 +6396,7 @@ ACMD_FUNC(uptime)
 ACMD_FUNC(changesex)
 {
 	nullpo_retr(-1, sd);
+	pc_resetskill(sd,4);
 	chrif_changesex(sd);
 	return 0;
 }
@@ -8125,7 +8121,8 @@ ACMD_FUNC(stats)
 		{ "Luk - %3d", 0 },
 		{ "Zeny - %d", 0 },
 		{ "Free SK Points - %d", 0 },
-		{ "JobChangeLvl - %d", 0 },
+		{ "JobChangeLvl (2nd) - %d", 0 },
+		{ "JobChangeLvl (3rd) - %d", 0 },
 		{ NULL, 0 }
 	};
 
@@ -8148,7 +8145,8 @@ ACMD_FUNC(stats)
 	output_table[11].value = sd->status.luk;
 	output_table[12].value = sd->status.zeny;
 	output_table[13].value = sd->status.skill_point;
-	output_table[14].value = sd->change_level;
+	output_table[14].value = sd->change_level_2nd;
+	output_table[15].value = sd->change_level_3rd;
 
 	sprintf(job_jobname, "Job - %s %s", job_name(sd->status.class_), "(level %d)");
 	sprintf(output, msg_txt(53), sd->status.name); // '%s' stats:
@@ -8271,7 +8269,7 @@ static void atcommand_commands_sub(struct map_session_data* sd, const int fd, At
 	char line_buff[CHATBOX_SIZE];
 	char* cur = line_buff;
 	AtCommandInfo* cmd;
-	DBIterator* iter = atcommand_db->iterator(atcommand_db);
+	DBIterator *iter = db_iterator(atcommand_db);
 	int count = 0;
 
 	memset(line_buff,' ',CHATBOX_SIZE);
@@ -8279,7 +8277,7 @@ static void atcommand_commands_sub(struct map_session_data* sd, const int fd, At
 
 	clif_displaymessage(fd, msg_txt(273)); // "Commands available:"
 
-	for (cmd = (AtCommandInfo*)iter->first(iter, NULL); iter->exists(iter); cmd = (AtCommandInfo*)iter->next(iter, NULL)) {
+	for (cmd = dbi_first(iter); dbi_exists(iter); cmd = dbi_next(iter)) {
 		unsigned int slen = 0;
 
 		if (!pc_can_use_command(sd, cmd->command, type))
@@ -8301,7 +8299,7 @@ static void atcommand_commands_sub(struct map_session_data* sd, const int fd, At
 
 		count++;
 	}
-	iter->destroy(iter);
+	dbi_destroy(iter);
 	clif_displaymessage(fd,line_buff);
 
 	sprintf(atcmd_output, msg_txt(274), count); // "%d commands found."
@@ -8374,6 +8372,7 @@ void atcommand_basecommands(void) {
 		ACMD_DEF(kami),
 		ACMD_DEF2("kamib", kami),
 		ACMD_DEF2("kamic", kami),
+		ACMD_DEF2("lkami", kami),
 		ACMD_DEF(heal),
 		ACMD_DEF(item),
 		ACMD_DEF(item2),
@@ -8633,7 +8632,6 @@ bool is_atcommand(const int fd, struct map_session_data* sd, const char* message
 	char charname2[NAME_LENGTH], params2[100];
 	char command[100];
 	char output[CHAT_SIZE_MAX];
-	int lv = 0;
 	
 	//Reconstructed message
 	char atcmd_msg[CHAT_SIZE_MAX];
@@ -8856,31 +8854,19 @@ static void atcommand_config_read(const char* config_filename)
 	return;
 }
 
-static int atcommand_db_free(DBKey key, void *data, va_list va)
-{
-	aFree((AtCommandInfo*)data);
-	return 1;
-}
-
-static int atcommand_alias_db_free(DBKey key, void *data, va_list va)
-{
-	aFree((AliasInfo*)data);
-	return 1;
-}
-
 void atcommand_db_clear(void)
 {
 	if (atcommand_db != NULL)
-		atcommand_db->destroy(atcommand_db, atcommand_db_free);
+		db_destroy(atcommand_db);
 	if (atcommand_alias_db != NULL)
-		atcommand_alias_db->destroy(atcommand_alias_db, atcommand_alias_db_free);
+		db_destroy(atcommand_alias_db);
 }
 
 void atcommand_doload(void)
 {
 	atcommand_db_clear();
-	atcommand_db = stridb_alloc(DB_OPT_DUP_KEY, ATCOMMAND_LENGTH);
-	atcommand_alias_db = stridb_alloc(DB_OPT_DUP_KEY, ATCOMMAND_LENGTH);
+	atcommand_db = stridb_alloc(DB_OPT_DUP_KEY|DB_OPT_RELEASE_DATA, ATCOMMAND_LENGTH);
+	atcommand_alias_db = stridb_alloc(DB_OPT_DUP_KEY|DB_OPT_RELEASE_DATA, ATCOMMAND_LENGTH);
 	atcommand_basecommands(); //fills initial atcommand_db with known commands
 	atcommand_config_read(ATCOMMAND_CONF_FILENAME);
 }

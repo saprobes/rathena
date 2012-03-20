@@ -37,6 +37,7 @@
 //    0x0800- usable only on guild-mates (and enemies if skill is offensive)
 //    0x1000- disable usage on enemies (for non-offensive skills).
 //    0x2000- skill ignores land protector (e.g. arrow shower)
+//    0x4000- chorus skill
 // 13 maxcount: max amount of skill instances to place on the ground when
 //    player_land_skill_limit/monster_land_skill_limit is enabled. For skills
 //    that attack using a path, this is the path length to be used.
@@ -129,7 +130,7 @@
 84,9,8,1,4,0,0,10,3:4:5:6:7:8:9:10:11:12,yes,0,0,0,magic,2:3:3:4:4:5:5:6:6:7,	WZ_JUPITEL,Jupitel Thunder
 85,9,8,2,4,0,0,10,-10,yes,0,0,0,magic,0,		WZ_VERMILION,Lord of Vermilion
 86,9,8,1,1,0,0,5,1,yes,0,0,0,magic,0,		WZ_WATERBALL,Water Ball
-87,9,6,2,1,0,0,10,1,yes,0,0,0,magic,0,		WZ_ICEWALL,Ice Wall
+87,9,6,2,1,0x1,0,10,1,yes,0,0,0,magic,0,		WZ_ICEWALL,Ice Wall
 88,0,6,4,1,0x2,2,10,1,yes,0,0,0,magic,0,		WZ_FROSTNOVA,Frost Nova
 89,9,6,2,1,0,0,10,1,yes,0,0,0,magic,2,		WZ_STORMGUST,Storm Gust
 90,9,8,1,2,0,0,5,1:2:3:4:5,yes,0,0,0,magic,0,	WZ_EARTHSPIKE,Earth Spike
@@ -166,7 +167,7 @@
 121,3,6,2,1,0x42,1,5,1,no,0,0x80,0,weapon,0,	HT_FREEZINGTRAP,Freezing Trap
 122,3,6,2,4,0x42,1,5,1,no,0,0x80,0,misc,0,	HT_BLASTMINE,Blast Mine
 123,3,6,2,3,0x42,2,5,1,no,0,0x80,0,misc,0,	HT_CLAYMORETRAP,Claymore Trap
-124,3,6,32,0,0x1,0,1,1,no,0,0,0,misc,0,		HT_REMOVETRAP,Remove Trap
+124,2,6,32,0,0x1,0,1,1,no,0,0,0,misc,0,		HT_REMOVETRAP,Remove Trap
 125,3,6,2,0,0x1,0,1,1,no,0,0x80,0,misc,0,		HT_TALKIEBOX,Talkie Box
 126,0,0,0,0,0,0,10,0,no,0,0,0,weapon,0,		HT_BEASTBANE,Beast Bane
 127,0,0,0,0,0,0,1,0,no,0,0,0,misc,0,		HT_FALCON,Falconry Mastery
@@ -666,7 +667,7 @@
 //****
 // RK Rune Knight
 //****
-2001,1,6,16,0,0x1,0,5,1,yes,0,0,0,none,0,	RK_ENCHANTBLADE,Enchant Blade
+2001,1,6,4,0,0x1,0,5,1,yes,0,0,0,none,0,	RK_ENCHANTBLADE,Enchant Blade
 2002,7:8:9:10:11,6,1,-1,0,0,5,1,no,0,0,0,weapon,0,	RK_SONICWAVE,Sonic Wave
 2003,0,6,4,0,0x1,0,10,1,no,0,0,0,weapon,0,	RK_DEATHBOUND,Death Bound
 2004,1,8,1,-1,0,0,10,-5,no,0,0,0,weapon,0,	RK_HUNDREDSPEAR,Hundred Spear
@@ -829,10 +830,34 @@
 2283,2,6,1,0,0x1,0,1,1,no,0,0,0,none,0,		NC_DISJOINT,FAW Removal
 
 //****
+// SC Shadow Chaser
+2284,1,6,1,-1,0x2,1,5,1,no,0,0,0,weapon,0,	SC_FATALMENACE,Fatal Menace
+2285,0,6,4,0,0x1,0,10,1,no,0,0,0,none,0,	SC_REPRODUCE,Reproduce
+2286,0,6,4,0,0x1,0,10,1,yes,0,0,0,none,0,	SC_AUTOSHADOWSPELL,Auto Shadow Spell
+2287,5,6,1,0,0x1,0,5,1,no,0,0,0,none,0,		SC_SHADOWFORM,Shadow Form
+2288,7:7:7:9:9:9:9:11:11:11,8,1,-1,0,0,10,-3,yes,0,0,0,weapon,3,	SC_TRIANGLESHOT,Triangle Shot
+2289,0,6,4,0,0x3,2,5,1,no,0,0,0,none,0,		SC_BODYPAINT,Body Painting
+2290,0,6,4,0,0x1,0,5,1,yes,0,0,0,none,0,	SC_INVISIBILITY,Invisibility
+2291,0,6,4,0,0x1,0,5,1,no,0,0,0,none,0,		SC_DEADLYINFECT,Deadly Infect
+2292,3,6,1,0,0x1,0,3,1,yes,0,0,0,none,0,	SC_ENERVATION,Masquerade - Enervation
+2293,3,6,1,0,0x1,0,3,1,yes,0,0,0,none,0,	SC_GROOMY,Masquerade - Gloomy
+2294,3,6,1,0,0x1,0,3,1,yes,0,0,0,none,0,	SC_IGNORANCE,Masquerade - Ignorance
+2295,3,6,1,0,0x1,0,3,1,yes,0,0,0,none,0,	SC_LAZINESS,Masquerade - Laziness
+2296,3,6,1,0,0x1,0,3,1,yes,0,0,0,none,0,	SC_UNLUCKY,Masquerade - Unlucky
+2297,3,6,1,0,0x1,0,3,1,yes,0,0,0,none,0,	SC_WEAKNESS,Masquerade - Weakness
+2298,3,6,1,0,0x1,0,5,1,yes,0,0,0,weapon,0,	SC_STRIPACCESSARY,Strip Accessory //CHECK Is weapon attack type needed?
+2299,7,6,2,0,0x1,0,3,1,yes,0,0,3,none,0,	SC_MANHOLE,Man Hole
+2300,7,6,2,0,0x1,0,3,1,yes,0,0,1,none,0,	SC_DIMENSIONDOOR,Dimension Door
+2301,7,6,2,0,0x1,0,3,1,yes,0,0,0,none,0,	SC_CHAOSPANIC,Chaos Panic
+2302,7,6,2,0,0x1,0,3,1,yes,0,0,0,none,0,	SC_MAELSTROM,Maelstrom
+2303,7,6,2,0,0x1,0,3,1,yes,0,0,0,none,0,	SC_BLOODYLUST,Bloody Lust
+2304,0,6,4,-1,0,0,3,1,no,0,0,0,weapon,0,	SC_FEINTBOMB,Feint Bomb
+
+//****
 // LG Royal Guard
 2307,11,8,1,-1,0,2,5,1,no,0,0,10,weapon,0,	LG_CANNONSPEAR,Cannon Spear
 2308,7,6,1,-1,0,0,10,1,no,0,0,0,weapon,0,	LG_BANISHINGPOINT,Banishing Point
-2309,0,6,4,0,0x3,2,5,1,no,0,0,0,none,0,		LG_TRAMPLE,Trample
+2309,0,6,4,0,0x3,2,3,1,no,0,0,0,none,0,		LG_TRAMPLE,Trample
 2310,1,6,1,0,0,0,5,1,no,0,0,0,weapon,0,		LG_SHIELDPRESS,Shield Press
 2311,0,6,4,0,0x3,3,5,1,no,0,0,0,none,0,	LG_REFLECTDAMAGE,Reflect Damage
 2312,5,6,1,-1,0,0,5,1,no,0,0,0,weapon,0,	LG_PINPOINTATTACK,Pinpoint Attack
@@ -849,6 +874,73 @@
 2323,0,8,4,2,0x2,1:1:2:2:3,5,-5,yes,0,0,0,weapon,0,	LG_EARTHDRIVE,Earth Drive
 2324,3,8,1,-1,0,0,5,3,yes,0,0,0,weapon,0,	LG_HESPERUSLIT,Hesperus Lit
 2325,0,6,4,0,0x1,0,5,1,yes,0,0,0,none,0,	LG_INSPIRATION,Inspiration
+
+//****
+// SR Sura
+2326,-2,8,1,-1,0,0,10,2,no,0,0,0,weapon,0,	SR_DRAGONCOMBO,Dragon Combo //CHECK Is this 2 regular hits or sub hits? Yes its 2 sub hits.
+2327,0,8,4,-1,0x2,2,5,-3,no,0,0,0,weapon,3,	SR_SKYNETBLOW,Sky Net Blow //CHECK Video shows 3 hits. Its sub hits right? Data check shows no sub, one source shows 3 hits, another shows 5.
+2328,0,6,4,-1,0x2,1:2:3:4:5,5,1,no,0,0,0,weapon,0,	SR_EARTHSHAKER,Earth Shaker //CHECK Must add a check in battle.c to triple damage if hitting a hidden target.
+2329,-2,8,4,-1,0,0,5,-2,no,0,0x200,0,weapon,0,	SR_FALLENEMPIRE,Fallen Empire //CHECK Video shows 2 hits. Is it sub hits? Yes its divided between 2 hits.
+2330,-2,6,1,-1,0x42,1:1:1:1:1:2:2:2:2:2,10,1,yes,0,0,0,weapon,0,	SR_TIGERCANNON,Tiger Cannon //CHECK Need to fix to be enemy targeted and also combo after Fallen Empire.
+2331,0,0,0,0,0,0,10,0,no,0,0,0,none,0,		SR_HELLGATE,Hell Gate
+2332,5,6,4,-1,0x2,3,5,1,no,0,0,0,weapon,0,	SR_RAMPAGEBLASTER,Rampage Blaster
+2333,0,6,4,0,0x1,0,5,1,no,0,0,0,none,0,		SR_CRESCENTELBOW,Crescent Elbow //CHECK Check the autospell ID.
+2334,0,6,4,0,0x3,1:1:2:2:3,5,1,no,0,0,0,none,0,	SR_CURSEDCIRCLE,Cursed Circle //CHECK Code shows it takes up to 5% of your HP upon use?
+2335,0,6,4,0,0x1,0,5,1,no,0,0,0,none,0,		SR_LIGHTNINGWALK,Lightning Walk
+2336,7:8:9:10:11,6,1,-1,0,0,5,1,no,0,0,0,weapon,2:3:4:5:6,	SR_KNUCKLEARROW,Knuckle Arrow
+2337,0,6,4,-1,0x2,2,1,1,yes,0,0,0,weapon,0,	SR_WINDMILL,Windmill
+2338,0,6,4,0,0x1,0,10,1,no,0,0,0,none,0,	SR_RAISINGDRAGON,Raising Dragon
+2339,0,0,0,0,0,0,5,1,no,0,0,0,none,0,		SR_GENTLETOUCH,Gentle Touch
+2340,0,6,4,0,0x3,2,1,1,no,0,0,0,none,0,	SR_ASSIMILATEPOWER,Assimilate Power
+2341,3,6,16,0,0x1,0,1,1,yes,0,0x200,0,none,0,	SR_POWERVELOCITY,Power Velocity
+2342,1,6,1,-1,0x20,0,5,1,no,0,0,0,weapon,3,	SR_CRESCENTELBOW_AUTOSPELL,Crescent Elbow Autospell //CHECK Does this ignore defense?
+2343,1:2:3:3:4:4:5:5:6:7,8,1,0,0,0,10,-7,yes,0,0,0,weapon,0,	SR_GATEOFHELL,Gate of Hell //CHECK Need to fix to be enemy targeted and also combo after Fallen Empire
+2344,2,6,1,-1,0,0,5,1,no,0,0,0,weapon,0,	SR_GENTLETOUCH_QUIET,Gentle Touch - Quiet
+2345,2,6,16,0,0x1,0,5,1,no,0,0,0,magic,0,	SR_GENTLETOUCH_CURE,Gentle Touch - Cure //CHECK Its a healing skill. Guessing it has to be magic type? Healing isnt working.
+2346,0,6,4,0,0x1,0,5,1,yes,0,0,0,none,0,	SR_GENTLETOUCH_ENERGYGAIN,Gentle Touch - Energy Gain
+2347,2,6,16,0,0x1,0,5,1,yes,0,0,0,none,0,	SR_GENTLETOUCH_CHANGE,Gentle Touch - Change
+2348,2,6,16,0,0x1,0,5,1,yes,0,0,0,none,0,	SR_GENTLETOUCH_REVITALIZE,Gentle Touch - Revitalize
+//More from Sura but not following ID order
+2517,0,6,4,-1,0x2,3:4:5:6:7,5,1,no,0,0,0,weapon,0,	SR_HOWLINGOFLION,Howling of Lion
+2518,11,6,2,-1,0x2,2:2:3:3:4,5,1,no,0,0,0,weapon,0,	SR_RIDEINLIGHTNING,Ride In Lightening
+
+//****
+// WA Wanderer
+2350,0,6,4,0,0x3,7:8:9:10:11,5,1,yes,0,0,0,none,0,	WA_SWING_DANCE,Swing Dance
+2351,0,6,4,0,0x3,7:8:9:10:11,5,1,yes,0,0,0,none,0,	WA_SYMPHONY_OF_LOVER,Symphony of Lovers
+2352,0,6,4,0,0x3,7:8:9:10:11,5,1,yes,0,0,0,none,0,	WA_MOONLIT_SERENADE,Moonlit Serenade
+
+//****
+// MI Minstrel
+2381,0,6,4,0,0x3,7:8:9:10:11,5,1,yes,0,0,0,none,0,	MI_RUSH_WINDMILL,Windmill Rush Attack
+2382,0,6,4,0,0x3,7:8:9:10:11,5,1,yes,0,0,0,none,0,	MI_ECHOSONG,Echo Song
+2383,9,6,16,0,0x1,0,5,1,yes,0,0,0,none,0,	MI_HARMONIZE,Harmonize
+
+//****
+// WM Wanderer/Minstrel
+2412,0,0,0,0,0,0,10,0,no,0,0,0,none,0,		WM_LESSON,Lesson
+2413,9,8,1,-1,0,0,5,-2:-2:-3:-3:-4,yes,0,0,0,magic,0,	WM_METALICSOUND,Metallic Sound
+2414,9,6,2,-1,0x3,1,5,1,yes,0,0x80,3,none,0,	WM_REVERBERATION,Reverberation //CHECK May need to recode. Testing needed.
+2415,0,6,1,-1,0x2,1,5,1,no,0,0,0,weapon,0,	WM_REVERBERATION_MELEE,Reverberation Melee
+2416,0,6,1,-1,0x2,1,5,1,no,0,0,0,magic,0,	WM_REVERBERATION_MAGIC,Reverberation Magic
+2417,11,6,2,0,0x3,5,1,1,no,0,0,0,none,0,	WM_DOMINION_IMPULSE,Dominion Impulse
+2418,9,6,2,-1,0x1,0,5,1,yes,0,0,0,none,0,	WM_SEVERE_RAINSTORM,Severe Rainstorm
+2419,9,6,2,0,0x3,1,5,1,yes,0,0x80,5,none,0,	WM_POEMOFNETHERWORLD,Poem of The Netherworld //CHECK May need to recode too.
+2420,0,6,4,0,0x2,2:3:4:5:6,5,1,yes,0,0,0,none,0,	WM_VOICEOFSIREN,Voice of Siren
+2421,7,6,16,0,0x1,0,5,1,yes,0,0,0,none,0,	WM_DEADHILLHERE,Valley of Death
+2422,7,6,2,0,0x3,5:6:7:8:9,5,1,yes,0,0,0,none,0,	WM_LULLABY_DEEPSLEEP,Deep Sleep Lullaby
+2423,0,6,4,0,0x3,3:4:5:6:7,5,1,yes,0,0,0,none,0,	WM_SIRCLEOFNATURE,Circle of Nature's Sound
+2424,9,6,4,0,0x1,0,5,1,yes,0,0,0,magic,0,	WM_RANDOMIZESPELL,Improvised Song
+2425,9,6,16,0,0x1,0,5,1,yes,0,0,0,none,0,	WM_GLOOMYDAY,Gloomy Day
+2426,9,6,2,0,0x2,2:3:3:4:4,5,1,yes,0,0x4000,0,weapon,0,	WM_GREAT_ECHO,Great Echo
+2427,0,6,4,0,0x3,5:6:7:8:9,5,1,yes,0,0x4000,0,none,0,	WM_SONG_OF_MANA,Song of Mana
+2428,0,6,4,0,0x3,5:6:7:8:9,5,1,yes,0,0x4000,0,none,0,	WM_DANCE_WITH_WUG,Dance With A Warg
+2429,9,6,1,0,0x2,2:2:3:3:4,5,1,yes,0,0x4000,0,weapon,0,	WM_SOUND_OF_DESTRUCTION,Sound of Destruction //CHECK Source shows its magic attack. Need to confirm before changing.
+2430,0,6,4,0,0x3,3:4:5:6:7,5,1,yes,0,0x4000,0,none,0,	WM_SATURDAY_NIGHT_FEVER,Saturday Night Fever
+2431,0,6,4,0,0x3,5,5,1,yes,0,0x4000,0,magic,0,	WM_LERADS_DEW,Lerad's Dew
+2432,0,6,4,0,0x3,5,5,1,yes,0,0x4000,0,none,0,	WM_MELODYOFSINK,Melody of Sink
+2433,0,6,4,0,0x3,5,5,1,yes,0,0x4000,0,none,0,	WM_BEYOND_OF_WARCRY,Warcry of Beyond
+2434,0,6,4,0,0x3,5,5,1,yes,0,0x4000,0,none,0,	WM_UNLIMITED_HUMMING_VOICE,Unlimited Humming Voice
 
 //2021,0,0,0,0,0,0,9,0,no,0,0,0,none,0		GC_VENOMIMPRESS,
 //2022,0,0,0,0,0,0,9,0,no,0,0,0,none,0		GC_CROSSIMPACT,

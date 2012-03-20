@@ -275,8 +275,7 @@ int chrif_save(struct map_session_data *sd, int flag)
 			ShowError("chrif_save: Failed to set up player %d:%d for proper quitting!\n", sd->status.account_id, sd->status.char_id);
 	}
 
-	if(!chrif_isconnected())
-		return -1; //Character is saved on reconnect.
+	chrif_check(-1); //Character is saved on reconnect.
 
 	//For data sync
 	if (sd->state.storage_flag == 2)
@@ -459,13 +458,18 @@ int chrif_connectack(int fd)
 	if( !char_init_done ) {
 		char_init_done = true;
 		ShowStatus("Event '"CL_WHITE"OnInterIfInitOnce"CL_RESET"' executed with '"CL_WHITE"%d"CL_RESET"' NPCs.\n", npc_event_doall("OnInterIfInitOnce"));
+		guild_castle_map_init();
 	}
 
 	return 0;
 }
-static int chrif_reconnect(DBKey key,void *data,va_list ap)
+
+/**
+ * @see DBApply
+ */
+static int chrif_reconnect(DBKey key, DBData *data, va_list ap)
 {
-	struct auth_node *node=(struct auth_node*)data;
+	struct auth_node *node = db_data2ptr(data);
 	switch (node->state) {
 	case ST_LOGIN:
 		if (node->sd && node->char_dat == NULL)
@@ -510,6 +514,9 @@ void chrif_on_ready(void)
 
 	//Re-save any storages that were modified in the disconnection time. [Skotlex]
 	do_reconnect_storage();
+
+	//Re-save any guild castles that were modified in the disconnection time.
+	guild_castle_reconnect(-1, 0, 0);
 }
 
 
@@ -552,8 +559,7 @@ void chrif_authreq(struct map_session_data *sd)
 {
 	struct auth_node *node= chrif_search(sd->bl.id);
 
-	if( node != NULL )
-	{
+	if( node != NULL || !chrif_isconnected() ) {
 		set_eof(sd->fd);
 		return;
 	}
@@ -667,10 +673,13 @@ void chrif_authfail(int fd)
 }
 
 
-//This can still happen (client times out while waiting for char to confirm auth data)
-int auth_db_cleanup_sub(DBKey key,void *data,va_list ap)
+/**
+ * This can still happen (client times out while waiting for char to confirm auth data)
+ * @see DBApply
+ */
+int auth_db_cleanup_sub(DBKey key, DBData *data, va_list ap)
 {
-	struct auth_node *node=(struct auth_node*)data;
+	struct auth_node *node = db_data2ptr(data);
 	const char* states[] = { "Login", "Logout", "Map change" };
 	if(DIFF_TICK(gettick(),node->node_created)>60000) {
 		switch (node->state)
@@ -692,9 +701,8 @@ int auth_db_cleanup_sub(DBKey key,void *data,va_list ap)
 	return 0;
 }
 
-int auth_db_cleanup(int tid, unsigned int tick, int id, intptr_t data)
-{
-	if(!chrif_isconnected()) return 0;
+int auth_db_cleanup(int tid, unsigned int tick, int id, intptr_t data) {
+	chrif_check(0);
 	auth_db->foreach(auth_db, auth_db_cleanup_sub);
 	return 0;
 }
@@ -1557,10 +1565,12 @@ int chrif_removefriend(int char_id, int friend_id) {
 	return 0;
 }
 
-
-int auth_db_final(DBKey k,void *d,va_list ap)
+/**
+ * @see DBApply
+ */
+int auth_db_final(DBKey key, DBData *data, va_list ap)
 {
-	struct auth_node *node=(struct auth_node*)d;
+	struct auth_node *node = db_data2ptr(data);
 	if (node->char_dat)
 		aFree(node->char_dat);
 	if (node->sd)

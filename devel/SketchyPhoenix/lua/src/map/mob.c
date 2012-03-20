@@ -554,11 +554,8 @@ static int mob_spawn_guardian_sub(int tid, unsigned int tick, int id, intptr_t d
 				guild_castledatasave(md->guardian_data->castle->castle_id, 1, 0);
 			}
 		} else {
-			if( md->guardian_data->number >= 0 && md->guardian_data->number < MAX_GUARDIANS && md->guardian_data->castle->guardian[md->guardian_data->number].visible )
-			{	//Safe removal of guardian.
-				md->guardian_data->castle->guardian[md->guardian_data->number].visible = 0;
+			if (md->guardian_data->number >= 0 && md->guardian_data->number < MAX_GUARDIANS && md->guardian_data->castle->guardian[md->guardian_data->number].visible)
 				guild_castledatasave(md->guardian_data->castle->castle_id, 10+md->guardian_data->number,0);
-			}
 			unit_free(&md->bl,CLR_OUTSIGHT); //Remove guardian.
 		}
 		return 0;
@@ -2197,6 +2194,7 @@ int mob_dead(struct mob_data *md, struct block_list *src, int type)
 			{
 				if( md->dmglog[i].flag != MDLF_PET || battle_config.pet_attack_exp_to_master ) {
 #if REMODE
+				if(!md->db->mexp)
 					party_renewal_exp_mod(&base_exp,&job_exp,tmpsd[i]->status.base_level,md->level);
 #endif
 					pc_gainexp(tmpsd[i], &md->bl, base_exp, job_exp, false);
@@ -2269,7 +2267,7 @@ int mob_dead(struct mob_data *md, struct block_list *src, int type)
 			if (sd && sd->sc.data[SC_ITEMBOOST]) // now rig the drop rate to never be over 90% unless it is originally >90%.
 				drop_rate = max(drop_rate,cap_value((int)(0.5+drop_rate*(sd->sc.data[SC_ITEMBOOST]->val1)/100.),0,9000));
 #if RE_DROP_MOD
-			if( drop_modifier != 100 )
+			if(drop_modifier != 100 && !md->db->mexp)
 				drop_rate = drop_rate * drop_modifier / 100;
 #endif
 			// attempt to drop the item
@@ -2523,13 +2521,10 @@ void mob_revive(struct mob_data *md, unsigned int hp)
 		clif_charnameack (0, &md->bl);
 }
 
-int mob_guardian_guildchange(struct block_list *bl,va_list ap)
+int mob_guardian_guildchange(struct mob_data *md)
 {
-	struct mob_data *md;
-	struct guild* g;
-
-	nullpo_ret(bl);
-	nullpo_ret(md = (struct mob_data *)bl);
+	struct guild *g;
+	nullpo_ret(md);
 
 	if (!md->guardian_data)
 		return 0;
@@ -2542,11 +2537,8 @@ int mob_guardian_guildchange(struct block_list *bl,va_list ap)
 			md->guardian_data->emblem_id = 0;
 			md->guardian_data->guild_name[0] = '\0';
 		} else {
-			if( md->guardian_data->number >= 0 && md->guardian_data->number < MAX_GUARDIANS && md->guardian_data->castle->guardian[md->guardian_data->number].visible )
-			{	//Safe removal of guardian.
-				md->guardian_data->castle->guardian[md->guardian_data->number].visible = 0;
-				guild_castledatasave(md->guardian_data->castle->castle_id, 10+md->guardian_data->number,0);
-			}
+			if (md->guardian_data->number >= 0 && md->guardian_data->number < MAX_GUARDIANS && md->guardian_data->castle->guardian[md->guardian_data->number].visible)
+				guild_castledatasave(md->guardian_data->castle->castle_id, 10+md->guardian_data->number, 0);
 			unit_free(&md->bl,CLR_OUTSIGHT); //Remove guardian.
 		}
 		return 0;
@@ -2556,11 +2548,8 @@ int mob_guardian_guildchange(struct block_list *bl,va_list ap)
 	if (g == NULL)
 	{	//Properly remove guardian info from Castle data.
 		ShowError("mob_guardian_guildchange: New Guild (id %d) does not exists!\n", md->guardian_data->guild_id);
-		if( md->guardian_data->number >= 0 && md->guardian_data->number < MAX_GUARDIANS )
-		{
-			md->guardian_data->castle->guardian[md->guardian_data->number].visible = 0;
-			guild_castledatasave(md->guardian_data->castle->castle_id, 10+md->guardian_data->number,0);
-		}
+		if (md->guardian_data->number >= 0 && md->guardian_data->number < MAX_GUARDIANS)
+			guild_castledatasave(md->guardian_data->castle->castle_id, 10+md->guardian_data->number, 0);
 		unit_free(&md->bl,CLR_OUTSIGHT);
 		return 0;
 	}
@@ -3753,11 +3742,7 @@ static bool mob_readdb_sub(char* fields[], int columns, int current)
 static void mob_readdb(void)
 {
 	const char* filename[] = {
-#if REMODE
-		"re/mob_db.txt",
-#else
-		"pre-re/mob_db.txt",
-#endif
+		DBPATH"mob_db.txt",
 		"mob_db2.txt" };
 	int fi;
 	
@@ -3884,15 +3869,9 @@ static int mob_read_randommonster(void)
 	char *str[10],*p;
 	int i,j;
 	const char* mobfile[] = {
-#if REMODE
-		"re/mob_branch.txt",
+		DBPATH"mob_branch.txt",
 		"mob_poring.txt",
-		"re/mob_boss.txt",
-#else
-		"pre-re/mob_branch.txt",
-		"mob_poring.txt",
-		"pre-re/mob_boss.txt",
-#endif
+		DBPATH"mob_boss.txt",
 		"mob_pouch.txt"};
 
 	memset(&summon, 0, sizeof(summon));
@@ -4327,11 +4306,7 @@ static bool mob_parse_row_mobskilldb(char** str, int columns, int current)
  *------------------------------------------*/
 static void mob_readskilldb(void) {
 	const char* filename[] = {
-#if REMODE
-		"re/mob_skill_db.txt",
-#else
-		"pre-re/mob_skill_db.txt",
-#endif
+		DBPATH"mob_skill_db.txt",
 		"mob_skill_db2.txt" };
 	int fi;
 
@@ -4490,7 +4465,7 @@ static void mob_load(void)
 	sv_readdb(db_path, "mob_avail.txt", ',', 2, 12, -1, &mob_readdb_mobavail);
 	mob_read_randommonster();
 	mob_readchatdb();
-	sv_readdb(db_path, "mob_race2_db.txt", ',', 2, 20, -1, &mob_readdb_race2);
+	sv_readdb(db_path, DBPATH"mob_race2_db.txt", ',', 2, 20, -1, &mob_readdb_race2);
 }
 
 void mob_reload(void)

@@ -1,65 +1,62 @@
---[[
-	Temporary script variables are stored in Lua and are organized like this:
-	
-	StorageTable[CharID][VariableName] = Value
-	
-	this is stored like a dictionary so it's rather easy to access variables without
-	having to do a long string of loops to figure it out.
---]]
-
-module("storage",package.seeall)
+-- Registry module that player variables are stored in.
 --
--- Temporary Player/NPC Variable Storage
+-- Variables that are temporary (not saved in the database) are stored
+-- in the registry table.
 --
-local _V = {}
+-- require this module if needed in your scripts.
 
-function Set(oid, name, value)
-	local buf = "O_" .. oid
-	if _V[buf] == nil then _V[buf] = {} end
-	_V[buf][name] = value
-	return _V[buf][name]
+-- registry[] is saved to the db
+-- account_registry[] is saved to the db
+-- storage[] is temporary
+local registry = {}
+local account_registry = {}
+local storage = {}
+
+function registry.set( CharID , VarName , Value )
+	return add( CharID , VarName , Value , storage )
 end
 
-function Get(oid, name)
-	local buf = "O_" .. oid
-	return _V[buf][name]
+function registry.get( CharID , VarName )
+	return retrieve( CharID , VarName , storage )
 end
 
-function npcset(oid, name, value)
-	return set(oid,name,value)
+-- Permanent variables are saved to a cache when set and saved to the db later
+function registry.setglobal( CharID , VarName , Value )
+	return add( CharID , VarName , Value , registry )
 end
 
-function npcget(oid, name, value)
-	return get(oid,name,value)
+function registry.getglobal( CharID , VarName , value )
+	return retrieve( CharID , VarName , value , registry )
 end
 
-function set( oid, name, value )
-	return Set( oid, name, value )
+-- Account variables are also saved to a cache when set and saved later to the db
+function registry.setglobal2( ID , VarName , Value )
+	return add( ID , VarName , Value , account_registry )
 end
 
-function get( oid, name, value )
-	return Get( oid, name, value )
+function registry.getglobal2( ID , VarName )
+	return retrieve( ID , VarName , Value , account_registry )
 end
 
 
---
--- Permanent Player Variable Storage
---
-
-local _P = {}
-
-function setstatic(cid, name, value)
-	if _P[cid] == nil then _P[cid] = {} end
-	_P[cid][name] = value
-	return _P[cid][name]
+-- Used when a character logs out
+function registry.destroy( CharID , reg )
+	while true do
+		local k = next( reg[CharID] )
+		if not k then break end
+		reg[CharID][k] = nil
+	end
 end
 
-function getstatic(cid, name)
-	return _P[cid][name]
+local function add( CharID , VarName , Value , reg )
+	if not reg[CharID] then reg[CharID] = {} end
+	reg[CharID][VarName] = Value
+	return reg[CharID][VarName]
 end
 
---
-
-function Save_P(cid)
-
+local function retrieve( CharID , VarName , Value , reg )
+	return reg[CharID][VarName]
 end
+
+
+return registry

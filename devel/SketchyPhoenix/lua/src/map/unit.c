@@ -183,29 +183,6 @@ static int unit_walktoxy_timer(int tid, unsigned int tick, int id, intptr_t data
 		{// mercenary is too far from the master so warp the master's position
 			unit_warp( &sd->md->bl, sd->bl.m, sd->bl.x, sd->bl.y, CLR_TELEPORT );
 		}
-
-		if (sd->state.gmaster_flag &&
-			(battle_config.guild_aura&((agit_flag || agit2_flag)?2:1)) &&
-			(battle_config.guild_aura&(map_flag_gvg2(bl->m)?8:4))
-		)
-		{ //Guild Aura: Likely needs to be recoded, this method seems inefficient.
-			struct guild *g = sd->state.gmaster_flag;
-			int skill, strvit= 0, agidex = 0;
-			if ((skill = guild_checkskill(g, GD_LEADERSHIP)) > 0) strvit |= (skill&0xFFFF)<<16;
-			if ((skill = guild_checkskill(g, GD_GLORYWOUNDS)) > 0) strvit |= (skill&0xFFFF);
-			if ((skill = guild_checkskill(g, GD_SOULCOLD)) > 0) agidex |= (skill&0xFFFF)<<16;
-			if ((skill = guild_checkskill(g, GD_HAWKEYES)) > 0) agidex |= (skill&0xFFFF);
-			if (strvit || agidex)
-			{// replaced redundant foreachinrange call with smaller and much more efficient iteration
-				for( i = 0; i < g->max_member; i++ )
-				{
-					if( g->member[i].online && g->member[i].sd && sd->bl.m == g->member[i].sd->bl.m && check_distance_bl(&sd->bl, &g->member[i].sd->bl, 2) )
-					{// perform the aura on the member as appropriate
-						skill_guildaura_sub(g->member[i].sd, sd->bl.id, strvit, agidex);
-					}
-				}
-			}
-		}
 	} else if (md) {
 		if( map_getcell(bl->m,x,y,CELL_CHKNPC) ) {
 			if( npc_touch_areanpc2(md) ) return 0; // Warped
@@ -427,7 +404,6 @@ int unit_walktobl(struct block_list *bl, struct block_list *tbl, int range, int 
 	}
 	return 0;
 }
-#undef set_mobstate
 
 int unit_run(struct block_list *bl)
 {
@@ -930,6 +906,12 @@ int unit_can_move(struct block_list *bl)
 				sc->data[SC_CLOAKING]->val1 < 3 && !(sc->data[SC_CLOAKING]->val4&1))
 			|| sc->data[SC_MADNESSCANCEL]
 			|| (sc->data[SC_GRAVITATION] && sc->data[SC_GRAVITATION]->val3 == BCT_SELF)
+			|| sc->data[SC_WHITEIMPRISON]
+			|| sc->data[SC_ELECTRICSHOCKER]
+			|| sc->data[SC_BITE]
+			|| sc->data[SC_MAGNETICFIELD]
+			|| sc->data[SC__MANHOLE]
+			|| (sc->data[SC_FEAR] && sc->data[SC_FEAR]->val2 > 0)
 		))
 			return 0;
 	}
@@ -1030,8 +1012,8 @@ int unit_skilluse_id2(struct block_list *src, int target_id, short skill_num, sh
 		sc = NULL; //Unneeded
 
 	//temp: used to signal combo-skills right now.
-	if (sc && sc->data[SC_COMBO] && (sc->data[SC_COMBO]->val1 == skill_num || skill_num == MO_EXTREMITYFIST))
-	{
+	if (sc && sc->data[SC_COMBO] && (sc->data[SC_COMBO]->val1 == skill_num ||
+		skill_num == MO_EXTREMITYFIST || skill_num == SR_DRAGONCOMBO )) {
 		if (sc->data[SC_COMBO]->val2)
 			target_id = sc->data[SC_COMBO]->val2;
 		else
@@ -1137,6 +1119,13 @@ int unit_skilluse_id2(struct block_list *src, int target_id, short skill_num, sh
 				return 0;
 			}
 			break;
+		case WL_WHITEIMPRISON:
+			if( battle_check_target(src,target,BCT_SELF|BCT_ENEMY) < 0 ) {
+				clif_skill_fail(sd,skill_num,0xb,0);
+				return 0;
+			}
+			break;
+
 		}
 		if (!skill_check_condition_castbegin(sd, skill_num, skill_lv))
 			return 0;
@@ -1491,8 +1480,8 @@ int unit_attack(struct block_list *src,int target_id,int continuous)
 			npc_click(sd,(TBL_NPC*)target); // submitted by leinsirk10 [Celest]
 			return 0;
 		}
-		if( pc_is90overweight(sd) )
-		{ // overweight - stop attacking
+		if( pc_is90overweight(sd) || pc_isridingwug(sd) )
+		{ // overweight or mounted on warg - stop attacking
 			unit_stop_attack(src);
 			return 0;
 		}
@@ -1990,6 +1979,9 @@ int unit_remove_map_(struct block_list *bl, clr_type clrtype, const char* file, 
 		status_change_end(bl, SC_CHANGE, INVALID_TIMER);
 		status_change_end(bl, SC_STOP, INVALID_TIMER);
 		status_change_end(bl, SC_WUGDASH, INVALID_TIMER);
+		status_change_end(bl, SC__SHADOWFORM, INVALID_TIMER);
+		status_change_end(bl, SC__MANHOLE, INVALID_TIMER);
+
 	}
 
 	if (bl->type&(BL_CHAR|BL_PET)) {

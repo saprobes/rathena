@@ -1519,7 +1519,7 @@ LUA_FUNC(getequippercentrefinery)
 		i=pc_checkequip(sd,equip[num-1]);
 	}
 	if(i >= 0 && sd->status.inventory[i].nameid && sd->status.inventory[i].refine < MAX_REFINE) {
-		lua_pushinteger(NL,percentrefinery[itemdb_wlv(sd->status.inventory[i].nameid)][(int)sd->status.inventory[i].refine]);
+		lua_pushinteger(NL,status_get_refine_chance(itemdb_wlv(sd->status.inventory[i].nameid), (int)sd->status.inventory[i].refine));
 	}
 	else
 		return 0;
@@ -3486,53 +3486,44 @@ LUA_FUNC(getcastledata)
 {
 	const char* mapname = mapindex_getmapname(luaL_checkstring(NL,1),NULL);
 	int index = luaL_checkint(NL,2);
-
 	struct guild_castle* gc = guild_mapname2gc(mapname);
 
-	if ( lua_isstring(NL,3) )
+	if( gc == NULL )
 	{
-		const char* event = luaL_checkstring(NL,3);
-		guild_addcastleinfoevent(gc->castle_id,17,event);
+		// map not found
+		lua_pushnil( NL );
+		return 0;
 	}
 
-	if(gc){
-		switch(index){
-			case 0: {
-				int i;
-				for(i=1;i<18;i++) // Initialize[AgitInit]
-					guild_castledataload(gc->castle_id,i);
-				} break;
-			case 1:
-				lua_pushinteger(NL,gc->guild_id); break;
-			case 2:
-				lua_pushinteger(NL,gc->economy); break;
-			case 3:
-				lua_pushinteger(NL,gc->defense); break;
-			case 4:
-				lua_pushinteger(NL,gc->triggerE); break;
-			case 5:
-				lua_pushinteger(NL,gc->triggerD); break;
-			case 6:
-				lua_pushinteger(NL,gc->nextTime); break;
-			case 7:
-				lua_pushinteger(NL,gc->payTime); break;
-			case 8:
-				lua_pushinteger(NL,gc->createTime); break;
-			case 9:
-				lua_pushinteger(NL,gc->visibleC); break;
-			case 10:
-			case 11:
-			case 12:
-			case 13:
-			case 14:
-			case 15:
-			case 16:
-			case 17:
-				lua_pushinteger(NL,gc->guardian[index-10].visible); break;
-			default:
-				return 0;
-		}
-		return 1;
+	switch( index )
+	{
+		case 1:
+			lua_pushinteger( NL , gc->guild_id ); break;
+		case 2:
+			lua_pushinteger( NL , gc->economy ); break;
+		case 3:
+			lua_pushinteger( NL , gc->defense ); break;
+		case 4:
+			lua_pushinteger( NL , gc->triggerE ); break;
+		case 5:
+			lua_pushinteger( NL , gc->triggerD ); break;
+		case 6:
+			lua_pushinteger( NL , gc->nextTime ); break;
+		case 7:
+			lua_pushinteger( NL , gc->payTime ); break;
+		case 8:
+			lua_pushinteger( NL , gc->createTime ); break;
+		case 9:
+			lua_pushinteger( NL , gc->visibleC ); break;
+		default:
+			if ( index > 9 && index <= 9 + MAX_GUARDIANS )
+			{
+				lua_pushinteger( NL , gc->guardian[index-10].visible );
+				break;
+			}
+			// Index out of allowed range
+			lua_pushnil( NL );
+			return 0;
 	}
 	return 0;
 }

@@ -375,7 +375,7 @@ enum _sp {
 	SP_UNSTRIPABLE_WEAPON,SP_UNSTRIPABLE_ARMOR,SP_UNSTRIPABLE_HELM,SP_UNSTRIPABLE_SHIELD,  // 2034-2037
 	SP_INTRAVISION, SP_ADD_MONSTER_DROP_ITEMGROUP, SP_SP_LOSS_RATE, // 2038-2040
 	SP_ADD_SKILL_BLOW, SP_SP_VANISH_RATE, SP_MAGIC_SP_GAIN_VALUE, SP_MAGIC_HP_GAIN_VALUE, SP_ADD_CLASS_DROP_ITEM, //2041-2045
-	SP_WEAPON_MATK, SP_BASE_MATK //2046-2047
+	SP_WEAPON_MATK, SP_BASE_MATK, SP_SP_GAIN_RACE_ATTACK, SP_HP_GAIN_RACE_ATTACK //2046-2049
 };
 
 enum _look {
@@ -406,6 +406,8 @@ typedef enum {
 	CELL_LANDPROTECTOR,
 	CELL_NOVENDING,
 	CELL_NOCHAT,
+	CELL_MAELSTROM,
+
 } cell_t;
 
 // used by map_getcell()
@@ -428,6 +430,8 @@ typedef enum {
 	CELL_CHKLANDPROTECTOR,
 	CELL_CHKNOVENDING,
 	CELL_CHKNOCHAT,
+	CELL_CHKMAELSTROM,
+
 } cell_chk;
 
 struct mapcell
@@ -445,6 +449,7 @@ struct mapcell
 		landprotector : 1,
 		novending : 1,
 		nochat : 1,
+		maelstrom : 1,
 		script : 1; //lua areascript npcs
 
 #ifdef CELL_NOSTACK
@@ -596,6 +601,7 @@ int map_moveblock(struct block_list *, int, int, unsigned int);
 int map_foreachinrange(int (*func)(struct block_list*,va_list), struct block_list* center, int range, int type, ...);
 int map_foreachinshootrange(int (*func)(struct block_list*,va_list), struct block_list* center, int range, int type, ...);
 int map_foreachinarea(int (*func)(struct block_list*,va_list), int m, int x0, int y0, int x1, int y1, int type, ...);
+int map_forcountinrange(int (*func)(struct block_list*,va_list), struct block_list* center, int range, int count, int type, ...);
 int map_forcountinarea(int (*func)(struct block_list*,va_list), int m, int x0, int y0, int x1, int y1, int count, int type, ...);
 int map_foreachinmovearea(int (*func)(struct block_list*,va_list), struct block_list* center, int range, int dx, int dy, int type, ...);
 int map_foreachincell(int (*func)(struct block_list*,va_list), int m, int x, int y, int type, ...);

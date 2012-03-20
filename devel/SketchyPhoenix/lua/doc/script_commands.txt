@@ -258,7 +258,7 @@ explanation, see 'setmapflag'.
 
 Map name is the name of the map the monsters will spawn on. x,y are the
 coordinates where the mob should spawn. If xs and ys are non-zero, they
-specify the diameters of a spawn-rectangle area who's center is x,y.
+specify the 'radius' of a spawn-rectangle area centered at x,y.
 Putting zeros instead of these coordinates will spawn the monsters randomly.
 Note this is only the initial spawn zone, as mobs random-walk, they are free
 to move away from their specified spawn region.
@@ -907,10 +907,12 @@ OnAgitInit2:
 
 OnAgitStart will run whenever the server shifts into WoE mode, whether it is 
 done with @agitstart GM command or with 'AgitStart' script command. OnAgitEnd 
-will do likewise for the end of WoE. OnAgitInit will run when castle data is 
-loaded from the char-server by the map server.
+will do likewise for the end of WoE.
 
-No RID will be attached while any of the abovementioned labels are triggered, so 
+OnAgitInit will run when data for all castles and all guilds that hold a castle 
+is received by map-server from the char-server after initial connect.
+
+No RID will be attached while any of the above mentioned labels are triggered, so 
 no character or account-based variables will be accessible, until you attach a 
 RID with 'attachrid' (see below).
 
@@ -2173,7 +2175,7 @@ If there is no such party ID, "null" will be returned.
 Lets say the ID of a party was saved as a global variable:
 
     // This would return the name of the party from the ID stored in a variable
-    mes "You're in the '"+getpartyname($@var)"' party, I know!";
+    mes "You're in the '"+getpartyname($@var)+"' party, I know!";
 
 ---------------------------------------
 
@@ -2867,36 +2869,40 @@ castle. The data is read from 'db/castle_db.txt'.
 *setcastledata "<map name>",<type of data>,<value>;
 
 This function returns the castle ownership information for the castle referred 
-to by it's map name. Castle information stored in 'save\castle.txt' for the TXT 
-version of the server and in 'guild_castle' table for the SQL version.
+to by its map name. Castle information is stored in `guild_castle` SQL table.
 
-Valid types of data are:
+Types of data correspond to `guild_castle` table columns:
 
- 0 - Will make the map server request the castle data from the char server, and 
-     always return 0. This, apparently, will also cause indirectly the execution 
-     of an 'OnAgitInit:' event mentioned at the beginning of this document.
- 1 - Guild ID
- 2 - Castle Economy score.
- 3 - Castle Defence score.
- 4 - Number of times the economy was invested in today.
- 5 - Number of times the defence was invested in today.
- 9 - Will return 1 if a Kafra was hired for this castle, 0 otherwise.
-10 - Is 1 if the 1st guardian is present (Soldier Guardian)
-11 - Is 1 if the 2nd guardian is present (Soldier Guardian)
-12 - Is 1 if the 3rd guardian is present (Soldier Guardian)
-13 - Is 1 if the 4th guardian is present (Archer Guardian)
-14 - Is 1 if the 5th guardian is present (Archer Guardian)
-15 - Is 1 if the 6th guardian is present (Knight Guardian)
-16 - Is 1 if the 7th guardian is present (Knight Guardian)
-17 - Is 1 if the 8th guardian is present (Knight Guardian)
+ 1 - `guild_id`   - Guild ID.
+ 2 - `economy`    - Castle Economy score.
+ 3 - `defense`    - Castle Defense score.
+ 4 - `triggerE`   - Number of times the economy was invested in today.
+ 5 - `triggerD`   - Number of times the defense was invested in today.
+ 6 - `nextTime`   - unused
+ 7 - `payTime`    - unused
+ 8 - `createTime` - unused
+ 9 - `visibleC`   - Is 1 if a Kafra was hired for this castle, 0 otherwise.
+10 - `visibleG0`  - Is 1 if the 1st guardian is present (Soldier Guardian)
+11 - `visibleG1`  - Is 1 if the 2nd guardian is present (Soldier Guardian)
+12 - `visibleG2`  - Is 1 if the 3rd guardian is present (Soldier Guardian)
+13 - `visibleG3`  - Is 1 if the 4th guardian is present (Archer Guardian)
+14 - `visibleG4`  - Is 1 if the 5th guardian is present (Archer Guardian)
+15 - `visibleG5`  - Is 1 if the 6th guardian is present (Knight Guardian)
+16 - `visibleG6`  - Is 1 if the 7th guardian is present (Knight Guardian)
+17 - `visibleG7`  - Is 1 if the 8th guardian is present (Knight Guardian)
 
-18-25 types of data will return current hit point values for guardians 1-8 
-respectively.
+All types of data have their meaning determined by War of Emperium scripts, 
+with exception of:
+ - `guild_id` that is always considered ID of the guild that owns the castle,
+ - `defense` that is used in Guardians & Emperium HP calculations,
+ - `visibleG` that is always considered to hold guardian presence bits.
 
 The 'setcastledata' command will behave identically, but instead of returning 
 values for the specified types of accessible data, it will alter them and cause 
-them to be sent to the char server for storage. Data type of 0 won't do 
-anything, obviously.
+them to be sent to the char-server for storage.
+
+Changing Guild ID or Castle Defense will trigger additional actions, like 
+recalculating guardians' HP.
 
 ---------------------------------------
 
@@ -4561,7 +4567,7 @@ character.
 
 ---------------------------------------
 
-*specialeffect <effect number>{,<send_target>};
+*specialeffect <effect number>{,<send_target>{,"<NPC Name>"}};
 
 This command will display special effect with the given number, centered on the 
 specified NPCs coordinates, if any. For a full list of special effect numbers 
@@ -4571,7 +4577,7 @@ released after April 2005.)
 
 ---------------------------------------
 
-*specialeffect2 <effect number>{,<send_target>};
+*specialeffect2 <effect number>{,<send_target>{,"<Player Name>"}};
 
 This command behaves identically to the 'specialeffect', but the effect will be 
 centered on the invoking character's sprite.
@@ -5992,7 +5998,7 @@ A full list of pet IDs can be found inside 'db/pet_db.txt'
 
 ---------------------------------------
 
-*emotion <emotion number>{, target};
+*emotion <emotion number>{,<target>{,"<target name>"}};
 
 This command makes an object display an emoticon sprite above their own as 
 if they were doing that emotion. For a full list of emotion numbers, 

@@ -82,7 +82,7 @@ int npc_get_new_npc_id(void)
 }
 
 static DBMap* ev_db; // const char* event_name -> struct event_data*
-DBMap* npcname_db; // const char* npc_name -> struct npc_data*
+static DBMap* npcname_db; // const char* npc_name -> struct npc_data*
 DBMap* areascriptname_db;
 
 struct event_data {
@@ -222,9 +222,10 @@ struct npc_data* npc_name2id(const char* name)
  **/
 int npc_rr_secure_timeout_timer(int tid, unsigned int tick, int id, intptr_t data) {
 	struct map_session_data* sd = NULL;
-	if( (sd = map_id2sd(id)) == NULL || !sd->npc_id )
+	if( (sd = map_id2sd(id)) == NULL || !sd->npc_id ) {
+		if( sd ) sd->npc_idle_timer = INVALID_TIMER;
 		return 0;//Not logged in anymore OR no longer attached to a npc
-
+	}
 	if( DIFF_TICK(tick,sd->npc_idle_tick) > (SECURE_NPCTIMEOUT*1000) ) {
 		/**
 		 * If we still have the NPC script attached, tell it to stop.
@@ -235,6 +236,7 @@ int npc_rr_secure_timeout_timer(int tid, unsigned int tick, int id, intptr_t dat
 		 * This guy's been idle for longer than allowed, close him.
 		 **/
 		clif_scriptclose(sd,sd->npc_id);
+		sd->npc_idle_timer = INVALID_TIMER;
 	} else //Create a new instance of ourselves to continue
 		sd->npc_idle_timer = add_timer(gettick() + (SECURE_NPCTIMEOUT_INTERVAL*1000),npc_rr_secure_timeout_timer,sd->bl.id,0);
 	return 0;
@@ -276,42 +278,33 @@ int npc_event_dequeue(struct map_session_data* sd)
 
 /*==========================================
  * exports a npc event label
- * npc_parse_script->strdb_foreachから呼ばれる
+ * called from npc_parse_script
  *------------------------------------------*/
-int npc_event_export(char* lname, void* data, va_list ap)
+static int npc_event_export(struct npc_data *nd, int i)
 {
-	int pos = (int)data;
-	struct npc_data* nd = va_arg(ap, struct npc_data *);
-
-	if ((lname[0]=='O' || lname[0]=='o')&&(lname[1]=='N' || lname[1]=='n')) {
+	char* lname = nd->u.scr.label_list[i].name;
+	int pos = nd->u.scr.label_list[i].pos;
+	if ((lname[0] == 'O' || lname[0] == 'o') && (lname[1] == 'N' || lname[1] == 'n')) {
 		struct event_data *ev;
 		char buf[EVENT_NAME_LENGTH];
-		char* p = strchr(lname, ':');
-		// エクスポートされる
-		ev = (struct event_data *) aMalloc(sizeof(struct event_data));
-		if (ev==NULL) {
-			ShowFatalError("npc_event_export: out of memory !\n");
-			exit(EXIT_FAILURE);
-		}else if (p==NULL || (p-lname)>NAME_LENGTH) {
-			ShowFatalError("npc_event_export: label name error !\n");
-			exit(EXIT_FAILURE);
-		}else{
-			ev->nd = nd;
-			ev->pos = pos;
-			*p = '\0';
-			snprintf(buf, ARRAYLENGTH(buf), "%s::%s", nd->exname, lname);
-			*p = ':';
-			strdb_put(ev_db, buf, ev);
-		}
+		snprintf(buf, ARRAYLENGTH(buf), "%s::%s", nd->exname, lname);
+		// generate the data and insert it
+		CREATE(ev, struct event_data, 1);
+		ev->nd = nd;
+		ev->pos = pos;
+		if (strdb_put(ev_db, buf, ev)) // There was already another event of the same name?
+			return 1;
 	}
 	return 0;
 }
 
 int npc_event_sub(struct map_session_data* sd, struct event_data* ev, const char* eventname); //[Lance]
-/*==========================================
+
+/**
  * 全てのNPCのOn*イベント実行
- *------------------------------------------*/
-int npc_event_doall_sub(DBKey key, void* data, va_list ap)
+ * @see DBApply
+ */
+int npc_event_doall_sub(DBKey key, DBData *data, va_list ap)
 {
 	const char* p = key.str;
 	struct event_data* ev;
@@ -319,7 +312,7 @@ int npc_event_doall_sub(DBKey key, void* data, va_list ap)
 	const char* name;
 	int rid;
 
-	nullpo_ret(ev = (struct event_data *)data);
+	nullpo_ret(ev = db_data2ptr(data));
 	nullpo_ret(c = va_arg(ap, int *));
 	nullpo_ret(name = va_arg(ap, const char *));
 	rid = va_arg(ap, int);
@@ -337,14 +330,17 @@ int npc_event_doall_sub(DBKey key, void* data, va_list ap)
 	return 0;
 }
 
-static int npc_event_do_sub(DBKey key, void* data, va_list ap)
+/**
+ * @see DBApply
+ */
+static int npc_event_do_sub(DBKey key, DBData *data, va_list ap)
 {
 	const char* p = key.str;
 	struct event_data* ev;
 	int* c;
 	const char* name;
 
-	nullpo_ret(ev = (struct event_data *)data);
+	nullpo_ret(ev = db_data2ptr(data));
 	nullpo_ret(c = va_arg(ap, int *));
 	nullpo_ret(name = va_arg(ap, const char *));
 
@@ -452,33 +448,27 @@ void npc_event_do_oninit(void)
 
 /*==========================================
  * タイマーイベント用ラベルの取り込み
- * npc_parse_script->strdb_foreachから呼ばれる
+ * called from npc_parse_script
  *------------------------------------------*/
-int npc_timerevent_import(char* lname, void* data, va_list ap)
+int npc_timerevent_export(struct npc_data *nd, int i)
 {
-	int pos = (int)data;
-	struct npc_data *nd = va_arg(ap,struct npc_data *);
-	int t = 0, i = 0;
-
-	if( sscanf(lname,"OnTimer%d%n",&t,&i)==1 && lname[i]==':' )
-	{
-		struct npc_timerevent_list *te= nd->u.scr.timer_event;
-		int j, i = nd->u.scr.timeramount;
-
-		if( te == NULL )
-			te = (struct npc_timerevent_list*)aMalloc( sizeof(struct npc_timerevent_list) );
+	int t = 0, k = 0;
+	char *lname = nd->u.scr.label_list[i].name;
+	int pos = nd->u.scr.label_list[i].pos;
+	if (sscanf(lname, "OnTimer%d%n", &t, &k) == 1 && lname[k] == '\0') {
+		// タイマーイベント
+		struct npc_timerevent_list *te = nd->u.scr.timer_event;
+		int j, k = nd->u.scr.timeramount;
+		if (te == NULL)
+			te = (struct npc_timerevent_list *)aMalloc(sizeof(struct npc_timerevent_list));
 		else
-			te = (struct npc_timerevent_list*)aRealloc( te, sizeof(struct npc_timerevent_list) * (i+1) );
-
-		if( te == NULL )
-		{
-			ShowFatalError("npc_timerevent_import: out of memory !\n");
-			exit(EXIT_FAILURE);
+			te = (struct npc_timerevent_list *)aRealloc( te, sizeof(struct npc_timerevent_list) * (k+1) );
+		for (j = 0; j < k; j++) {
+			if (te[j].timer > t) {
+				memmove(te+j+1, te+j, sizeof(struct npc_timerevent_list)*(k-j));
+				break;
+			}
 		}
-
-		ARR_FIND( 0, i, j, te[j].timer > t );
-		if( j < i )
-			memmove(te+j+1,te+j,sizeof(struct npc_timerevent_list)*(i-j));
 		te[j].timer = t;
 		te[j].pos = pos;
 		nd->u.scr.timer_event = te;
@@ -486,6 +476,7 @@ int npc_timerevent_import(char* lname, void* data, va_list ap)
 	}
 	return 0;
 }
+
 struct timer_event_data {
 	int rid; //Attached player for this timer.
 	int next; //timer index (starts with 0, then goes up to nd->u.scr.timeramount)
@@ -1724,9 +1715,12 @@ int npc_remove_map(struct npc_data* nd)
 	return 0;
 }
 
-static int npc_unload_ev(DBKey key, void* data, va_list ap)
+/**
+ * @see DBApply
+ */
+static int npc_unload_ev(DBKey key, DBData *data, va_list ap)
 {
-	struct event_data* ev = (struct event_data *)data;
+	struct event_data* ev = db_data2ptr(data);
 	char* npcname = va_arg(ap, char *);
 
 	if(strcmp(ev->nd->exname,npcname)==0){
@@ -2182,13 +2176,14 @@ static const char* npc_parse_shop(char* w1, char* w2, char* w3, char* w4, const 
 	return strchr(start,'\n');// continue
 }
 
-/*==========================================
+/**
  * NPCのラベルデータコンバート
- *------------------------------------------*/
-int npc_convertlabel_db(DBKey key, void* data, va_list ap)
+ * @see DBApply
+ */
+int npc_convertlabel_db(DBKey key, DBData *data, va_list ap)
 {
 	const char* lname = (const char*)key.str;
-	int lpos = (int)data;
+	int lpos = (int)db_data2ptr(data);
 	struct npc_label_list** label_list;
 	int* label_list_num;
 	const char* filepath;
@@ -2339,7 +2334,7 @@ static const char* npc_parse_script(char* w1, char* w2, char* w3, char* w4, cons
 	{
 		DBMap* label_db = script_get_label_db();
 		label_db->foreach(label_db, npc_convertlabel_db, &label_list, &label_list_num, filepath);
-		label_db->clear(label_db, NULL); // not needed anymore, so clear the db
+		db_clear(label_db); // not needed anymore, so clear the db
 	}
 
 	CREATE(nd, struct npc_data, 1);
@@ -2395,52 +2390,18 @@ static const char* npc_parse_script(char* w1, char* w2, char* w3, char* w4, cons
 
 	//-----------------------------------------
 	// イベント用ラベルデータのエクスポート
-	for (i = 0; i < nd->u.scr.label_list_num; i++)
-	{
-		char* lname = nd->u.scr.label_list[i].name;
-		int pos = nd->u.scr.label_list[i].pos;
-
-		if ((lname[0] == 'O' || lname[0] == 'o') && (lname[1] == 'N' || lname[1] == 'n'))
-		{
-			struct event_data* ev;
-			char buf[EVENT_NAME_LENGTH];
-			snprintf(buf, ARRAYLENGTH(buf), "%s::%s", nd->exname, lname);
-
-			// generate the data and insert it
-			CREATE(ev, struct event_data, 1);
-			ev->nd = nd;
-			ev->pos = pos;
-			if( strdb_put(ev_db, buf, ev) != NULL )// There was already another event of the same name?
-				ShowWarning("npc_parse_script : duplicate event %s (%s)\n", buf, filepath);
+	for (i = 0; i < nd->u.scr.label_list_num; i++) {
+		if (npc_event_export(nd, i)) {
+			ShowWarning("npc_parse_script : duplicate event %s::%s (%s)\n",
+			             nd->exname, nd->u.scr.label_list[i].name, filepath);
 		}
 	}
 
 	//-----------------------------------------
 	// ラベルデータからタイマーイベント取り込み
-	for (i = 0; i < nd->u.scr.label_list_num; i++){
-		int t = 0, k = 0;
-		char *lname = nd->u.scr.label_list[i].name;
-		int pos = nd->u.scr.label_list[i].pos;
-		if (sscanf(lname, "OnTimer%d%n", &t, &k) == 1 && lname[k] == '\0') {
-			// タイマーイベント
-			struct npc_timerevent_list *te = nd->u.scr.timer_event;
-			int j, k = nd->u.scr.timeramount;
-			if (te == NULL)
-				te = (struct npc_timerevent_list *)aMalloc(sizeof(struct npc_timerevent_list));
-			else
-				te = (struct npc_timerevent_list *)aRealloc( te, sizeof(struct npc_timerevent_list) * (k+1) );
-			for (j = 0; j < k; j++){
-				if (te[j].timer > t){
-					memmove(te+j+1, te+j, sizeof(struct npc_timerevent_list)*(k-j));
-					break;
-				}
-			}
-			te[j].timer = t;
-			te[j].pos = pos;
-			nd->u.scr.timer_event = te;
-			nd->u.scr.timeramount++;
-		}
-	}
+	for (i = 0; i < nd->u.scr.label_list_num; i++)
+		npc_timerevent_export(nd, i);
+
 	nd->u.scr.timerid = INVALID_TIMER;
 
 	return end;
@@ -2583,52 +2544,18 @@ const char* npc_parse_duplicate(char* w1, char* w2, char* w3, char* w4, const ch
 	//Handle labels
 	//-----------------------------------------
 	// イベント用ラベルデータのエクスポート
-	for (i = 0; i < nd->u.scr.label_list_num; i++)
-	{
-		char* lname = nd->u.scr.label_list[i].name;
-		int pos = nd->u.scr.label_list[i].pos;
-
-		if ((lname[0] == 'O' || lname[0] == 'o') && (lname[1] == 'N' || lname[1] == 'n'))
-		{
-			struct event_data* ev;
-			char buf[EVENT_NAME_LENGTH];
-			snprintf(buf, ARRAYLENGTH(buf), "%s::%s", nd->exname, lname);
-
-			// generate the data and insert it
-			CREATE(ev, struct event_data, 1);
-			ev->nd = nd;
-			ev->pos = pos;
-			if( strdb_put(ev_db, buf, ev) != NULL )// There was already another event of the same name?
-				ShowWarning("npc_parse_duplicate : duplicate event %s (%s)\n", buf, filepath);
+	for (i = 0; i < nd->u.scr.label_list_num; i++) {
+		if (npc_event_export(nd, i)) {
+			ShowWarning("npc_parse_duplicate : duplicate event %s::%s (%s)\n",
+			             nd->exname, nd->u.scr.label_list[i].name, filepath);
 		}
 	}
 
 	//-----------------------------------------
 	// ラベルデータからタイマーイベント取り込み
-	for (i = 0; i < nd->u.scr.label_list_num; i++){
-		int t = 0, k = 0;
-		char *lname = nd->u.scr.label_list[i].name;
-		int pos = nd->u.scr.label_list[i].pos;
-		if (sscanf(lname, "OnTimer%d%n", &t, &k) == 1 && lname[k] == '\0') {
-			// タイマーイベント
-			struct npc_timerevent_list *te = nd->u.scr.timer_event;
-			int j, k = nd->u.scr.timeramount;
-			if (te == NULL)
-				te = (struct npc_timerevent_list *)aMalloc(sizeof(struct npc_timerevent_list));
-			else
-				te = (struct npc_timerevent_list *)aRealloc( te, sizeof(struct npc_timerevent_list) * (k+1) );
-			for (j = 0; j < k; j++){
-				if (te[j].timer > t){
-					memmove(te+j+1, te+j, sizeof(struct npc_timerevent_list)*(k-j));
-					break;
-				}
-			}
-			te[j].timer = t;
-			te[j].pos = pos;
-			nd->u.scr.timer_event = te;
-			nd->u.scr.timeramount++;
-		}
-	}
+	for (i = 0; i < nd->u.scr.label_list_num; i++)
+		npc_timerevent_export(nd, i);
+
 	nd->u.scr.timerid = INVALID_TIMER;
 
 	return end;
@@ -2826,8 +2753,8 @@ void npc_setclass(struct npc_data* nd, short class_)
 static const char* npc_parse_function(char* w1, char* w2, char* w3, char* w4, const char* start, const char* buffer, const char* filepath)
 {
 	DBMap* func_db;
+	DBData old_data;
 	struct script_code *script;
-	struct script_code *oldscript;
 	const char* end;
 	const char* script_start;
 
@@ -2849,9 +2776,9 @@ static const char* npc_parse_function(char* w1, char* w2, char* w3, char* w4, co
 		return end;
 
 	func_db = script_get_userfunc_db();
-	oldscript = (struct script_code*)strdb_put(func_db, w3, script);
-	if( oldscript != NULL )
+	if (func_db->put(func_db, db_str2key(w3), db_ptr2data(script), &old_data))
 	{
+		struct script_code *oldscript = db_data2ptr(&old_data);
 		ShowInfo("npc_parse_function: Overwriting user function [%s] (%s:%d)\n", w3, filepath, strline(buffer,start-buffer));
 		script_free_vars(&oldscript->script_vars);
 		aFree(oldscript->script_buf);
@@ -3512,17 +3439,17 @@ void npc_read_event_script(void)
 	{
 		DBIterator* iter;
 		DBKey key;
-		void* data;
+		DBData *data;
 
 		char name[64]="::";
 		strncpy(name+2,config[i].event_name,62);
 
 		script_event[i].event_count = 0;
-		iter = ev_db->iterator(ev_db);
+		iter = db_iterator(ev_db);
 		for( data = iter->first(iter,&key); iter->exists(iter); data = iter->next(iter,&key) )
 		{
 			const char* p = key.str;
-			struct event_data* ed = (struct event_data*) data;
+			struct event_data* ed = db_data2ptr(data);
 			unsigned char count = script_event[i].event_count;
 
 			if( count >= ARRAYLENGTH(script_event[i].event) )
@@ -3538,7 +3465,7 @@ void npc_read_event_script(void)
 				script_event[i].event_count++;
 			}
 		}
-		iter->destroy(iter);
+		dbi_destroy(iter);
 	}
 
 	if (battle_config.etc_log) {

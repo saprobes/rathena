@@ -153,6 +153,7 @@ struct map_session_data {
 		unsigned short autobonus; //flag to indicate if an autobonus is activated. [Inkfish]
 		struct guild *gmaster_flag;
 		unsigned int prevend : 1;//used to flag wheather you've spent 40sp to open the vending or not.
+		unsigned int warping : 1;//states whether you're in the middle of a warp processing
 	} state;
 	struct {
 		unsigned char no_weapon_damage, no_magic_damage, no_misc_damage;
@@ -221,7 +222,7 @@ struct map_session_data {
 	short skillid_dance,skilllv_dance;
 	short cook_mastery; // range: [0,1999] [Inkfish]
 	unsigned char blockskill[MAX_SKILL];
-	int cloneskill_id;
+	int cloneskill_id, reproduceskill_id;
 	int menuskill_id, menuskill_val;
 
 	int invincible_timer;
@@ -267,6 +268,8 @@ struct map_session_data {
 	int ignore_def[RC_MAX];
 	int itemgrouphealrate[MAX_ITEMGROUP];
 	short sp_gain_race[RC_MAX];
+	short sp_gain_race_attack[RC_MAX];
+	short hp_gain_race_attack[RC_MAX];
 	// zeroed arrays end here.
 	// zeroed structures start here
 	struct s_autospell autospell[15], autospell2[15], autospell3[15];
@@ -408,7 +411,8 @@ struct map_session_data {
 	int eventtimer[MAX_EVENTTIMER];
 	unsigned short eventcount; // [celest]
 
-	unsigned char change_level; // [celest]
+	unsigned char change_level_2nd; // job level when changing from 1st to 2nd class [jobchange_level in global_reg_value]
+	unsigned char change_level_3rd; // job level when changing from 2nd to 3rd class [jobchange_level_3rd in global_reg_value]
 
 	char fakename[NAME_LENGTH]; // fake names [Valaris]
 
@@ -478,6 +482,8 @@ struct map_session_data {
 	 * Guarantees your friend request is legit (for bugreport:4629)
 	 **/
 	int friend_req;
+
+	int shadowform_id;
 
 	// temporary debugging of bug #3504
 	const char* delunit_prevfile;
@@ -646,6 +652,15 @@ enum e_pc_permission {
 ||	( (class_) >= JOB_NOVICE_HIGH && (class_) <= JOB_SOUL_LINKER ) \
 ||	( (class_) >= JOB_RUNE_KNIGHT && (class_) <  JOB_MAX         ) \
 )
+
+// clientside atk display macros (values to the left/right of the "+")
+#if REMODE
+#define pc_leftside_atk(sd) ((sd)->battle_status.batk)
+#define pc_rightside_atk(sd) ((sd)->battle_status.rhw.atk + (sd)->battle_status.lhw.atk + (sd)->battle_status.rhw.atk2 + (sd)->battle_status.lhw.atk2)
+#else
+#define pc_leftside_atk(sd) ((sd)->battle_status.batk + (sd)->battle_status.rhw.atk + (sd)->battle_status.lhw.atk)
+#define pc_rightside_atk(sd) ((sd)->battle_status.rhw.atk2 + (sd)->battle_status.lhw.atk2)
+#endif
 
 int pc_class2idx(int class_);
 int pc_get_group_level(struct map_session_data *sd);
