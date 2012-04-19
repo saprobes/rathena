@@ -10,6 +10,7 @@
 #include "../common/socket.h"
 #include "../common/timer.h"
 #include "../common/plugins.h"
+#include "../common/thread.h"
 #endif
 
 #include <stdio.h>
@@ -285,7 +286,9 @@ int main (int argc, char **argv)
 #ifdef _WIN32
 	cevents_init();
 #endif
-
+	
+	rAthread_init();
+	
 	timer_init();
 	socket_init();
 	plugins_init();
@@ -307,6 +310,9 @@ int main (int argc, char **argv)
 	timer_final();
 	plugins_final();
 	socket_final();
+	
+	rAthread_final();
+	
 	db_final();
 #endif
 

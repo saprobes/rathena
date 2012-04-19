@@ -78,6 +78,7 @@ set( COMMON_BASE_HEADERS
 	"${COMMON_SOURCE_DIR}/strlib.h"
 	"${COMMON_SOURCE_DIR}/timer.h"
 	"${COMMON_SOURCE_DIR}/utils.h"
+	"${COMMON_SOURCE_DIR}/thread.h"
 	${LIBCONFIG_HEADERS} # needed by conf.h/showmsg.h
 	CACHE INTERNAL "common_base headers" )
 set( COMMON_BASE_SOURCES
@@ -99,6 +100,7 @@ set( COMMON_BASE_SOURCES
 	"${COMMON_SOURCE_DIR}/strlib.c"
 	"${COMMON_SOURCE_DIR}/timer.c"
 	"${COMMON_SOURCE_DIR}/utils.c"
+	"${COMMON_SOURCE_DIR}/thread.c"
 	${LIBCONFIG_SOURCES} # needed by conf.c/showmsg.c
 	CACHE INTERNAL "common_base sources" )
 set( COMMON_BASE_INCLUDE_DIRS
