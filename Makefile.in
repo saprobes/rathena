@@ -37,6 +37,10 @@ endif
 	import \
 	clean help
 
+%.o: %.c
+	@echo -e "\tCC\t$<"
+	$(CC) $(CFLAGS) -c $< -o $@
+
 all: $(ALL_DEPENDS)
 
 sql: $(SQL_DEPENDS)

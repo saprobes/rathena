@@ -276,6 +276,7 @@ AC_ARG_WITH(
 AC_PROG_MAKE_SET
 AC_PROG_CC
 AC_PROG_CPP
+AC_PATH_PROG(AR, ar)
 AC_LANG([C])
 
 
@@ -727,7 +728,7 @@ Solaris* )
 	LIBS="$LIBS -lsocket -lnsl -ldl"
 	;;
 Linux* )
-	LIBS="$LIBS -ldl"
+	LIBS="$LIBS -ldl -lpthread"
 	;;
 FreeBSD*)
 	CPPFLAGS="$CPPFLAGS -D__FREEBSD__"

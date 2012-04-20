@@ -65,24 +65,37 @@ needs_mysql:
 	@exit 1
 
 obj_all:
-	-mkdir obj_all
+	@echo "\tMKDIR\tobj_all"
+	@-mkdir obj_all
 
 obj_sql:
-	-mkdir obj_sql
+	@echo "\tMKDIR\tobj_sql"
+	@-mkdir obj_sql
 
-common: obj_all $(COMMON_OBJ) $(MT19937AR_OBJ) $(LIBCONFIG_OBJ)
+obj_all/common.a: $(COMMON_OBJ)
+	@echo "\tAR\t$@"
+	@@AR@ rcs obj_all/common.a $(COMMON_OBJ)
 
-common_sql: obj_sql $(COMMON_SQL_OBJ)
+obj_sql/common_sql.a: $(COMMON_SQL_OBJ)
+	@echo "\tAR\t$@"
+	@@AR@ rcs obj_sql/common_sql.a $(COMMON_SQL_OBJ)
+
+common: obj_all $(COMMON_OBJ) $(MT19937AR_OBJ) $(LIBCONFIG_OBJ) obj_all/common.a
+
+common_sql: obj_sql $(COMMON_SQL_OBJ) obj_sql/common_sql.a
 
 
 obj_all/%.o: %.c $(COMMON_H) $(MT19937AR_H) $(LIBCONFIG_H)
-	@CC@ @CFLAGS@ $(MT19937AR_INCLUDE) $(LIBCONFIG_INCLUDE) @LDFLAGS@ @CPPFLAGS@ -c $(OUTPUT_OPTION) $<
+	@echo "\tCC\t$<"
+	@@CC@ @CFLAGS@ $(MT19937AR_INCLUDE) $(LIBCONFIG_INCLUDE) @LDFLAGS@ @CPPFLAGS@ -c $(OUTPUT_OPTION) $<
 
 obj_all/mini%.o: %.c $(COMMON_H) $(MT19937AR_H) $(LIBCONFIG_H)
-	@CC@ @CFLAGS@ $(MT19937AR_INCLUDE) $(LIBCONFIG_INCLUDE) -DMINICORE @LDFLAGS@ @CPPFLAGS@ -c $(OUTPUT_OPTION) $<
+	@echo "\tCC\t$<"
+	@@CC@ @CFLAGS@ $(MT19937AR_INCLUDE) $(LIBCONFIG_INCLUDE) -DMINICORE @LDFLAGS@ @CPPFLAGS@ -c $(OUTPUT_OPTION) $<
 
 obj_sql/%.o: %.c $(COMMON_H) $(COMMON_SQL_H) $(LIBCONFIG_H)
-	@CC@ @CFLAGS@ $(LIBCONFIG_INCLUDE) @MYSQL_CFLAGS@ @CPPFLAGS@ -c $(OUTPUT_OPTION) $<
+	@echo "\tCC\t$<"
+	@@CC@ @CFLAGS@ $(LIBCONFIG_INCLUDE) @MYSQL_CFLAGS@ @CPPFLAGS@ -c $(OUTPUT_OPTION) $<
 
 
 # missing object files

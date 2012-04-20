@@ -24,7 +24,7 @@
 #   CYGWIN no longer defines WIN32
 #   CMP0017: Prefer files from the CMake module directory when including from there.
 set( CMAKE_LEGACY_CYGWIN_WIN32 0 )
-cmake_minimum_required( VERSION 2.8.3 )
+cmake_minimum_required( VERSION 2.8.2 )
 project( rAthena C )
 if( CYGWIN )
 	unset( WIN32 )
@@ -160,6 +160,17 @@ if( FUNCTION_DLOPEN_LIBRARIES )
 	set_property( CACHE GLOBAL_LIBRARIES  PROPERTY VALUE ${GLOBAL_LIBRARIES} ${FUNCTION_DLOPEN_LIBRARIES} )
 endif()
 message( STATUS "Detecting dynamic loading library (dl) - done" )
+
+message( STATUS "Detecting posix thread library (pthread)" )
+set( CMAKE_REQUIRED_LIBRARIES ${GLOBAL_LIBRARIES} )
+find_function_library( dlopen FUNCTION_PTHREAD_LIBRARIES pthread )
+if( FUNCTION_PTHREAD_LIBRARIES )
+    message( STATUS "Adding global library: ${FUNCTION_PTHREAD_LIBRARIES}" )
+    set_property( CACHE GLOBAL_LIBRARIES  PROPERTY VALUE ${GLOBAL_LIBRARIES}
+${FUNCTION_PTHREAD_LIBRARIES} )
+endif()
+message( STATUS "Detecting posix thread library (pthread) - done" )
+
 endif()
 
 
