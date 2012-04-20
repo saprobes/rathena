@@ -35,13 +35,13 @@ struct rAthread {
 ///
 static rAthread l_ThreadListBegin = NULL;
 
-void rAthread_init(){
+void rathread_init(){
 	// Nothing todo ~ 
 	
-}//end: rAthread_init()
+}//end: rathread_init()
 
 
-void rAthread_final(){
+void rathread_final(){
 	rAthread handle;
 
 	// Unterminated Threads Left? 
@@ -55,13 +55,13 @@ void rAthread_final(){
 	
 	if(handle != NULL){
 		ShowWarning("rAthread_final: unterminated Thread (entryPoint %p) - forcing to terminat (kill)\n", handle->proc);
-		rAthreadDestroy(handle);
+		rathread_destroy(handle);
 		goto _getone;
 	}
 	
 	
 	
-}//end: rAthread_final()
+}//end: rathread_final()
 
 
 static rAthread rat_pool_get(){
@@ -124,12 +124,12 @@ static void *_raThreadMainRedirector( void *p ){
 ///
 /// API Level
 /// 
-rAthread rAthreadCreate( rAthreadProc entryPoint,  void *param ){
-	return rAthreadCreateEx( entryPoint, param,  (1<<23) /*8MB*/,  RAT_PRIO_NORMAL );
-}//end: rAthreadCreate()
+rAthread rathread_create( rAthreadProc entryPoint,  void *param ){
+	return rathread_createEx( entryPoint, param,  (1<<23) /*8MB*/,  RAT_PRIO_NORMAL );
+}//end: rathread_create()
 
 
-rAthread rAthreadCreateEx( rAthreadProc entryPoint,  void *param,  size_t szStack,  RATHREAD_PRIO prio ){
+rAthread rathread_createEx( rAthreadProc entryPoint,  void *param,  size_t szStack,  RATHREAD_PRIO prio ){
 	pthread_attr_t attr;
 	size_t tmp;
 	rAthread handle;
@@ -155,7 +155,7 @@ rAthread rAthreadCreateEx( rAthreadProc entryPoint,  void *param,  size_t szStac
 	
 	pthread_attr_destroy(&attr);
 
-	rAthreadSetPrio( handle,  prio );
+	rathread_prio_set( handle,  prio );
 	
 	// @TODO lock!
 	handle->next = l_ThreadListBegin;
@@ -167,11 +167,10 @@ rAthread rAthreadCreateEx( rAthreadProc entryPoint,  void *param,  size_t szStac
 	// @TODO unlock!
 	
 	return handle;
-}//end: rAthreadCreateEx()
+}//end: rathread_createEx
 
 
-
-void rAthreadDestroy ( rAthread handle ){
+void rathread_destroy ( rAthread handle ){
 	
 	if( pthread_cancel( handle->hThread ) == 0){
 	
@@ -184,10 +183,9 @@ void rAthreadDestroy ( rAthread handle ){
 		rat_thread_terminated(handle);
 	}
 	
-}//end: rAthreadDestroy()
+}//end: rathread_destroy()
 
-
-rAthread rAthreadGetSelf( ){
+rAthread rathread_self( ){
 	pthread_t pt;
 	rAthread it;
 	
@@ -198,33 +196,30 @@ rAthread rAthreadGetSelf( ){
 			return it; 
 
 	return NULL;	
-}//end: rAthreadGetSelf()
+}//end: rathread_self()
 
 
-
-bool rAthreadWait( rAthread handle,  RATHREAD_WAITMODE  mode,  void* *out_exitCode ){
+bool rathread_wait( rAthread handle,  void* *out_exitCode ){
 	
 	// Hint:
 	// no thread data cleanup routine call here!
 	// its managed by the callProxy itself..
 	//
 	
-	if(mode == RAT_WAIT){
-		if(pthread_join(handle->hThread, out_exitCode) == 0)
-			return true;
-	}
-	// NO WAIT is not supported with pthread.
+	if(pthread_join(handle->hThread, out_exitCode) == 0)
+		return true;
 	
 	return false;
-}//end: rAthreadWait()
+}//end: rathread_wait()
 
 
-void rAthreadSetPrio( rAthread handle, RATHREAD_PRIO prio ){
+void rathread_prio_set( rAthread handle, RATHREAD_PRIO prio ){
 	// @TODO
-}//end: rAthreadSetPrio()
+}//end: rathread_prio_set()
 
 
-RATHREAD_PRIO rAthreadGetPrio( rAthread handle){
+RATHREAD_PRIO rathread_prio_get( rAthread handle){
 	// @TODO
 	return RAT_PRIO_NORMAL;
-}//end: rAthreadGetPrio()
+}//end: rathread_prio_get()
+

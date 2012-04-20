@@ -287,7 +287,7 @@ int main (int argc, char **argv)
 	cevents_init();
 #endif
 	
-	rAthread_init();
+	rathread_init();
 	
 	timer_init();
 	socket_init();
@@ -311,7 +311,7 @@ int main (int argc, char **argv)
 	plugins_final();
 	socket_final();
 	
-	rAthread_final();
+	rathread_final();
 	
 	db_final();
 #endif
