@@ -1,18 +1,20 @@
 
+#ifdef WIN32
+#include <Windows.h>
+#define getpagesize() 4096 // as on all supported win platforms its 4k
+#define __thread __declspec( thread ) 
+#else
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <pthread.h>
+#endif
 
 #include "cbasetypes.h"
 #include "malloc.h"
 #include "showmsg.h"
 #include "thread.h"
 
-#ifdef WIN32
-#error implement me!
-#else
-#include <pthread.h>
-#endif
 
 #define RA_THREADS_MAX 64
 
@@ -24,6 +26,7 @@ struct rAthread {
 	void *param; 
 
 	#ifdef WIN32
+	HANDLE hThread;
 	#else
 	pthread_t hThread;
 	#endif
@@ -49,9 +52,8 @@ void rathread_init(){
 	// now lets init thread id 0, which represnts the main thread
 	g_rathread_ID = 0;
 	l_threads[0].prio = RAT_PRIO_NORMAL;
-//	l_threads[0].proc = (rAthreadProc)main;
-	
-		
+	l_threads[0].proc = (rAthreadProc)0xDEADCAFE;
+
 }//end: rathread_init()
 
 
@@ -87,8 +89,11 @@ static void rat_thread_terminated( rAthread handle ){
 
 }//end: rat_thread_terminated()
 
-
+#ifdef WIN32
+DWORD WINAPI _raThreadMainRedirector(LPVOID p){
+#else
 static void *_raThreadMainRedirector( void *p ){
+#endif
 	void *ret;
 	
 	// Update myID @ TLS to right id.
@@ -96,9 +101,11 @@ static void *_raThreadMainRedirector( void *p ){
 
 	ret = ((rAthread)p)->proc( ((rAthread)p)->param ) ;
 	
+	CloseHandle( ((rAthread)p)->hThread );
+
 	rat_thread_terminated( (rAthread)p );
 
-	return ret;
+	return (DWORD)ret;
 }//end: _raThreadMainRedirector()
 
 
@@ -114,9 +121,11 @@ rAthread rathread_create( rAthreadProc entryPoint,  void *param ){
 
 
 rAthread rathread_createEx( rAthreadProc entryPoint,  void *param,  size_t szStack,  RATHREAD_PRIO prio ){
-	unsigned int i;
+#ifndef WIN32
 	pthread_attr_t attr;
+#endif
 	size_t tmp;
+	unsigned int i;
 	rAthread handle = NULL;
 
 
@@ -143,7 +152,10 @@ rAthread rathread_createEx( rAthreadProc entryPoint,  void *param,  size_t szSta
 	
 	handle->proc = entryPoint;
 	handle->param = param;
-	
+
+#ifdef WIN32
+	handle->hThread = CreateThread(NULL, szStack, _raThreadMainRedirector, (void*)handle, 0, NULL);
+#else
 	pthread_attr_init(&attr);
 	pthread_attr_setstacksize(&attr, szStack);
 	
@@ -152,8 +164,8 @@ rAthread rathread_createEx( rAthreadProc entryPoint,  void *param,  size_t szSta
 		handle->param = NULL;
 		return NULL;
 	}
-	
 	pthread_attr_destroy(&attr);
+#endif
 
 	rathread_prio_set( handle,  prio );
 	
@@ -162,7 +174,12 @@ rAthread rathread_createEx( rAthreadProc entryPoint,  void *param,  size_t szSta
 
 
 void rathread_destroy ( rAthread handle ){
-	
+#ifdef WIN32
+	if( TerminateThread(handle->hThread, 0) != FALSE){
+		CloseHandle(handle->hThread);
+		rat_thread_terminated(handle);
+	}
+#else
 	if( pthread_cancel( handle->hThread ) == 0){
 	
 		// We have to join it, otherwise pthread wont re-cycle its internal ressources assoc. with this thread.
@@ -172,7 +189,7 @@ void rathread_destroy ( rAthread handle ){
 		// Tell our manager to release ressources ;)
 		rat_thread_terminated(handle);
 	}
-	
+#endif
 }//end: rathread_destroy()
 
 rAthread rathread_self( ){
@@ -198,11 +215,15 @@ bool rathread_wait( rAthread handle,  void* *out_exitCode ){
 	// no thread data cleanup routine call here!
 	// its managed by the callProxy itself..
 	//
-	
+#ifdef WIN32
+	WaitForSingleObject(handle->hThread, INFINITE);
+	return true; 
+#else
 	if(pthread_join(handle->hThread, out_exitCode) == 0)
 		return true;
-	
 	return false;
+#endif
+
 }//end: rathread_wait()
 
 
