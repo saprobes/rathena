@@ -100,12 +100,17 @@ static void *_raThreadMainRedirector( void *p ){
 	g_rathread_ID = ((rAthread)p)->myID; 
 
 	ret = ((rAthread)p)->proc( ((rAthread)p)->param ) ;
-	
+
+#ifdef WIN32	
 	CloseHandle( ((rAthread)p)->hThread );
+#endif
 
 	rat_thread_terminated( (rAthread)p );
-
+#ifdef WIN32
 	return (DWORD)ret;
+#else
+	return ret;
+#endif
 }//end: _raThreadMainRedirector()
 
 
