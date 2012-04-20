@@ -23,8 +23,6 @@
 #include <windows.h> // Console close event handling
 #endif
 
-#include "spinlock.h"
-
 /// Called when a terminate signal is received.
 void (*shutdown_callback)(void) = NULL;
 
