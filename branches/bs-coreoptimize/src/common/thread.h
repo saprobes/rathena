@@ -13,11 +13,6 @@ typedef enum RATHREAD_PRIO {
 	RAT_PRIO_HIGH	
 } RATHREAD_PRIO;
 
-typedef enum RATHREAD_WAITMODE {
-	RAT_WAIT = 0,
-	RAT_NOWAIT
-} RATHREAD_WAITMODE;
-
 
 
 /**
@@ -28,7 +23,7 @@ typedef enum RATHREAD_WAITMODE {
  * 
  * @return not NULL if success
  */
-rAthread rAthreadCreate( rAthreadProc entryPoint,  void *param );
+rAthread rathread_create( rAthreadProc entryPoint,  void *param );
 
 
 /** 
@@ -41,7 +36,7 @@ rAthread rAthreadCreate( rAthreadProc entryPoint,  void *param );
  *
  * @return not NULL if success
  */
-rAthread rAthreadCreateEx( rAthreadProc entryPoint,  void *param,  size_t szStack,  RATHREAD_PRIO prio );
+rAthread rathread_createEx( rAthreadProc entryPoint,  void *param,  size_t szStack,  RATHREAD_PRIO prio );
 
 
 /**
@@ -51,7 +46,7 @@ rAthread rAthreadCreateEx( rAthreadProc entryPoint,  void *param,  size_t szStac
  *
  * @param handle - thread to destroy.
  */
-void rAthreadDestroy ( rAthread handle );
+void rathread_destroy ( rAthread handle );
 
 
 /** 
@@ -62,7 +57,7 @@ void rAthreadDestroy ( rAthread handle );
  * 
  * @return not NULL if success
  */
-rAthread rAthreadGetSelf( );
+rAthread rathread_self( );
 
 
 
@@ -70,12 +65,11 @@ rAthread rAthreadGetSelf( );
  * Waits for the given thread to terminate 
  *
  * @param handle - thread to wait (join) for
- * @param mode - Block or nonblock? (RAT_WAIT .. RAT_NOWAIT)
  * @param out_Exitcode - [OPTIONAL] - if given => Exitcode (value) of the given thread - if it's terminated
  * 
  * @return true - if the given thread has been terminated.
  */
-bool rAthreadWait( rAthread handle,  RATHREAD_WAITMODE  mode,  void* *out_exitCode );
+bool rathread_wait( rAthread handle,  void* *out_exitCode );
 
 
 /** 
@@ -84,7 +78,7 @@ bool rAthreadWait( rAthread handle,  RATHREAD_WAITMODE  mode,  void* *out_exitCo
  * @param handle - thread to set prio for
  * @param rio - the priority (RAT_PRIO_LOW ... )
  */
-void rAthreadSetPrio( rAthread handle, RATHREAD_PRIO prio );
+void rathread_prio_set( rAthread handle, RATHREAD_PRIO prio );
 
 
 /** 
@@ -92,13 +86,13 @@ void rAthreadSetPrio( rAthread handle, RATHREAD_PRIO prio );
  *
  * @param handle - the thread to get the prio for.
  */
-RATHREAD_PRIO rAthreadGetPrio( rAthread handle);
+RATHREAD_PRIO rathread_prio_get( rAthread handle);
 
 
 
 
-void rAthread_init();
-void rAthread_final();
+void rathread_init();
+void rathread_final();
 
 
 #endif
