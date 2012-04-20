@@ -14,10 +14,10 @@
 #include <pthread.h>
 #endif
 
-
+#define RA_THREADS_MAX 64
 
 struct rAthread {
-	struct rAthread *next, *prev; 
+	unsigned int myID;
 	
 	RATHREAD_PRIO  prio;
 	rAthreadProc proc;
@@ -30,85 +30,69 @@ struct rAthread {
 };
 
 
+__thread int g_rathread_ID = -1;
+
+
 ///
 /// Subystem Code
 ///
-static rAthread l_ThreadListBegin = NULL;
+static struct rAthread l_threads[RA_THREADS_MAX];
 
 void rathread_init(){
-	// Nothing todo ~ 
+	register unsigned int i;
+	memset(&l_threads, 0x00, RA_THREADS_MAX * sizeof(struct rAthread) );
 	
+	for(i = 0; i < RA_THREADS_MAX; i++){
+		l_threads[i].myID = i;
+	}
+
+	// now lets init thread id 0, which represnts the main thread
+	g_rathread_ID = 0;
+	l_threads[0].prio = RAT_PRIO_NORMAL;
+//	l_threads[0].proc = (rAthreadProc)main;
+	
+		
 }//end: rathread_init()
 
 
-void rathread_final(){
-	rAthread handle;
 
+void rathread_final(){
+	register unsigned int i;
+	
 	// Unterminated Threads Left? 
 	// Should'nt happen ..
 	// Kill 'em all! 
 	//
-	_getone:
-	// @TODO lock!
-	handle = l_ThreadListBegin;
-	// @TODO unlock!
-	
-	if(handle != NULL){
-		ShowWarning("rAthread_final: unterminated Thread (entryPoint %p) - forcing to terminat (kill)\n", handle->proc);
-		rathread_destroy(handle);
-		goto _getone;
+	for(i = 1; i < RA_THREADS_MAX; i++){
+		if(l_threads[i].proc != NULL){
+			ShowWarning("rAthread_final: unterminated Thread (tid %u entryPoint %p) - forcing to terminat (kill)\n", i, l_threads[i].proc);
+			rathread_destroy(&l_threads[i]);
+		}
 	}
-	
 	
 	
 }//end: rathread_final()
 
 
-static rAthread rat_pool_get(){
-	void *dat = aMalloc( sizeof(struct rAthread) );
-	
-	if(dat == NULL){
-		ShowFatalError("rAthread: cannot allocate new rAthread structure (%u bytes)\n", sizeof(struct rAthread));
-		exit(EXIT_FAILURE);
-	}
-
-	memset(dat, 0x00, sizeof(struct rAthread) );
-	
-	return (rAthread)dat;
-}//end: rat_pool_get()
-
-static void rat_pool_put( rAthread handle ){
-	aFree(handle);
-}//end: rat_pool_put()
-
 
 // gets called whenever a thread terminated ..
 static void rat_thread_terminated( rAthread handle ){
 
-	// Unlink from thread list
-	// free ressources.
-	//
-	
-	// @TODO lock!
-	if(handle == l_ThreadListBegin)
-		l_ThreadListBegin = handle->next;
-		
-	if(handle->next != NULL)
-		handle->next->prev = handle->prev;
-	
-	if(handle->prev != NULL)
-		handle->prev->next = handle->next;
-	// @TODO unlock!
+	int id_backup = handle->myID;
 
-	// Free..
-	rat_pool_put(handle);
+	// Simply set all members to 0 (except the id)
+	memset(handle, 0x00, sizeof(struct rAthread));
 	
+	handle->myID = id_backup; // done ;)
 
 }//end: rat_thread_terminated()
 
 
 static void *_raThreadMainRedirector( void *p ){
 	void *ret;
+	
+	// Update myID @ TLS to right id.
+	g_rathread_ID = ((rAthread)p)->myID; 
 
 	ret = ((rAthread)p)->proc( ((rAthread)p)->param ) ;
 	
@@ -130,9 +114,10 @@ rAthread rathread_create( rAthreadProc entryPoint,  void *param ){
 
 
 rAthread rathread_createEx( rAthreadProc entryPoint,  void *param,  size_t szStack,  RATHREAD_PRIO prio ){
+	unsigned int i;
 	pthread_attr_t attr;
 	size_t tmp;
-	rAthread handle;
+	rAthread handle = NULL;
 
 
 	// given stacksize aligned to systems pagesize?
@@ -141,7 +126,21 @@ rAthread rathread_createEx( rAthreadProc entryPoint,  void *param,  size_t szSta
 		szStack += tmp;
 
 
-	handle = rat_pool_get();
+	// Get a free Thread Slot. 
+	for(i = 0; i < RA_THREADS_MAX; i++){
+		if(l_threads[i].proc == NULL){
+			handle = &l_threads[i];
+			break;
+		}
+	}
+	
+	if(handle == NULL){
+		ShowError("rAthread: cannot create new thread (entryPoint: %p) - no free thread slot found!", entryPoint);
+		return NULL;
+	}
+	
+	
+	
 	handle->proc = entryPoint;
 	handle->param = param;
 	
@@ -149,22 +148,14 @@ rAthread rathread_createEx( rAthreadProc entryPoint,  void *param,  size_t szSta
 	pthread_attr_setstacksize(&attr, szStack);
 	
 	if(pthread_create(&handle->hThread, &attr, _raThreadMainRedirector, (void*)handle) != 0){
-		rat_pool_put(handle);
+		handle->proc = NULL;
+		handle->param = NULL;
 		return NULL;
 	}
 	
 	pthread_attr_destroy(&attr);
 
 	rathread_prio_set( handle,  prio );
-	
-	// @TODO lock!
-	handle->next = l_ThreadListBegin;
-	if(l_ThreadListBegin != NULL)
-		l_ThreadListBegin->prev = handle;
-	
-	handle->prev = NULL;
-	l_ThreadListBegin = handle;
-	// @TODO unlock!
 	
 	return handle;
 }//end: rathread_createEx
@@ -178,7 +169,6 @@ void rathread_destroy ( rAthread handle ){
 		// 
 		pthread_join( handle->hThread, NULL );
 		
-		
 		// Tell our manager to release ressources ;)
 		rat_thread_terminated(handle);
 	}
@@ -186,17 +176,20 @@ void rathread_destroy ( rAthread handle ){
 }//end: rathread_destroy()
 
 rAthread rathread_self( ){
-	pthread_t pt;
-	rAthread it;
+	rAthread handle = &l_threads[g_rathread_ID];
 	
-	pt = pthread_self();
-	
-	for(it = l_ThreadListBegin; it != NULL; it = it->next)
-		if(it->hThread == pt)
-			return it; 
-
+	if(handle->proc != NULL) // entry point set, so its used!	
+		return handle;
+		
 	return NULL;	
 }//end: rathread_self()
+
+
+int rathread_get_tid(){
+	
+	return g_rathread_ID;
+	
+}//end: rathread_get_tid()
 
 
 bool rathread_wait( rAthread handle,  void* *out_exitCode ){

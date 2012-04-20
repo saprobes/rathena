@@ -14,7 +14,6 @@ typedef enum RATHREAD_PRIO {
 } RATHREAD_PRIO;
 
 
-
 /**
  * Creates a new Thread
  *
@@ -59,6 +58,15 @@ void rathread_destroy ( rAthread handle );
  */
 rAthread rathread_self( );
 
+
+/**
+ * Returns own thrad id (TID) 
+ *
+ * @note this is not the operating system THREAD ID!
+ *
+ * @return -1 when fails, otherwise >= 0
+ */
+int rathread_get_tid();
 
 
 /**
