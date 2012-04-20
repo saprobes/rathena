@@ -14,19 +14,31 @@
 //
 //
  
- 
+#ifdef WIN32
+#include <Windows.h>
+#define sched_yield SwitchToThread
+#else
 #include <sched.h> // for yield() 
+#endif
 
 #include "atomic.h"
 #include "thread.h"
 
+#ifdef WIN32
+
+typedef struct __declspec( align(64) ) SPIN_LOCK{
+	volatile LONGLONG lock;
+	volatile LONGLONG nest;
+	volatile LONGLONG sync_lock;
+}  SPIN_LOCK, *PSPIN_LOCK;
+#else
 typedef struct SPIN_LOCK{
 		volatile long lock;
 		volatile long nest; // nesting level.
 		
 		volatile long sync_lock;
 } __attribute__((aligned(64))) SPIN_LOCK, *PSPIN_LOCK;
-
+#endif
 
 
 
