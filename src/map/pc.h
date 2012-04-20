@@ -205,7 +205,7 @@ struct map_session_data {
 	short cook_mastery; // range: [0,1999] [Inkfish]
 	unsigned char blockskill[MAX_SKILL];
 	int cloneskill_id, reproduceskill_id;
-	int menuskill_id, menuskill_val;
+	int menuskill_id, menuskill_val, menuskill_val2;
 
 	int invincible_timer;
 	unsigned int canlog_tick;
@@ -377,6 +377,7 @@ struct map_session_data {
 	struct pet_data *pd;
 	struct homun_data *hd;	// [blackhole89]
 	struct mercenary_data *md;
+	struct elemental_data *ed;
 
 	struct{
 		int  m; //-1 - none, other: map index corresponding to map name.
@@ -521,7 +522,9 @@ enum ammo_type {
 	A_SHELL,    //4
 	A_GRENADE,  //5
 	A_SHURIKEN, //6
-	A_KUNAI     //7
+	A_KUNAI,     //7
+	A_CANNONBALL,	//8
+	A_THROWWEAPON	//9
 };
 
 //Equip position constants
@@ -614,7 +617,7 @@ enum e_pc_permission {
 #define pc_isinvisible(sd)    ( (sd)->sc.option&OPTION_INVISIBLE )
 #define pc_is50overweight(sd) ( (sd)->weight*100 >= (sd)->max_weight*battle_config.natural_heal_weight_rate )
 #define pc_is90overweight(sd) ( (sd)->weight*10 >= (sd)->max_weight*9 )
-#define pc_maxparameter(sd)   ( (sd)->class_&JOBL_THIRD ? battle_config.max_third_parameter : (sd)->class_&JOBL_BABY ? battle_config.max_baby_parameter : battle_config.max_parameter )
+#define pc_maxparameter(sd)   ( ((((sd)->class_&MAPID_UPPERMASK) == MAPID_KAGEROUOBORO) || (sd)->class_&JOBL_THIRD ? ((sd)->class_&JOBL_BABY ? battle_config.max_baby_third_parameter : battle_config.max_third_parameter) : ((sd)->class_&JOBL_BABY ? battle_config.max_baby_parameter : battle_config.max_parameter)) )
 /** 
  * Ranger
  **/
