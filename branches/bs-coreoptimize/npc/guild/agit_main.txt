@@ -3,7 +3,7 @@
 //===== By: ==================================================
 //= L0ne_W0lf
 //===== Current Version: =====================================
-//= 1.8
+//= 1.9
 //===== Compatible With: =====================================
 //= rAthena SVN
 //===== Description: =========================================
@@ -24,10 +24,10 @@
 //=   Spawn guardians when guild castle data is recieved.
 //=
 //= - Enables Kafra Services inside Guild Strongholds.
-//=   Visible Name required: Kafra Staff
+//=   Visible Name required: Kafra Employee
 //=   Storage, Guild Storage, Teleport Service, Cart rental.
 //=
-//= - Treasure Room Protection and Chest spawning.
+//= - Treasure Chest spawning.
 //=   Chests will NOT be saved anymore in the event of crashes.
 //=   Treasures will NOT spawn on a location that already has
 //=   treasure chest spawned.
@@ -50,9 +50,10 @@
 //= 1.7 Updated Agitbreak announcements, added bc_woe [L0ne_W0lf]
 //=     and added extended anouncement format for mapannounce.
 //= 1.8 Fixed a possible exploit in guild castle investment. [Brian]
+//= 1.9 Partially rewrote Script. [Masao]
 //============================================================
 
-// AGIT Manager Template
+// WoE : Main Functions
 //============================================================
 -	script	Gld_Agit_Manager::Gld_Agit_Manager	-1,{
 	end;
@@ -78,7 +79,7 @@ OnStartArena:
 	else if (strnpcinfo(2) == "gefg_cas05") { setarray .@emproom[0],194,184; }
 	else if (strnpcinfo(2) == "payg_cas01") { setarray .@emproom[0],139,139; }
 	else if (strnpcinfo(2) == "payg_cas02") { setarray .@emproom[0],38,25; }
-	else if (strnpcinfo(2) == "payg_cas03") { setarray .@emproom[0],268,264; }
+	else if (strnpcinfo(2) == "payg_cas03") { setarray .@emproom[0],269,265; }
 	else if (strnpcinfo(2) == "payg_cas04") { setarray .@emproom[0],270,28; }
 	else if (strnpcinfo(2) == "payg_cas05") { setarray .@emproom[0],30,30; }
 	else if (strnpcinfo(2) == "prtg_cas01") { setarray .@emproom[0],197,197; }
@@ -235,7 +236,7 @@ OnRecvCastle:
 			// Set Emperium room spawn coordinates and spawn monsters.
 			if (strnpcinfo(2) == "payg_cas01") { setarray .@emproom[0],139,139; }
 			else if (strnpcinfo(2) == "payg_cas02") { setarray .@emproom[0],38,25; }
-			else if (strnpcinfo(2) == "payg_cas03") { setarray .@emproom[0],268,264; }
+			else if (strnpcinfo(2) == "payg_cas03") { setarray .@emproom[0],269,265; }
 			else if (strnpcinfo(2) == "payg_cas04") { setarray .@emproom[0],270,28; }
 			else if (strnpcinfo(2) == "payg_cas05") { setarray .@emproom[0],30,30; }
 			monster strnpcinfo(2),.@emproom[0],.@emproom[1],"Moonlight Flower",1150,1;
@@ -311,23 +312,168 @@ OnRecvCastle:
 	end;
 }
 
-// Guild Steward Template
+// WoE : Guild Kafras
 //============================================================
--	script	Gld_Mngr_Template::Gld_Mngr_Template	-1,{
-	// What is the Display Name of the NPC?
-	set .@name$,strnpcinfo(1);
+-	script	Kafra Staff#woe::guildkafra	-1,{
 
-	// Store the Guild ID of castle occupant.
-	set .@GID, GetCastleData(strnpcinfo(2),1);
+	set .@GID,GetCastleData(strnpcinfo(2),1);
 
-	// Define the types of guardians on a per castle basis.
-	// 1 - Soldier Guardian; 2 - Archer Guardian; 3 - Knight Guardian
-	// Define the x spawn point for each uardian.
+	if (compare(strnpcinfo(2),"aldeg")) {
+		setarray .@destination$[0],"Al De Baran","aldebaran";
+		setarray .@coordinates[0],132,103;
+	}
+	else if (compare(strnpcinfo(2),"gefg")) {
+		setarray .@destination$[0],"Geffen","geffen";
+		setarray .@coordinates[0],120,39;
+	}
+	else if (compare(strnpcinfo(2),"payg")) {
+		setarray .@destination$[0],"Payon","payon";
+		setarray .@coordinates[0],70,100;
+	}
+	else if (compare(strnpcinfo(2),"prtg")) {
+		setarray .@destination$[0],"Prontera","prontera";
+		setarray .@coordinates[0],278,211;
+	}
+	// Add custom Guild Castles here.
+	else {
+		end;
+	}
+
+	cutin "kafra_01",2;
+	if (getcharid(2) == .@GID) {
+		mes "[Kafra Employee]";
+		mes "Welcome. ^ff0000" + GetGuildName(.@GID) + "^000000 Member.";
+		mes "The Kafra Corporation will stay with you wherever you go.";
+		next;
+		switch (select("Use Storage:Use Teleport Service:Rent a Pushcart:Cancel")) {
+		case 1:
+			if (getskilllv("NV_BASIC") < 6) {
+				mes "[Kafra Employee]";
+				mes "I'm sorry, but you";
+				mes "need the Novice's";
+				mes "Basic Skill Level 6 to";
+				mes "use the Storage Service.";
+				close2;
+				cutin "",255;
+				end;
+			}
+			mes "[Kafra Employee]";
+			mes "Here, let me open";
+			mes "your Storage for you.";
+			mes "Thank you for using";
+			mes "the Kafra Service.";
+			close2;
+			cutin "",255;
+			openstorage;
+			end;
+		case 2:
+			mes "[Kafra Employee]";
+			mes "Please choose";
+			mes "your destination.";
+			next;
+			switch (select(.@destination$+" -> 200z:Cancel")) {
+			case 1:
+				if (Zeny < 200) {
+					mes "[Kafra Employee]";
+					mes "I'm sorry, but you don't have";
+					mes "enough zeny for the Teleport";
+					mes "Service. The fee to teleport";
+					mes "to "+.@destination$+" is 200 zeny.";
+					close2;
+					cutin "",255;
+					end;
+				}
+				set Zeny, Zeny - 200;
+				set RESRVPTS,RESRVPTS+2;
+				close2;
+				warp .@destination$[1],.@coordinates[0],.@coordinates[1];
+				end;
+			case 2:
+				close2;
+				cutin "",255;
+				end;
+			}
+		case 3:
+			if (BaseClass != Job_Merchant) {
+				mes "[Kafra Employee]";
+				mes "I'm sorry, but the";
+				mes "Pushcart rental service";
+				mes "is only available to Merchants,";
+				mes "Blacksmiths, Master Smiths,";
+				mes "Alchemists, Biochemists,";
+				mes "Mechanics and Geneticists.";
+				close2;
+				cutin "",255;
+				end;
+			}
+			if (checkcart()) {
+				mes "[Kafra Employee]";
+				mes "You already have";
+				mes "a Pushcart equipped.";
+				mes "Unfortunately, we can't";
+				mes "rent more than one to";
+				mes "each customer at a time.";
+				close2;
+				cutin "",255;
+				end;
+			}
+			mes "[Kafra Employee]";
+			mes "The Pushcart rental";
+			mes "fee is 800 zeny. Would";
+			mes "you like to rent a Pushcart?";
+			next;
+			switch (select("Rent a Pushcart.:Cancel")) {
+			case 1:
+				if (Zeny < 800) {
+					mes "[Kafra Employee]";
+					mes "I'm sorry, but you";
+					mes "don't have enough";
+					mes "zeny to pay the Pushcart";
+					mes "rental fee of 800 zeny.";
+					close2;
+					cutin "",255;
+					end;
+				}
+				set RESRVPTS,RESRVPTS+8;
+				set Zeny, Zeny - 800;
+				setcart;
+				close2;
+				cutin "",255;
+				end;
+			case 2:
+				close2;
+				cutin "",255;
+				end;
+			}
+		case 4:
+			mes "[Kafra Employee]";
+			mes "We, here at Kafra Corporation,";
+			mes "are always endeavoring to provide you with the best services. We hope that we meet your adventuring needs and standards of excellence.";
+			close2;
+			cutin "",255;
+			end;
+		}
+	}
+	mes "[Kafra Employee]";
+	mes "I am instructed to only offer my services to the ^ff0000"+GetGuildName(.@GID)+"^000000 Guild. Please try another Kafra Employee around here. Sorry for the inconvenience.";
+	close2;
+	cutin "",255;
+	end;
+}
+
+// WoE : Castle Managers
+//============================================================
+-	script	Castle Manager#cm::cm	-1,{
+
+	set .@GID,GetCastleData(strnpcinfo(2),1);
+
+	// .@guardiantype = Defines the types of guardians per castle basis.
+	// 1 - Soldier Guardian, 2 - Archer Guardian, 3 - Knight Guardian
+	// .@guardianposx = Define the x spawn point for each uardian.
 	// [0] = 1st guardian's x spawn point.
-	// Define the y spawn point for each guardian.
+	// .@guardianposy = Define the y spawn point for each guardian.
 	// [0] = 1st guardian's y spawn point.
-	// Define the coordinates of the "Treasure Room."
-	// Aldebaran (Luina) Castles
+	// .@masterroom = Defines the coordinates of the Treasure Room.
 	if (strnpcinfo(2) == "aldeg_cas01") { 
 		setarray .@guardiantype[0],1,2,2,2,2,3,3,3;
 		setarray .@guardianposx[0],17,39,38,45,21,218,213,73;
@@ -455,38 +601,39 @@ OnRecvCastle:
 	else {
 		end;
 	}
-	
-	mes "[ Steward " + .@name$ + " ]";
+
 	if (.@GID == 0) {
-		mes "I'm waiting for my master to return.";
-		mes "If you wish to speak with him, you will have to wait as well. ";
+		mes "["+strnpcinfo(1)+"]";
+		mes "I have been waiting for a master to fulfill my destiny.";
+		mes "Brave soul... fate will guide you towards your future...";
 		close;
 	}
-	if (getcharid(2) != .@GID || strcharinfo(0) != getguildmaster(.@GID)){
-		mes "I am loyal and I will follow my master ^ff0000" + getguildmaster(.@GID) + "^000000. We are Guardians! We defend to the bitter end!";
+	if (GetGuildMaster(.@GID) != strcharinfo(0)) {
+		mes "["+strnpcinfo(1)+"]";
+		mes "No matter how much you pester me, I'll still follow my master ^ff0000"+GetGuildMaster(.@GID)+"^000000. Where are the Guardians?! Send these ruffians away right now!";
 		close;
 	}
-	mes "Welcome. My honorable master, ^ff0000" + getguildmaster(.@GID) + "^000000...";
-	mes "Whatever you need, I am at your service. I will be faithful in my duties.";
+	mes "["+strnpcinfo(1)+"]";
+	mes "Welcome. My honorable master, ^ff0000"+strcharinfo(0)+"^000000...";
+	mes "Your humble servent, "+strnpcinfo(1)+", is here to serve you.";
 	next;
-	switch(select("castle briefing:Invest in commercial growth:Invest in safeguard:Summon Guardian:Employ / discharge storehouse staff:Go into Master's room")) {
+	switch (select("Castle briefing:Invest in commercial growth:Invest in Castle Defenses:Summon Guardian:Hire / Fire a Kafra Employee:Go into Master's room")) {
 	case 1:
-		mes "[ Steward " + .@name$ + " ]";
+		mes "["+strnpcinfo(1)+"]";
 		mes "I will report the Castle briefing, Master.";
 		mes " ";
-		mes " ^0000ffNow, commercial growth level is " + GetCastleData(strnpcinfo(2),2) + ".";
+		mes "^0000ffNow, the commercial growth level is "+GetCastleData(strnpcinfo(2),2)+".";
 		if (GetCastleData(strnpcinfo(2),4)) {
-			mes " You invested " + GetCastleData(strnpcinfo(2),4) + "times in last 1 day.";
+			mes " You invested "+GetCastleData(strnpcinfo(2),4)+" times in past 1 day.";
 		}
-		mes " Now, safeguard level is " + GetCastleData(strnpcinfo(2),3) + ".^000000";
+		mes " Now, the Castle Defense level is "+GetCastleData(strnpcinfo(2),3)+".^000000";
 		if (GetCastleData(strnpcinfo(2),5)) {
-			mes " ^0000ff- You invested " + GetCastleData(strnpcinfo(2),5) + "times in last 1 day.^000000";
+			mes " ^0000ff- You invested "+GetCastleData(strnpcinfo(2),5)+" times in past 1 day.^000000";
 		}
 		mes " ";
-		mes "That's all to report, Master.";
+		mes "That's all I have to report, Master.";
 		close;
 	case 2:
-		set .@Economy,GetCastleData(strnpcinfo(2),2);
 		if (.@Economy < 6) { set .@eco_invest,5000; }
 		else if ((.@Economy >= 6) && (.@Economy <= 10)) { set .@eco_invest,10000; }
 		else if ((.@Economy >= 11) && (.@Economy <= 15)) { set .@eco_invest,20000; }
@@ -511,45 +658,43 @@ OnRecvCastle:
 		if (GetCastleData(strnpcinfo(2),4)) {
 			set .@eco_invest,.@eco_invest*4;
 		}
-		mes "[ Steward " + .@name$ + " ]";
-		mes "If you raise commercial growth, the quantity of goods made by the guild will increase. So if you want a prosperous future, investment will be required.";
+		mes "["+strnpcinfo(1)+"]";
+		mes "If you invest in commercial growth, the quantity of goods made by the guild will increase. Therfore, if you consider our future, investments will be a necessity.";
 		mes " ";
-		mes "Originally you can invest just once but if you pay more money, you can invest twice.";
-		mes " ";
+		mes "Initially, you are able to invest just once but if you pay more money, you will be able to invest twice.";
 		if (.@Economy == 100) {
-			mes "^ff0000But the commercial growth level of our castle is peaked at 100%. It doesn't need any more investment. As I expected you have a great acumen, Master.^000000";
-			close;
+			mes " ";
+			mes "^ff0000The commercial growth level of our Castle is at it's highest, 100%. No more investments are needed. Just as I have expected from a great economist like you, Master.^000000";
+			end;
 		}
 		if (GetCastleData(strnpcinfo(2),4) >= 2) {
-			mes "^ff0000But you already invested twice today so you cannot invest any more.^000000 I expect our riches to increase in growth level.";
-			close;
+			mes " ";
+			mes "^ff0000You have already invested twice today. You cannot invest any more.^000000 I expect riches of the guild to grow at a high rate.";
+			end;
 		}
 		if (GetCastleData(strnpcinfo(2),4) == 0) {
-			mes "Now the needed investment amount is ^ff0000" + .@eco_invest + "^000000 zeny. Will you invest?";
+			mes " ";
+			mes "The current investment amount required is ^ff0000"+.@eco_invest+"^000000 zeny. Will you invest?";
 		}
 		else {
-			mes "You've invested once today... if you wish to invest once more, ^ff0000" + .@eco_invest + "^000000 more zeny will be needed.";
+			mes " ";
+			mes "You've invested once today... if you wish to invest once more, ^ff0000"+.@eco_invest+"^000000 more zeny will be needed.";
 		}
 		next;
-		switch(select("Invest in commercial growth:Cancel")) {
+		switch (select("Invest in commercial growth:Cancel")) {
 		case 1:
-			if (GetCastleData(strnpcinfo(2),4) >= 2) {
-				mes "[ Steward " + .@name$ + " ]";
-				mes "I'm sorry but you already invested twice today so you cannot invest any more.";
-				close;
-			}
 			if (Zeny < .@eco_invest) {
-				mes "[ Steward " + .@name$ + " ]";
+				mes "["+strnpcinfo(1)+"]";
 				mes "I'm sorry but there is not enough zeny to invest. You will have to try again when you have the funds, Master.";
 				close;
 			}
-			set zeny,zeny-.@eco_invest;
+			set Zeny, Zeny - .@eco_invest;
 			SetCastleData strnpcinfo(2),4,GetCastleData(strnpcinfo(2),4)+1;
-			mes "[ Steward " + .@name$ + "]";
+			mes "[ "+strnpcinfo(1)+"]";
 			mes "We finished the investment safely. I expect that our growth level will be increased by tomorrow.";
 			close;
 		case 2:
-			mes "[ Steward " + .@name$ + " ]";
+			mes "["+strnpcinfo(1)+"]";
 			mes "I'll do as you bid, my master... There is no hurry. We will do our best.";
 			close;
 		}
@@ -579,51 +724,48 @@ OnRecvCastle:
 		if (GetCastleData(strnpcinfo(2),5)) {
 			set .@def_invest,.@def_invest*4;
 		}
-		mes "[ Steward " + .@name$ + " ]";
-		mes "If you raise the safeguard, the durability of the Guardians and emperium will increase. So if you expect more defenses in battles, investment will be required.";
+		mes "["+strnpcinfo(1)+"]";
+		mes "If you raise Castle Defenses, the durability of Guardians and the Emperium will increase. Therefore, if you consider our coming battles, some investment in this area will be required.";
 		mes " ";
 		mes "Originally you can invest just once but if you pay more money, you can invest twice.";
-		mes " ";
 		if (.@Defence == 100) {
-			mes "^ff0000But the safeguard level of our castle is peaked at 100%. It doesn't need any more investment. As I expected you have a great acumen, Master.^000000";
+			mes " ";
+			mes "^ff0000But the Castle Defense level of our Castle is at it's highest, 100%. No more investments are needed. Just as I have expected from a great strategist like you, Master.^000000";
 			close;
 		}
 		if (GetCastleData(strnpcinfo(2),5) >= 2) {
-			mes "^ff0000But you already invested twice today so you cannot invest any more.^000000 I expect our riches to increase in growth level.";
+			mes " ";
+			mes "^ff0000You have already invested twice today. You cannot invest any more.^000000 I expect the Defenses of the guild to grow at a high rate.";
 			close;
 		}
 		if (GetCastleData(strnpcinfo(2),5) == 0) {
-			mes "Now the needed investment amount is ^ff0000" + .@def_invest + "^000000 zeny. Will you invest?";
+			mes " ";
+			mes "The current investment amount required is ^ff0000"+.@def_invest+"^000000 zeny. Will you invest?";
 		}
 		else {
-			mes "You've invested once today... if you wish to invest once more, ^ff0000" + .@def_invest + "^000000 more zeny will be needed.";
+			mes " ";
+			mes "You've invested once today... if you wish to invest once more, ^ff0000"+.@def_invest+"^000000 more zeny will be needed.";
 		}
 		next;
-		switch(select("Invest in safeguard.:Cancel")) {
+		switch (select("Invest in Castle Defenses.:Cancel")) {
 		case 1:
-			if (GetCastleData(strnpcinfo(2),5) >= 2) {
-				mes "[ Steward " + .@name$ + " ]";
-				mes "I'm sorry but you already invested twice today so you cannot invest any more.";
-				close;
-			}
 			if (Zeny < .@def_invest) {
-				mes "[ Steward " + .@name$ + " ]";
+				mes "["+strnpcinfo(1)+"]";
 				mes "I'm sorry but there is not enough zeny to invest. You will have to try again when you have the funds, Master.";
 				close;
 			}
-			set zeny,zeny-.@def_invest;
+			set Zeny, Zeny - .@def_invest;
 			SetCastleData strnpcinfo(2),5,GetCastleData(strnpcinfo(2),5)+1;
-			mes "[ Steward " + .@name$ + "]";
-			mes "We finished the investment safely. I expect that the safeguard level will be increased by tomorrow.";
+			mes "[ "+strnpcinfo(1)+"]";
+			mes "We finished the investment safely. I expect that our Castle Defense level will be increased by tomorrow.";
 			close;
 		case 2:
-			mes "[ Steward " + .@name$ + " ]";
+			mes "["+strnpcinfo(1)+"]";
 			mes "I'll do as you bid, my master... There is no hurry. We will do our best.";
 			close;
-
 		}
 	case 4:
-		mes "[ Steward " + .@name$ + " ]";
+		mes "["+strnpcinfo(1)+"]";
 		mes "Will you summon a Guardian? It'll be a protector to defend us loyally.";
 		mes "Please select a guardian to defend us.";
 		next;
@@ -640,136 +782,202 @@ OnRecvCastle:
 		}
 		set .@menu$,.@gname$[0]+":"+.@gname$[1]+":"+.@gname$[2]+":"+.@gname$[3]+":"+.@gname$[4]+":"+.@gname$[5]+":"+.@gname$[6]+":"+.@gname$[7];
 		set .@GDnum,select(.@menu$)+9;
-		mes "[ Steward " + .@name$ + " ]";
-		mes "Will you summon the chosen guardian? 10000 zeny is required to summon.";
+		mes "["+strnpcinfo(1)+"]";
+		mes "Will you summon the chosen guardian? 10,000 zeny are required to summon a Guardian.";
 		next;
-		switch(select("Summon:Cancel")) {
+		switch (select("Summon:Cancel")) {
 		case 1:
-			mes "[ Steward " + .@name$ + " ]";
 			if (getgdskilllv(.@GID,10002) == 0) {
-				mes "Master, we have not the resources to Summon the Guardian. If you want to accumulate them, you have to learn the Guild skill, We failed to summon the Guardian.";
+				mes "["+strnpcinfo(1)+"]";
+				mes "Master, we have not the resources to Summon the Guardian. If you want to accumulate them, you have to learn the Guild skill. We failed to summon the Guardian.";
 				close;
 			}
 			if (GetCastleData(strnpcinfo(2),.@GDnum) == 1) {
+				mes "["+strnpcinfo(1)+"]";
 				mes "Master, you already have summoned that Guardian. We cannot summon another.";
 				close;
 			}
-
 			if (Zeny < 10000) {
+				mes "["+strnpcinfo(1)+"]";
 				mes "Well... I'm sorry but we don't have funds to summon the Guardian. We failed to summon the Guardian.";
 				close;
 			}
-			set zeny,zeny-10000;
+			set Zeny, Zeny - 10000;
 			SetCastleData strnpcinfo(2),.@GDnum,1; // mark as 'installed'
 			set .@UseGID,.@GDnum - 10;
 			if (.@guardiantype[.@UseGID] == 1) { set .@type,1287; }
 			else if (.@guardiantype[.@UseGID] == 2) { set .@type,1285; }
 			else { set .@type,1286; }
 			guardian strnpcinfo(2),.@guardianposx[.@UseGID],.@guardianposy[.@UseGID],strmobinfo(2,.@type),.@type,"Guardian#"+strnpcinfo(2)+"::OnGuardianDied",.@UseGID;
+			mes "["+strnpcinfo(1)+"]";
 			mes "We completed the summoning of the Guardian. Our defenses are now increased with it in place.";
 			close;
 		case 2:
-			mes "[ Steward " + .@name$ + " ]";
+			mes "["+strnpcinfo(1)+"]";
 			mes "I did as you ordered. But please remember if you the have money to spare, it'll be better to set it up.";
 			close;
-	}
+		}
 	case 5:
 		if (GetCastleData(strnpcinfo(2),9) == 1) {
-			mes "[ Steward " + .@name$ + " ]";
-			mes "Now about the Kafra staff... Will you discharge the Kafra staff?";
+			mes "["+strnpcinfo(1)+"]";
+			mes "We are currently hiring a Kafra Employee... Do you want to fire the Kafra Employee?";
 			next;
-			switch(select("Discharge:Cancel")) {
+			switch (select("Fire:Cancel")) {
 			case 1:
 				cutin "kafra_01",2;
-				mes "[ Hired Kafra staff ]";
-				mes "I worked so hard... How can this be, Master?... I'll work harder if you're displeased... Please reconsider, Master.";
+				mes "[ Hired Kafra Employee ]";
+				mes "I worked so hard... How can you do that, Master?... Please... Please reconsider... Check it again, Master... Please...";
 				next;
-				switch(select("Discharge:Cancel")) {
+				switch (select("Fire:Cancel")) {
 				case 1:
-					mes "[ Hired Kafra staff ]";
-					mes "Oh, my god! This is nonsense!";
+					mes "[ Hired Kafra Employee ]";
+					mes "Oh, my goodness! This is nonsense!";
 					next;
-					cutin "kafra_01",255;
-					break;
+					cutin "",255;
+					close;
 				case 2:
-					mes "[ Hired Kafra staff ]";
-					mes "I'll work harder... Thank you!";
-					close2;
-					cutin "kafra_01",255;
-					end;
+					mes "[ Hired Kafra Employee ]";
+					mes "I'll work hard for you... Thank you!";
+					close;
 				}
-				break;
 			case 2:
-				mes "[ Steward " + .@name$ + " ]";
-				mes "Those Kafra are hard workers. I thought it would be best to keep the staff.";
+				mes "["+strnpcinfo(1)+"]";
+				mes "She worked hard in my opinion. It was a good decision to keep her.";
 				close;
 			}
 			disablenpc "Kafra Staff#"+strnpcinfo(2);
 			SetCastleData strnpcinfo(2),9,0;
-			mes "[ Steward " + .@name$ + " ]";
+			mes "["+strnpcinfo(1)+"]";
 			mes "....";
-			mes "Discharged Kafra staff... But... are you displeased with something?";
+			mes "I have discharged the Kafra Employee... But... are you unsatisfied with something?";
 			close;
 		}
-		else {
-			mes "[ Steward " + .@name$ + " ]";
-			mes "Will you contract with the Kafra head office to hire Kafra staff in our castle?";
-			mes "^ff0000 10000zeny is needed to hire. ";
-			next;
-			switch(select("Hire.:Cancel")) {
-			case 1:
-				mes "[ Steward " + .@name$ + " ]";
-				if (getgdskilllv(.@GID,10001) == 0) {
-					mes "Master, we cannot hire Kafra staff because we didn't make a contract with the Kafra head office. If you want to make a contract with the Kafra head office, you have to learn the Guild skill.";
-					close;
-				}
-				if (Zeny < 10000) {
-					mes "Well... I'm sorry but we don't have enough funds. We are unable to hire the Kafra staff.";
-					close;
-				}
-				set zeny,zeny-10000;
-				enablenpc "Kafra Staff#"+strnpcinfo(2);
-				SetCastleData strnpcinfo(2),9,1;
-				mes "We finished making the contract with the Kafra head office successfully. We hired a Kafra staff.";
-				next;
-				cutin "kafra_01",2;
-				mes "[ Hired Kafra staff ]";
-				mes "How do you do? I'm a dispatched Kafra from head office.";
-				mes "I'll do my best to upkeep the reputation of Guild.";
-				next;
-				cutin "kafra_01",255			;
-				mes "[ Steward " + .@name$ + " ]";
-				mes "The contract term of the hired Kafra staff is 1 month and after this term, you will have to pay an additional charge.";
-				mes "It will be useful for our members.";
-				close;
-			case 2:
-				mes "[ Steward " + .@name$ + " ]";
-				mes "I did as you ordered, but some of our members will be unhappy. It will be better to hire a Kafra staff quickly.";
+		mes "["+strnpcinfo(1)+"]";
+		mes "Will you contact the kafra Main Office and Hire a Employee for our Castle?";
+		mes "^ff0000 10,000 zeny is required for their services. ";
+		next;
+		switch (select("Hire.:Cancel")) {
+		case 1:
+			if (getgdskilllv(.@GID,10001) == 0) {
+				mes "["+strnpcinfo(1)+"]";
+				mes "Master, we can't hire a Kafra Employee because we don't have a contract with the Kafra Main Office. If you want to obtain a contract with the Kafra Main Office, you will need to learn the Guild skill first.";
 				close;
 			}
+			if (Zeny < 10000) {
+				mes "["+strnpcinfo(1)+"]";
+				mes "Well... I'm sorry but we don't have enough funds to hire a Kafra Employee.";
+				close;
+			}
+			set Zeny, Zeny - 10000;
+			enablenpc "Kafra Staff#"+strnpcinfo(2);
+			SetCastleData strnpcinfo(2),9,1;
+			mes "["+strnpcinfo(1)+"]";
+			mes "We obtained a contract with the kafra Main Office, and hired a Kafra Employee.";
+			next;
+			cutin "kafra_01",2;
+			mes "[ Hired Kafra Employee ]";
+			mes "How do you do? I was dispatched from the Main Office.";
+			mes "I'll do my best to not tarnish the reputation of the Guild.";
+			next;
+			cutin "",255;
+			mes "["+strnpcinfo(1)+"]";
+			mes "The Contract terms of the hired Kafra Employee are for 1 month and after this term, you will need to to pay an additional fee.";
+			mes "It will be useful for our members.";
+			close;
+		case 2:
+			mes "["+strnpcinfo(1)+"]";
+			mes "I did as you ordered, but some of our members will be unhappy. It will be better to hire a Kafra Employee quickly.";
+			close;
 		}
 	case 6:
-		mes "[ Steward " + .@name$ + " ]";
+		mes "["+strnpcinfo(1)+"]";
 		mes "Do you want to visit the room where our valuables are stored?";
 		mes "That room is restricted to you... you are the only one with access to it.";
 		next;
-		switch(select("Go into Master's room.:Cancel")) {
+		switch (select("Go into Master's room.:Cancel")) {
 		case 1:
-			mes "[ Steward " + .@name$ + " ]";
-			mes "Please follow me, I will show you the secret passage.";
-			mes "When you wish to return, pull this lever here...";
+			mes "["+strnpcinfo(1)+"]";
+			mes "I'll show you the secret path. Follow me...please.";
+			mes "When you want to return here, please press the secret switch.";
 			close2;
 			warp strnpcinfo(2),.@masterroom[0],.@masterroom[1];
 			end;
 		case 2:
-			mes "[ Steward " + .@name$ + " ]";
-			mes "Goods are produced once a day... if you don't make use of them, they will not produce.";
-			mes "Therefore it would be better that you remove them over time for the Guild.";
+			mes "["+strnpcinfo(1)+"]";
+			mes "Goods are produced once a day... if you don't remove them in time, they will not be produced anymore.";
+			mes "Therefore, it will be better if you check up on them from time to time.";
 			close;
 		}
 	}
 }
 
+// WoE : Guild Dungeon Entrances
+//============================================================
+-	script	Lever#gd::gdlever	-1,{
+
+	set .@GID,GetCastleData(strnpcinfo(2),1);
+
+	if (.@GID == 0) {
+		mes "[Ringing Voice]";
+		mes "'Those who overcome an ordeal shows a great deal of bravery... and will find their way to another ordeal.'";
+		close;
+	}
+
+	if (compare(strnpcinfo(2),"aldeg")) {
+		set .@destination$,"gld_dun02";
+		if (compare(strnpcinfo(2),"cas01")) setarray .@coordinates[0],32,122;
+		else if (compare(strnpcinfo(2),"cas02")) setarray .@coordinates[0],79,30;
+		else if (compare(strnpcinfo(2),"cas03")) setarray .@coordinates[0],165,38;
+		else if (compare(strnpcinfo(2),"cas04")) setarray .@coordinates[0],160,148;
+		else if (compare(strnpcinfo(2),"cas05")) setarray .@coordinates[0],103,169;
+	}
+	else if (compare(strnpcinfo(2),"gefg")) {
+		set .@destination$,"gld_dun04";
+		if (compare(strnpcinfo(2),"cas01")) setarray .@coordinates[0],39,258;
+		else if (compare(strnpcinfo(2),"cas02")) setarray .@coordinates[0],125,270;
+		else if (compare(strnpcinfo(2),"cas03")) setarray .@coordinates[0],268,251;
+		else if (compare(strnpcinfo(2),"cas04")) setarray .@coordinates[0],268,108;
+		else if (compare(strnpcinfo(2),"cas05")) setarray .@coordinates[0],230,35;
+	}
+	else if (compare(strnpcinfo(2),"payg")) {
+		set .@destination$,"gld_dun01";
+		if (compare(strnpcinfo(2),"cas01")) setarray .@coordinates[0],186,165;
+		else if (compare(strnpcinfo(2),"cas02")) setarray .@coordinates[0],54,165;
+		else if (compare(strnpcinfo(2),"cas03")) setarray .@coordinates[0],54,39;
+		else if (compare(strnpcinfo(2),"cas04")) setarray .@coordinates[0],186,39;
+		else if (compare(strnpcinfo(2),"cas05")) setarray .@coordinates[0],223,202;
+	}
+	else if (compare(strnpcinfo(2),"prtg")) {
+		set .@destination$,"gld_dun03";
+		if (compare(strnpcinfo(2),"cas01")) setarray .@coordinates[0],28,251;
+		else if (compare(strnpcinfo(2),"cas02")) setarray .@coordinates[0],164,268;
+		else if (compare(strnpcinfo(2),"cas03")) setarray .@coordinates[0],164,179;
+		else if (compare(strnpcinfo(2),"cas04")) setarray .@coordinates[0],268,203;
+		else if (compare(strnpcinfo(2),"cas05")) setarray .@coordinates[0],199,28;
+	}
+	// Add custom Guild Castles here.
+	else {
+		end;
+	}
+
+	mes "[Ringing Voice]";
+	mes "'Only the truly brave can take the test.'";
+	next;
+	mes " ";
+	mes "There's a small lever. Will you pull it?";
+	next;
+	if(select("Pull.:Don't pull.") == 1) {
+		if (getcharid(2) == .@GID) {
+			close2;
+			warp .@destination$,.@coordinates[0],.@coordinates[1];
+			end;
+		}
+		mes " ";
+		mes "Nothing happened.";
+		close;
+	}
+	close;
+}
 
 // Guardian Spawner Template
 //============================================================
@@ -909,235 +1117,6 @@ OnSpawnGuardians:
 	end;
 
 OnGuardianDied:
-	end;
-}
-
-// Kafra Template
-//============================================================
--	script	Gld_Kafra_Template::Gld_Kafra_Template	-1,{
-	// Store the Guild ID of castle occupant.
-	set .@GID, GetCastleData(strnpcinfo(2),1);
-
-	if (compare(strnpcinfo(2),"aldeg")) {
-		setarray .@destination$[0],"Al De Baran","aldebaran";
-		setarray .@coordinates[0],132,103;
-	}
-	else if (compare(strnpcinfo(2),"gefg")) {
-		setarray .@destination$[0],"Geffen","geffen";
-		setarray .@coordinates[0],120,39;
-	}
-	else if (compare(strnpcinfo(2),"payg")) {
-		setarray .@destination$[0],"Payon","payon";
-		setarray .@coordinates[0],70,100;
-	}
-	else if (compare(strnpcinfo(2),"prtg")) {
-		setarray .@destination$[0],"Prontera","prontera";
-		setarray .@coordinates[0],116,72;
-	}
-	// Add custom Guild Castles here.
-	else {
-		end;
-	}
-
-	cutin "kafra_01",2;
-	if (getcharid(2) == .@GID) {
-		mes "[Kafra staff]";
-		mes "Welcome. ^ff0000" + getguildname(.@GID) + "^000000 Member.";
-		mes "The Kafra Coporation will stay with you wherever you go.";
-		next;
-		switch(select("Use Storage:Use Guild Storage:Use Warp Service:Rent a Cart:Cancel")) {
-		case 1:
-			if (basicskillcheck() && getskilllv("NV_BASIC") < 6) {
-				mes "[Kafra staff]";
-				mes "I am sorry but you have to be at least Novice skill level 6 if you want to use the storage.";
-			}
-			else {
-				callfunc("F_CheckKafCode");	//check your storage password, if set
-	 	 		openstorage;
-			}
-			break;
-		case 2:
-			// Unofficial, but since it's already been in eA for ages
-			// and used, I can't exactly remove it, now, can I? >:(
-			if(guildopenstorage() == 1){
-				mes "[Kafra Employee]";
-				mes "I'm sorry but another guild member is using the guild storage";
-				mes "right now.  Please wait until that person is finished.";
-				close2;
-				cutin "", 255;
-				end;
-			}
-			cutin "", 255;
-			close;
-		case 3:
-			mes "[Kafra staff]";
-			mes "Please let me know your destination.";
-			next;
-			switch(select(.@destination$ + " ^880000200 ^000000z:Cancel")) {
-			case 1:
-				if (Zeny < 200) {
-					mes "[Kafra staff]";
-		 			mes "You don't have enough money. Please check again.";
-				}
-				else {
-					set zeny,zeny-200;
-					set kf_10_pit,kf_10_pit+2;
-					cutin "kafra_01",255;
-					warp .@destination$[1],.@coordinates[0],.@coordinates[1];
-					end;
-				}
-				break;
-			case 2:
-				break;
-			}
-			break;
-		case 4:
-			if(baseClass != Job_Merchant){
-				mes "[Kafra staff]";
-				mes "I am sorry. The Cart Service is only provided for the Merchant and Blacksmith class.";
-			}
-			else if(checkcart() == 1){
-				mes "[Kafra staff]";
-				mes "You have a cart equipped already.";
-			}
-			else {
-				mes "[Kafra staff]"		;
-				mes "The cart fee is 800 zeny. Do you want to rent a cart?";
-				next;
-				switch(select("Yes.:Cancel.")) {
-				case 1:
-					if (Zeny < 800) {
-						mes "[Kafra staff]";
-						mes "You don't have enough Money. You need 800 Zeny to rent a cart.";
-					}
-					else {
-						close2;
-						cutin "kafra_01",255;
-						set kf_10_pit,kf_10_pit+8;
-						set zeny,zeny-800;
-						setcart;
-						end;
-					}
-					break;
-				case 2:
-					break;
-				}
-			}
-			break;
-		case 5:
-			mes "[Kafra staff]";
-			mes "The Kafra corp. always tries to give the best service.";
-			mes "Thank you for using Kafra corp. Please come again.";
-		}
-	}
-	else {
-		mes "[Kafra staff]";
-		mes "I am instructed to service only for the ^ff0000" + getguildname(.@GID) + "^000000 Guild. Please try another Kafra staff member around here. Sorry for the inconvenience.";
-	}
-	close2;
-	cutin "kafra_01",255;
-	end;
-}
-
-// Guild Dungeon Switch Template
-//============================================================
--	script	Gld_Dun_Template::Gld_Dun_Template	-1,{
-	// Store the Guild ID of castle occupant.
-	set .@GID, GetCastleData(strnpcinfo(2),1);
-
-	// Pick what Dungeon I should warp too, and where in that dungeon.
-	if (compare(strnpcinfo(2),"aldeg")) {
-		set .@destination$,"gld_dun02";
-		if (compare(strnpcinfo(2),"cas01")) setarray .@coordinates[0],32,122;
-		else if (compare(strnpcinfo(2),"cas02")) setarray .@coordinates[0],79,32;
-		else if (compare(strnpcinfo(2),"cas03")) setarray .@coordinates[0],165,38;
-		else if (compare(strnpcinfo(2),"cas04")) setarray .@coordinates[0],160,148;
-		else if (compare(strnpcinfo(2),"cas05")) setarray .@coordinates[0],103,169;
-	}
-	else if (compare(strnpcinfo(2),"gefg")) {
-		set .@destination$,"gld_dun04";
-		if (compare(strnpcinfo(2),"cas01")) setarray .@coordinates[0],39,258;
-		else if (compare(strnpcinfo(2),"cas02")) setarray .@coordinates[0],125,270;
-		else if (compare(strnpcinfo(2),"cas03")) setarray .@coordinates[0],268,251;
-		else if (compare(strnpcinfo(2),"cas04")) setarray .@coordinates[0],268,108;
-		else if (compare(strnpcinfo(2),"cas05")) setarray .@coordinates[0],230,35;
-	}
-	else if (compare(strnpcinfo(2),"payg")) {
-		set .@destination$,"gld_dun01";
-		if (compare(strnpcinfo(2),"cas01")) setarray .@coordinates[0],186,165;
-		else if (compare(strnpcinfo(2),"cas02")) setarray .@coordinates[0],54,165;
-		else if (compare(strnpcinfo(2),"cas03")) setarray .@coordinates[0],54,39;
-		else if (compare(strnpcinfo(2),"cas04")) setarray .@coordinates[0],186,39;
-		else if (compare(strnpcinfo(2),"cas05")) setarray .@coordinates[0],223,202;
-	}
-	else if (compare(strnpcinfo(2),"prtg")) {
-		set .@destination$,"gld_dun03";
-		if (compare(strnpcinfo(2),"cas01")) setarray .@coordinates[0],28,251;
-		else if (compare(strnpcinfo(2),"cas02")) setarray .@coordinates[0],164,268;
-		else if (compare(strnpcinfo(2),"cas03")) setarray .@coordinates[0],164,179;
-		else if (compare(strnpcinfo(2),"cas04")) setarray .@coordinates[0],268,203;
-		else if (compare(strnpcinfo(2),"cas05")) setarray .@coordinates[0],199,28;
-	}
-	// Add custom Guild Castles here.
-	else {
-		end;
-	}
-
-	if (.@GID == 0) {
-		mes "[ Echoing Voice ]";
-		mes " ' The one who can overcome an ordeal and show true bravery... will find the way... ' ";
-		close;
-	}
-	else {
-		mes "[ Echoing Voice ]";
-		mes " ' Only the one who can show true bravery can take this test. '";
-		next;
-		mes " ";
-		mes "There's a small lever. Will you pull it?";
-		next;
-		switch(select("Pull.:Do not.")) {
-		case 1:
-			if ((getcharid(2) == .@GID)) {
-				warp .@destination$,.@coordinates[0],.@coordinates[1];
-				end;
-			}
-			else {
-				mes " ";
-				mes " Nothing happened.";
-				close;
-			}
-		case 2:
-			close;
-		}
-	}
-}
-
-// Treasure Room Protection Template
-//============================================================
--	script	Gld_Trea_Protect::Gld_Trea_Protect	-1,{
-//OnTouch2:
-OnTouch:
-	// Store the Guild ID of castle occupant.
-	set .@GID, GetCastleData(strnpcinfo(2),1);
-
-	if (getcharid(2) != .@GID) {
-		if (compare(strnpcinfo(2),"aldeg")) {
-			warp "aldebaran",132,103;
-		}
-		else if (compare(strnpcinfo(2),"gefg")) {
-			warp "geffen",120,39;
-		}
-		else if (compare(strnpcinfo(2),"payg")) {
-			warp "payon",70,100;
-		}
-		else if (compare(strnpcinfo(2),"prtg")) {
-			warp "prontera",116,72;
-		}
-		// Add custom Guild Castles here.
-		else {
-			end;
-		}
-	}
 	end;
 }
 

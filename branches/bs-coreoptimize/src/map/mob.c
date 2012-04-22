@@ -125,6 +125,60 @@ static int mobdb_searchname_array_sub(struct mob_db* mob, const char *str)
 }
 
 /*==========================================
+ *              MvP Tomb [GreenBox]
+ *------------------------------------------*/
+void mvptomb_create(struct mob_data *md, char *killer, time_t time)
+{
+	struct npc_data *nd;
+
+	CREATE(nd, struct npc_data, 1);
+
+	nd->bl.id = md->tomb_nid = npc_get_new_npc_id();
+	
+    nd->ud.dir = md->ud.dir;
+	nd->bl.m = md->bl.m;
+	nd->bl.x = md->bl.x;
+	nd->bl.y = md->bl.y;
+	nd->bl.type = BL_NPC;
+	
+	safestrncpy(nd->name, msg_txt(656), sizeof(nd->name));
+
+	nd->class_ = 565;
+	nd->speed = 200;
+	nd->subtype = TOMB;
+
+	nd->u.tomb.md = md;
+	nd->u.tomb.kill_time = time;
+	
+	if (killer)
+		nd->u.tomb.killer_name = aStrdup(killer); // Don't rely that killer name will be available all time
+	else
+		nd->u.tomb.killer_name = NULL;
+
+	map_addnpc(nd->bl.m, nd);
+	map_addblock(&nd->bl);
+	status_set_viewdata(&nd->bl, nd->class_);
+    status_change_init(&nd->bl);
+    unit_dataset(&nd->bl);
+    clif_spawn(&nd->bl);
+}
+
+void mvptomb_destroy(struct mob_data *md)
+{
+	struct npc_data *nd = (struct npc_data *)map_id2bl(md->tomb_nid);
+
+	if (nd)
+	{
+		if (nd->u.tomb.killer_name)
+			aFree(nd->u.tomb.killer_name);
+		
+		npc_unload(nd);
+	}
+
+	md->tomb_nid = 0;
+}
+
+/*==========================================
  * Founds up to N matches. Returns number of matches [Skotlex]
  *------------------------------------------*/
 int mobdb_searchname_array(struct mob_db** data, int size, const char *str)
@@ -916,6 +970,10 @@ int mob_spawn (struct mob_data *md)
 		// Added for carts, falcons and pecos for cloned monsters. [Valaris]
 		md->sc.option = md->db->option;
 
+	// MvP tomb [GreenBox]
+	if (md->tomb_nid)
+		mvptomb_destroy(md);
+
 	map_addblock(&md->bl);
 	if( map[md->bl.m].users )
 		clif_spawn(&md->bl);
@@ -1382,10 +1440,12 @@ static bool mob_ai_sub_hard(struct mob_data *md, unsigned int tick)
 		if( md->attacked_id == md->target_id )
 		{	//Rude attacked check.
 			if( !battle_check_range(&md->bl, tbl, md->status.rhw.range)
-			&&  ( //Can't attack back and can't reach back.
-			      (!can_move && DIFF_TICK(tick, md->ud.canmove_tick) > 0 && (battle_config.mob_ai&0x2 || (md->sc.data[SC_SPIDERWEB] && md->sc.data[SC_SPIDERWEB]->val1)))
-			      || !mob_can_reach(md, tbl, md->min_chase, MSS_RUSH)
-			    )
+			   &&  ( //Can't attack back and can't reach back.
+					(!can_move && DIFF_TICK(tick, md->ud.canmove_tick) > 0 && (battle_config.mob_ai&0x2 || (md->sc.data[SC_SPIDERWEB] && md->sc.data[SC_SPIDERWEB]->val1)
+					|| md->sc.data[SC_BITE] || md->sc.data[SC_VACUUM_EXTREME] || md->sc.data[SC_CRYSTALIZE] || md->sc.data[SC_THORNSTRAP]
+					|| md->sc.data[SC__MANHOLE])) // Not yet confirmed if boss will teleport once it can't reach target.
+					|| !mob_can_reach(md, tbl, md->min_chase, MSS_RUSH)
+					)
 			&&  md->state.attacked_count++ >= RUDE_ATTACKED_COUNT
 			&&  !mobskill_use(md, tick, MSC_RUDEATTACKED) // If can't rude Attack
 			&&  can_move && unit_escape(&md->bl, tbl, rnd()%10 +1)) // Attempt escape
@@ -1403,9 +1463,11 @@ static bool mob_ai_sub_hard(struct mob_data *md, unsigned int tick)
 				|| (battle_config.mob_ai&0x2 && !status_check_skilluse(&md->bl, abl, 0, 0)) // Cannot normal attack back to Attacker
 				|| (!battle_check_range(&md->bl, abl, md->status.rhw.range) // Not on Melee Range and ...
 				&& ( // Reach check
-					(!can_move && DIFF_TICK(tick, md->ud.canmove_tick) > 0 && (battle_config.mob_ai&0x2 || (md->sc.data[SC_SPIDERWEB] && md->sc.data[SC_SPIDERWEB]->val1)))
+					(!can_move && DIFF_TICK(tick, md->ud.canmove_tick) > 0 && (battle_config.mob_ai&0x2 || (md->sc.data[SC_SPIDERWEB] && md->sc.data[SC_SPIDERWEB]->val1)
+					|| md->sc.data[SC_BITE] || md->sc.data[SC_VACUUM_EXTREME] || md->sc.data[SC_CRYSTALIZE] || md->sc.data[SC_THORNSTRAP]
+					|| md->sc.data[SC__MANHOLE])) // Not yet confirmed if boss will teleport once it can't reach target.
 					|| !mob_can_reach(md, abl, dist+md->db->range3, MSS_RUSH)
-				)
+					)
 				) )
 			{ // Rude attacked
 				if (md->state.attacked_count++ >= RUDE_ATTACKED_COUNT
@@ -2504,6 +2566,10 @@ int mob_dead(struct mob_data *md, struct block_list *src, int type)
 
 	if(!md->spawn) //Tell status_damage to remove it from memory.
 		return 5; // Note: Actually, it's 4. Oh well...
+
+	// MvP tomb [GreenBox]
+	if (battle_config.mvp_tomb_enabled && md->spawn->state.boss)
+		mvptomb_create(md, mvp_sd ? mvp_sd->status.name : NULL, time(NULL));
 
 	if( !rebirth )
 		mob_setdelayspawn(md); //Set respawning.

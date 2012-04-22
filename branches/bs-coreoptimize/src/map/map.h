@@ -241,7 +241,7 @@ enum bl_type {
 //For common mapforeach calls. Since pets cannot be affected, they aren't included here yet.
 #define BL_CHAR (BL_PC|BL_MOB|BL_HOM|BL_MER|BL_ELEM)
 
-enum npc_subtype { WARP, SHOP, SCRIPT, CASHSHOP };
+enum npc_subtype { WARP, SHOP, SCRIPT, CASHSHOP, TOMB };
 
 enum {
 	RC_FORMLESS=0,
@@ -631,7 +631,7 @@ int map_foreachinpath(int (*func)(struct block_list*,va_list), int m, int x0, in
 int map_foreachinmap(int (*func)(struct block_list*,va_list), int m, int type, ...);
 //blockŠÖ˜A‚É’Ç‰Á
 int map_count_oncell(int m,int x,int y,int type);
-struct skill_unit *map_find_skill_unit_oncell(struct block_list *,int x,int y,int skill_id,struct skill_unit *);
+struct skill_unit *map_find_skill_unit_oncell(struct block_list *,int x,int y,int skill_id,struct skill_unit *, int flag);
 // ˆêŽž“IobjectŠÖ˜A
 int map_get_new_object_id(void);
 int map_search_freecell(struct block_list *src, int m, short *x, short *y, int rx, int ry, int flag);

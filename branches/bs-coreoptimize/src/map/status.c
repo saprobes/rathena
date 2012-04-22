@@ -282,6 +282,7 @@ void initChangeTables(void)
 	set_sc( NPC_HALLUCINATION    , SC_HALLUCINATION   , SI_HALLUCINATION   , SCB_NONE );
 	add_sc( NPC_REBIRTH          , SC_REBIRTH         );
 	add_sc( RG_RAID              , SC_STUN            );
+	add_sc( RG_RAID              , SC_RAID            );
 	set_sc( RG_STRIPWEAPON       , SC_STRIPWEAPON     , SI_STRIPWEAPON     , SCB_WATK );
 	set_sc( RG_STRIPSHIELD       , SC_STRIPSHIELD     , SI_STRIPSHIELD     , SCB_DEF );
 	set_sc( RG_STRIPARMOR        , SC_STRIPARMOR      , SI_STRIPARMOR      , SCB_VIT );
@@ -8707,6 +8708,7 @@ int status_change_end_(struct block_list* bl, enum sc_type type, int tid, const 
 	case SC_CLOAKINGEXCEED:
 	case SC__INVISIBILITY:
 		sc->option &= ~OPTION_CLOAK;
+	case SC_CAMOUFLAGE:
 		opt_flag|= 2;
 		break;
 	case SC_CHASEWALK:
@@ -9120,7 +9122,11 @@ int status_change_timer(int tid, unsigned int tick, int id, intptr_t data)
 					s=5;
 					break;
 				case BA_APPLEIDUN:
-					s=6;
+					#ifdef RENEWAL
+						s=5;
+					#else
+						s=6;
+					#endif
 					break;
 				case CG_MOONLIT:
 					//Moonlit's cost is 4sp*skill_lv [Skotlex]
@@ -9307,7 +9313,7 @@ int status_change_timer(int tid, unsigned int tick, int id, intptr_t data)
 					}
 				}
 
-				clif_emotion(bl,18);
+				clif_emotion(bl,E_HEH);
 				sc_timer_next(4000+tick,status_change_timer,bl->id,data);
 			}
 			return 0;
@@ -9331,7 +9337,7 @@ int status_change_timer(int tid, unsigned int tick, int id, intptr_t data)
 	case SC_OBLIVIONCURSE:
 		if( --(sce->val4) >= 0 )
 		{
-			clif_emotion(bl,1);
+			clif_emotion(bl,E_WHAT);
 			sc_timer_next(3000 + tick, status_change_timer, bl->id, data );
 			return 0;
 		}
@@ -9482,7 +9488,7 @@ int status_change_timer(int tid, unsigned int tick, int id, intptr_t data)
 	case SC_VOICEOFSIREN:
 		if( --(sce->val4) >= 0 )
 		{
-			clif_emotion(bl,3);
+			clif_emotion(bl,E_LV);
 			sc_timer_next(2000 + tick, status_change_timer, bl->id, data);
 			return 0;
 		}
