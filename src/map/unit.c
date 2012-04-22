@@ -913,6 +913,7 @@ int unit_can_move(struct block_list *bl)
 			|| sc->data[SC_BITE]
 			|| sc->data[SC_MAGNETICFIELD]
 			|| sc->data[SC__MANHOLE]
+			|| sc->data[SC_VACUUM_EXTREME]
 			|| (sc->data[SC_FEAR] && sc->data[SC_FEAR]->val2 > 0)
 			|| sc->data[SC_CURSEDCIRCLE_TARGET]
 		))
@@ -1080,7 +1081,7 @@ int unit_skilluse_id2(struct block_list *src, int target_id, short skill_num, sh
 		return 0;
 
 	//Normally not needed because clif.c checks for it, but the at/char/script commands don't! [Skotlex]
-	if(ud->skilltimer != INVALID_TIMER && skill_num != SA_CASTCANCEL)
+	if(ud->skilltimer != INVALID_TIMER && skill_num != SA_CASTCANCEL && skill_num != SO_SPELLFIST)
 		return 0;
 
 	if(skill_get_inf2(skill_num)&INF2_NO_TARGET_SELF && src->id == target_id)
@@ -1094,6 +1095,7 @@ int unit_skilluse_id2(struct block_list *src, int target_id, short skill_num, sh
 	if(sd) {
 		switch(skill_num){
 		case SA_CASTCANCEL:
+		case SO_SPELLFIST:
 			if(ud->skillid != skill_num){
 				sd->skillid_old = ud->skillid;
 				sd->skilllv_old = ud->skilllv;
@@ -1290,7 +1292,7 @@ int unit_skilluse_id2(struct block_list *src, int target_id, short skill_num, sh
 		} else if( sc->data[SC_CLOAKINGEXCEED] && !(sc->data[SC_CLOAKINGEXCEED]->val4&4) && skill_num != GC_CLOAKINGEXCEED ) {
 			status_change_end(src,SC_CLOAKINGEXCEED, INVALID_TIMER);
 			if (!src->prev) return 0;
-		} else
+		} else if( sc->data[SC_CAMOUFLAGE] && skill_num != RA_CAMOUFLAGE )
 			status_change_end(src,SC_CAMOUFLAGE,-1);
 
 		if( sc->data[SC_CURSEDCIRCLE_ATKER] ) {
@@ -1418,7 +1420,7 @@ int unit_skilluse_pos2( struct block_list *src, short skill_x, short skill_y, sh
 		} else if (sc->data[SC_CLOAKINGEXCEED] && !(sc->data[SC_CLOAKINGEXCEED]->val4&4)) {
 			status_change_end(src, SC_CLOAKINGEXCEED, INVALID_TIMER);
 			if (!src->prev) return 0;
-		} else
+		} else if( sc->data[SC_CAMOUFLAGE] && skill_num != RA_CAMOUFLAGE )
 			status_change_end(src,SC_CAMOUFLAGE,-1);
 
 		if( sc->data[SC_CURSEDCIRCLE_ATKER] ) {
@@ -2180,6 +2182,8 @@ void unit_remove_map_pc(struct map_session_data *sd, clr_type clrtype)
 		unit_remove_map(&sd->hd->bl, clrtype);
 	if(sd->md)
 		unit_remove_map(&sd->md->bl, clrtype);
+	if(sd->ed)
+		unit_remove_map(&sd->ed->bl, clrtype);
 }
 
 void unit_free_pc(struct map_session_data *sd)
@@ -2187,6 +2191,7 @@ void unit_free_pc(struct map_session_data *sd)
 	if (sd->pd) unit_free(&sd->pd->bl,CLR_OUTSIGHT);
 	if (sd->hd) unit_free(&sd->hd->bl,CLR_OUTSIGHT);
 	if (sd->md) unit_free(&sd->md->bl,CLR_OUTSIGHT);
+	if (sd->ed) unit_free(&sd->ed->bl,CLR_OUTSIGHT);
 	unit_free(&sd->bl,CLR_TELEPORT);
 }
 

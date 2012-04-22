@@ -3360,12 +3360,14 @@ Return values for 'checkvending' are
 'checkchatting' returns 1 if they are in a chat room, 0 if they are not.
 
 Example(s):
-if (checkVending("Aaron")) mes "Aaron is currently vending!";
 	//This will check if Aaron is vending, and if so, put a message in front
 	//of the attached player saying Aaron is vending.
+	if (checkvending("Aaron"))
+		mes "Aaron is currently vending!";
 
-if (checkChatting()) mes "You are currently chatting!";
-	//This will check if you're in a chat room or not
+	//This will check if the attached player in a chat room or not.
+	if (checkchatting())
+		mes "You are currently in a chat room!";
 
 ---------------------------------------
 
@@ -6397,10 +6399,10 @@ to query the server log tables.
 
 ---------------------------------------
 
-*escape_sql("<string>")
+*escape_sql(<value>)
 
-Escapes special characters in the string, so that it is safe to use in query_sql(), 
-and returns the escaped form of the given string.
+Converts the value to a string and escapes special characters so that it is safe to use in query_sql().
+Returns the escaped form of the given value.
 
 Example 1:
 	set .@str$, "John's Laptop";

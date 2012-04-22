@@ -930,6 +930,10 @@ int skill_additional_effect (struct block_list* src, struct block_list *bl, int 
 	case RG_RAID:
 		sc_start(bl,SC_STUN,(10+3*skilllv),skilllv,skill_get_time(skillid,skilllv));
 		sc_start(bl,SC_BLIND,(10+3*skilllv),skilllv,skill_get_time2(skillid,skilllv));
+
+#ifdef RENEWAL
+		sc_start(bl,SC_RAID,100,7,5000);
+#endif
 		break;
 
 	case BA_FROSTJOKER:
@@ -3823,11 +3827,11 @@ int skill_castend_damage_id (struct block_list* src, struct block_list *bl, int 
 			for( y = src->y - range; y <= src->y + range; ++y )
 				for( x = src->x - range; x <= src->x + range; ++x )
 				{
-					if( !map_find_skill_unit_oncell(src,x,y,SA_LANDPROTECTOR,NULL) )
+					if( !map_find_skill_unit_oncell(src,x,y,SA_LANDPROTECTOR,NULL,1) )
 					{
 						if( src->type != BL_PC || map_getcell(src->m,x,y,CELL_CHKWATER) ) // non-players bypass the water requirement
 							count++; // natural water cell
-						else if( (unit = map_find_skill_unit_oncell(src,x,y,SA_DELUGE,NULL)) != NULL || (unit = map_find_skill_unit_oncell(src,x,y,NJ_SUITON,NULL)) != NULL )
+						else if( (unit = map_find_skill_unit_oncell(src,x,y,SA_DELUGE,NULL,1)) != NULL || (unit = map_find_skill_unit_oncell(src,x,y,NJ_SUITON,NULL,1)) != NULL )
 						{
 							count++; // skill-induced water cell
 							skill_delunit(unit); // consume cell
@@ -8087,23 +8091,34 @@ int skill_castend_nodamage_id (struct block_list *src, struct block_list *bl, in
 		break;
 
 	case SR_GENTLETOUCH_CURE:
-		if( status_isimmune(bl) ) {
-			clif_skill_nodamage(src,bl,skillid,skilllv,0);
-			break;
+		{
+			int heal;
+
+			if( status_isimmune(bl) ) 
+			{
+				clif_skill_nodamage(src,bl,skillid,skilllv,0);
+				break;
+			}
+		
+			heal = 120 * skilllv + status_get_max_hp(bl) * (2 + skilllv) / 100;
+			status_heal(bl, heal, 0, 0);
+			clif_skill_nodamage(src, bl, AL_HEAL, heal, 1);
+
+			if( (tsc && tsc->opt1) && (rnd()%100 < ((skilllv * 5) + (status_get_dex(src) + status_get_lv(src)) / 4) - (1 + (rnd() % 10))) )
+			{
+				status_change_end(bl, SC_STONE, INVALID_TIMER);
+				status_change_end(bl, SC_FREEZE, INVALID_TIMER);
+				status_change_end(bl, SC_STUN, INVALID_TIMER);
+				status_change_end(bl, SC_POISON, INVALID_TIMER);
+				status_change_end(bl, SC_SILENCE, INVALID_TIMER);
+				status_change_end(bl, SC_BLIND, INVALID_TIMER);
+				status_change_end(bl, SC_HALLUCINATION, INVALID_TIMER);
+				status_change_end(bl, SC_BURNING, INVALID_TIMER);
+				status_change_end(bl, SC_FREEZING, INVALID_TIMER);
+			}
+
+			clif_skill_nodamage(src,bl,skillid,skilllv,1);
 		}
-		if( (tsc && tsc->opt1) && rand()%100 < 5 * skilllv ) {
-			status_change_end(bl, SC_STONE, -1 );
-			status_change_end(bl, SC_FREEZE, -1 );
-			status_change_end(bl, SC_STUN, -1 );
-			status_change_end(bl, SC_POISON, -1 );
-			status_change_end(bl, SC_SILENCE, -1 );
-			status_change_end(bl, SC_BLIND, -1 );
-			status_change_end(bl, SC_HALLUCINATION, -1 );
-			status_change_end(bl, SC_BURNING, -1 );
-			status_change_end(bl, SC_FREEZING, -1 );
-			skill_castend_nodamage_id(src, bl, AL_HEAL, skilllv, tick, flag);
-		}
-		clif_skill_nodamage(src,bl,skillid,skilllv,1);
 		break;
 	case WA_SWING_DANCE:
 	case WA_MOONLIT_SERENADE:
@@ -10095,7 +10110,10 @@ struct skill_unit_group* skill_unitsetting (struct block_list *src, short skilli
 		}
 		break;
 	case DC_HUMMING:
-        val1 = 2*skilllv+status->dex/10; // Hit increase
+		val1 = 2*skilllv+status->dex/10; // Hit increase
+		#ifdef RENEWAL
+			val1 *= 2;
+		#endif
 		if(sd)
 			val1 += pc_checkskill(sd,DC_DANCINGLESSON);
 		break;
