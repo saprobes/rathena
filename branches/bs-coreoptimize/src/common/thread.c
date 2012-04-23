@@ -9,6 +9,7 @@
 #include <string.h>
 #include <signal.h>
 #include <pthread.h>
+#include <sched.h>
 #endif
 
 #include "cbasetypes.h"
@@ -250,12 +251,13 @@ bool rathread_wait( rAthread handle,  void* *out_exitCode ){
 
 
 void rathread_prio_set( rAthread handle, RATHREAD_PRIO prio ){
-	// @TODO
+	handle->prio = RAT_PRIO_NORMAL; 
+	//@TODO 
 }//end: rathread_prio_set()
 
 
 RATHREAD_PRIO rathread_prio_get( rAthread handle){
-	// @TODO
-	return RAT_PRIO_NORMAL;
+	return handle->prio;
 }//end: rathread_prio_get()
+
 

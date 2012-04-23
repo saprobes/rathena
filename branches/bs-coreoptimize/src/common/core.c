@@ -8,6 +8,7 @@
 #ifndef MINICORE
 #include "../common/db.h"
 #include "../common/socket.h"
+#include "../common/tick.h"
 #include "../common/timer.h"
 #include "../common/plugins.h"
 #include "../common/thread.h"
@@ -287,10 +288,12 @@ int main (int argc, char **argv)
 #endif
 	
 	rathread_init();
-	
+
+	tick_init();	
 	timer_init();
 	socket_init();
 	plugins_init();
+
 
 	do_init(argc,argv);
 	plugin_event_trigger(EVENT_ATHENA_INIT);
@@ -298,7 +301,7 @@ int main (int argc, char **argv)
 	{// Main runtime cycle
 		int next;
 		while (runflag != CORE_ST_STOP) {
-			next = do_timer(gettick_nocache());
+			next = do_timer();
 			do_sockets(next);
 		}
 	}
@@ -309,6 +312,8 @@ int main (int argc, char **argv)
 	timer_final();
 	plugins_final();
 	socket_final();
+	
+	tick_final();
 	
 	rathread_final();
 	

@@ -96,101 +96,6 @@ char* search_timer_func_list(TimerFunc func)
 	return "unknown timer function";
 }
 
-/*----------------------------
- * 	Get tick time
- *----------------------------*/
-
-#if defined(ENABLE_RDTSC)
-static uint64 RDTSC_BEGINTICK = 0,   RDTSC_CLOCK = 0;
-
-static __inline uint64 _rdtsc(){
-	register union{
-		uint64	qw;
-		uint32 	dw[2];
-	} t;
-
-	asm volatile("rdtsc":"=a"(t.dw[0]), "=d"(t.dw[1]) );
-	
-	return t.qw;
-}
-
-static void rdtsc_calibrate(){
-	uint64 t1, t2;
-	int32 i;
-	
-	ShowStatus("Calibrating Timer Source, please wait... ");
-	
-	RDTSC_CLOCK = 0;
-	
-	for(i = 0; i < 5; i++){
-		t1 = _rdtsc();
-		usleep(1000000); //1000 MS
-		t2 = _rdtsc();
-		RDTSC_CLOCK += (t2 - t1) / 1000; 
-	}
-	RDTSC_CLOCK /= 5;
-	
-	RDTSC_BEGINTICK = _rdtsc();
-	
-	ShowMessage(" done. (Frequency: %u Mhz)\n", (uint32)(RDTSC_CLOCK/1000) );
-}
-
-#endif
-
-/// platform-abstracted tick retrieval
-static unsigned int tick(void)
-{
-#if defined(WIN32)
-	return GetTickCount();
-#elif defined(ENABLE_RDTSC)
-	//
-		return (unsigned int)((_rdtsc() - RDTSC_BEGINTICK) / RDTSC_CLOCK);
-	//
-#elif defined(HAVE_MONOTONIC_CLOCK)
-	struct timespec tval;
-	clock_gettime(CLOCK_MONOTONIC, &tval);
-	return tval.tv_sec * 1000 + tval.tv_nsec / 1000000;
-#else
-	struct timeval tval;
-	gettimeofday(&tval, NULL);
-	return tval.tv_sec * 1000 + tval.tv_usec / 1000;
-#endif
-}
-
-//////////////////////////////////////////////////////////////////////////
-#if defined(TICK_CACHE) && TICK_CACHE > 1
-//////////////////////////////////////////////////////////////////////////
-// tick is cached for TICK_CACHE calls
-static unsigned int gettick_cache;
-static int gettick_count = 1;
-
-unsigned int gettick_nocache(void)
-{
-	gettick_count = TICK_CACHE;
-	gettick_cache = tick();
-	return gettick_cache;
-}
-
-unsigned int gettick(void)
-{
-	return ( --gettick_count == 0 ) ? gettick_nocache() : gettick_cache;
-}
-//////////////////////////////
-#else
-//////////////////////////////
-// tick doesn't get cached
-unsigned int gettick_nocache(void)
-{
-	return tick();
-}
-
-unsigned int gettick(void)
-{
-	return tick();
-}
-//////////////////////////////////////////////////////////////////////////
-#endif
-//////////////////////////////////////////////////////////////////////////
 
 /*======================================
  * 	CORE : Timer Heap
@@ -345,8 +250,9 @@ int settick_timer(int tid, unsigned int tick)
 
 /// Executes all expired timers.
 /// Returns the value of the smallest non-expired timer (or 1 second if there aren't any).
-int do_timer(unsigned int tick)
+int do_timer()
 {
+	unsigned int tick = gettick_nocache();
 	int diff = TIMER_MAX_INTERVAL; // return value
 
 	// process all timers one by one
