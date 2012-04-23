@@ -3,10 +3,11 @@ from buildbot.process.factory import BuildFactory
 class CMakeFactory(BuildFactory):
     sourcedir = "source"
 
-    def __init__ ( self, svnurl, generator, arguments=[]):
-        """Factory for CMake builds.
+    def __init__ ( self, svnurl, generator, useBuildType=None, arguments=[]):
+        """Factory for CMake out-of-source builds.
         @cvar svnurl: url of the svn repository
         @cvar generator: CMake generator
+        @cvar useBuildType: for multi-configuration generators (see CMAKE_BUILD_TYPE)
         @cvar arguments: extra CMake arguments
         """
         assert svnurl is not None
@@ -14,6 +15,10 @@ class CMakeFactory(BuildFactory):
         assert arguments is not None
         from buildbot.steps import source, slave, shell
         BuildFactory.__init__(self)
+        if useBuildType is None:
+            buildTypeArgument=[]
+        else:
+            buildTypeArgument=["--config", useBuildType]
 
         # update svn
         self.addStep(source.SVN(
@@ -36,7 +41,7 @@ class CMakeFactory(BuildFactory):
         # full paths from library dependencies so it works when you copy the
         # production files elsewhere
         self.addStep(shell.Compile(
-            command=["cmake", "--build", ".", "--target", "install", "--config", "RelWithDebInfo"],
+            command=["cmake", "--build", ".", "--target", "install"] + buildTypeArgument,
             logEnviron=False))
         # package - the package target creates an installer/package/archive
         # that contains the production files
@@ -46,5 +51,5 @@ class CMakeFactory(BuildFactory):
             descriptionDone = ["package"],
             haltOnFailure = True,
             flunkOnFailure = True,
-            command=["cmake", "--build", ".", "--target", "package", "--config", "RelWithDebInfo"],
+            command=["cmake", "--build", ".", "--target", "package"] + buildTypeArgument,
             logEnviron=False))
