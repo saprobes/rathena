@@ -4,7 +4,8 @@ class CMakeFactory(BuildFactory):
     sourcedir = "source"
 
     def __init__ ( self, svnurl, generator, useBuildType=None, arguments=[]):
-        """Factory for CMake out-of-source builds.
+        """Factory for CMake out-of-source builds with extra buildbot code.
+
         @cvar svnurl: url of the svn repository
         @cvar generator: CMake generator
         @cvar useBuildType: for multi-configuration generators (see CMAKE_BUILD_TYPE)
@@ -34,7 +35,7 @@ class CMakeFactory(BuildFactory):
             dir=self.workdir))
         # configure
         self.addStep(shell.Configure(
-            command=["cmake", "../source", "-G%s" % generator] + arguments,
+            command=["cmake", "../source", "-G%s" % generator, "-DENABLE_EXTRA_BUILDBOT_CODE=ON"] + arguments,
             logEnviron=False))
         # compile - the install target builds and then copies files to the
         # production directory (default is subdirectory 'install') and removes
