@@ -111,7 +111,7 @@ static void *_raThreadMainRedirector( void *p ){
 	sigaddset(&set, SIGTERM);
 	sigaddset(&set, SIGPIPE);
 
-	sigprocmask(SIG_BLOCK, &set, NULL);
+	pthread_sigmask(SIG_BLOCK, &set, NULL);
 		
 #endif
 
