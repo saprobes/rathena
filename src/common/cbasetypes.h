@@ -355,4 +355,31 @@ void SET_FUNCPOINTER(T1& var, T2 p)
 #endif
 
 
+//////////////////////////////////////////////////////////////////////////
+// Add a 'sysint' Type which has the width of the platform we're compiled for.
+
+#if defined(__GNUC__)
+	#if defined(__x86_64__)
+		typedef int64 sysint;
+		typedef uint64 usysint;
+	#else
+		typedef int32 sysint;
+		typedef uint32 usysint;
+	#endif
+	
+#elif defined(MSVC)
+	#if defined(_M_X64)
+		typedef int64 sysint;
+		typedef uint64 usysint;
+	#else
+		typedef int32 sysint;
+		typedef uint32 usysint;
+	#endif
+
+#else
+	#error Compiler / Platform is unsupported.
+#endif
+
+
+
 #endif /* _CBASETYPES_H_ */

@@ -5,6 +5,7 @@
 #define	_TIMER_H_
 
 #include "../common/cbasetypes.h"
+#include "../common/tick.h"
 
 #define DIFF_TICK(a,b) ((int)((a)-(b)))
 
@@ -35,8 +36,6 @@ struct TimerData {
 
 // Function prototype declaration
 
-unsigned int gettick(void);
-unsigned int gettick_nocache(void);
 
 int add_timer(unsigned int tick, TimerFunc func, int id, intptr_t data);
 int add_timer_interval(unsigned int tick, TimerFunc func, int id, intptr_t data, int interval);
@@ -50,7 +49,7 @@ int add_timer_func_list(TimerFunc func, char* name);
 
 unsigned long get_uptime(void);
 
-int do_timer(unsigned int tick);
+int do_timer();
 void timer_init(void);
 void timer_final(void);
 
