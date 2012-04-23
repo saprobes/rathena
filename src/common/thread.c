@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
 #include <pthread.h>
 #endif
 
@@ -93,11 +94,27 @@ static void rat_thread_terminated( rAthread handle ){
 DWORD WINAPI _raThreadMainRedirector(LPVOID p){
 #else
 static void *_raThreadMainRedirector( void *p ){
+	sigset_t set; // on Posix Thread platforms
 #endif
 	void *ret;
 	
 	// Update myID @ TLS to right id.
 	g_rathread_ID = ((rAthread)p)->myID; 
+
+#ifndef WIN32
+	// When using posix threads
+	// the threads inherits the Signal mask from the thread which's spawned 
+	// this thread
+	// so we've to block everything we dont care about.
+	sigemptyset(&set);
+	sigaddset(&set, SIGINT);
+	sigaddset(&set, SIGTERM);
+	sigaddset(&set, SIGPIPE);
+
+	sigprocmask(SIG_BLOCK, &set, NULL);
+		
+#endif
+
 
 	ret = ((rAthread)p)->proc( ((rAthread)p)->param ) ;
 
