@@ -49,6 +49,23 @@ usysint g_CurrentTick = 0;
 // Subsystem Implementation:
 //
 static rAthread l_hThread = NULL;
+static uint64 l_StartTick = 0;
+
+__attribute__((always_inline)) static inline uint64 _getTick(){
+	#if defined(WIN32)
+		return GetTickCount();
+		
+	#elif defined(HAVE_MONOTONIC_CLOCK)
+		struct timespec tval;
+		clock_gettime(CLOCK_MONOTONIC, &tval);
+		return  tval.tv_sec * 1000 + tval.tv_nsec / 1000000;
+	#else
+		struct timeval tval;
+		gettimeofday(&tval, NULL);
+		return  tval.tv_sec * 1000 + tval.tv_usec / 1000;
+	#endif
+}
+
 
 
 
@@ -59,7 +76,7 @@ static void *tick_workerProc(void *p){
 
 	while(1){
 		Sleep(1);
-		g_CurrentTick = GetTickCount();
+		g_CurrentTick = (usysint) ( _getTick() - l_StartTick );
 	}
 
 #else
@@ -70,18 +87,8 @@ static void *tick_workerProc(void *p){
 	ts.tv_nsec = 1000000;
 
 	while(1){
-		//g_CurrentTick++;
-		#if defined(HAVE_MONOTONIC_CLOCK)
-			struct timespec tval;
-			clock_gettime(CLOCK_MONOTONIC, &tval);
-			g_CurrentTick = tval.tv_sec * 1000 + tval.tv_nsec / 1000000;
-		#else
-			struct timeval tval;
-			gettimeofday(&tval, NULL);
-			g_CurrentTick = tval.tv_sec * 1000 + tval.tv_usec / 1000;
-		#endif
-        
 		nanosleep(&ts, NULL);
+		g_CurrentTick = (usysint) ( _getTick() - l_StartTick );
 	}
 	
 #endif
@@ -92,7 +99,33 @@ static void *tick_workerProc(void *p){
 
 void tick_init(){
 	
-	g_CurrentTick = 0;
+	l_StartTick = _getTick();
+	g_CurrentTick = 0; // 
+
+	//
+	// Overflow check. (depends on arch ...) 
+	//
+	if(sizeof(usysint) < 8){
+		char timefmt[32];
+		struct tm *ti;
+		int tmp = SINT32_MAX; // - g_CurrentTick;  (since we're starting every program start at tick 0 we dont have to substract the current time .. its always 31 bits space for uptime)
+		time_t wraptime = time(NULL) + (tmp/1000);
+			
+		ti = localtime(&wraptime);
+		strftime(timefmt, sizeof(timefmt), "%c", ti);
+				
+		ShowWarning("============ ATTENTION ===========\n");
+		ShowWarning("= You are using a 32-bit build\n");
+		ShowWarning("= The internal clock (tick) will overfllow in: %0.2f Days\n", (float)((float)(tmp/1000)/86400.0f));
+		ShowWarning("= Exact Date: %s\n", timefmt);
+		ShowWarning("= \n");
+		ShowWarning("= If you do not restart this Application within the timeframe mentioned above\n");
+		ShowWarning("= it will result in unpredictable behavior!\n");
+		ShowWarning("= \n");
+		ShowWarning("= Its recommended to run a 64-bit build in production environments.\n");
+		ShowWarning("==================================\n");
+	}
+	
 	
 	l_hThread = rathread_createEx(tick_workerProc, NULL, 1024*512, RAT_PRIO_HIGH);
 	if(l_hThread == NULL){
