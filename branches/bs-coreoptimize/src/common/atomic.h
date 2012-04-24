@@ -11,6 +11,7 @@
 //
 // our Abstraction is fully API-Compatible to Microsofts implementation @ NT5.0+
 // 
+#include "../common/cbasetypes.h"
 
 #if defined(MSVC)
 #include <Windows.h>
@@ -21,7 +22,7 @@
 #error Your Target Platfrom is not supported
 #endif
 
-__attribute__((always_inline)) inline volatile long InterlockedExchangeAdd64(volatile long *addend, long increment){
+forceinline volatile long InterlockedExchangeAdd64(volatile long *addend, long increment){
 	long ret;
 	
 	__asm__ __volatile__(
@@ -35,7 +36,7 @@ __attribute__((always_inline)) inline volatile long InterlockedExchangeAdd64(vol
 }//end: InterlockedExchangeAdd64()
 
 
-__attribute__((always_inline)) inline volatile long InterlockedExchangeAdd(volatile int *addend, int increment){
+forceinline volatile long InterlockedExchangeAdd(volatile int *addend, int increment){
 	int ret;
 	
 	__asm__ __volatile__(
@@ -49,27 +50,27 @@ __attribute__((always_inline)) inline volatile long InterlockedExchangeAdd(volat
 }//end: InterlockedExchangeAdd()
 
 
-__attribute__ ((always_inline)) inline volatile long InterlockedIncrement64(volatile long *addend){
+forceinline volatile long InterlockedIncrement64(volatile long *addend){
 	return InterlockedExchangeAdd64(addend, 1)+1;
 }//end: InterlockedIncrement64()
 
 
-__attribute__((always_inline)) inline volatile int InterlockedIncrement(volatile int *addend){
+forceinline volatile int InterlockedIncrement(volatile int *addend){
 	return InterlockedExchangeAdd(addend, 1)+1;
 }//end: InterlockedIncrement()
 
 
-__attribute__((always_inline)) inline volatile long InterlockedDecrement64(volatile long *addend){
+forceinline volatile long InterlockedDecrement64(volatile long *addend){
 	return InterlockedExchangeAdd64(addend, -1)-1;
 }//end: InterlockedDecrement64()
 
 
-__attribute__((always_inline)) inline volatile int InterlockedDecrement(volatile int *addend){
+forceinline volatile int InterlockedDecrement(volatile int *addend){
 	return InterlockedExchangeAdd(addend, -1)-1;
 }//end: InterlockedDecrement()
 
 
-__attribute__((always_inline)) inline volatile long InterlockedCompareExchange64(volatile long *dest, long exch, long cmp){
+forceinline volatile long InterlockedCompareExchange64(volatile long *dest, long exch, long cmp){
 	long old;
 	
 	__asm__ __volatile__(
@@ -82,7 +83,7 @@ __attribute__((always_inline)) inline volatile long InterlockedCompareExchange64
 }//end: InterlockedCompareExchange64()
 
 
-__attribute__((always_inline)) inline volatile int InterlockedCompareExchange(volatile int *dest, int exch, int cmp){
+forceinline volatile int InterlockedCompareExchange(volatile int *dest, int exch, int cmp){
 	int old;
 	
 	__asm__ __volatile__(
@@ -95,7 +96,7 @@ __attribute__((always_inline)) inline volatile int InterlockedCompareExchange(vo
 }//end: InterlockedCompareExchange()
 
 
-__attribute__((always_inline)) inline volatile long InterlockedExchange64(volatile long *target, long val){
+forceinline volatile long InterlockedExchange64(volatile long *target, long val){
 	int ret;
 	
 	__asm__ __volatile__(
@@ -109,7 +110,7 @@ __attribute__((always_inline)) inline volatile long InterlockedExchange64(volati
 }//end: InterlockedExchange64()
 
 
-__attribute__((always_inline)) inline volatile int InterlockedExchange(volatile int *target, int val){
+forceinline volatile int InterlockedExchange(volatile int *target, int val){
 	int ret;
 	
 	__asm__ __volatile__(

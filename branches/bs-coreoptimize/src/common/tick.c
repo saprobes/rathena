@@ -51,7 +51,7 @@ usysint g_CurrentTick = 0;
 static rAthread l_hThread = NULL;
 static uint64 l_StartTick = 0;
 
-__attribute__((always_inline)) static inline uint64 _getTick(){
+static forceinline uint64 _getTick(){
 	#if defined(WIN32)
 		return GetTickCount();
 		
