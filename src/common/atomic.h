@@ -14,7 +14,7 @@
 #include "../common/cbasetypes.h"
 
 #if defined(MSVC)
-#include <Windows.h>
+#include "../common/oswin_headers.h"
 
 #elif defined(__GNUC__)
 

@@ -1,6 +1,6 @@
 
 #ifdef WIN32
-#include <Windows.h>
+#include "../common/oswin_headers.h"
 #define getpagesize() 4096 // as on all supported win platforms its 4k
 #define __thread __declspec( thread ) 
 #else

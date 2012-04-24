@@ -13,14 +13,6 @@
 #include <string.h>
 #include <time.h>
 
-#ifdef WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h> // GetTickCount()
-#else
-#include <unistd.h>
-#include <sys/time.h> // struct timeval, gettimeofday()
-#endif
-
 // If the server can't handle processing thousands of monsters
 // or many connected clients, please increase TIMER_MIN_INTERVAL.
 #define TIMER_MIN_INTERVAL 50
