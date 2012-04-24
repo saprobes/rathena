@@ -21,8 +21,9 @@
 #include <sched.h> // for yield() 
 #endif
 
-#include "atomic.h"
-#include "thread.h"
+#include "../common/cbasetypes.h"
+#include "../common/atomic.h"
+#include "../common/thread.h"
 
 #ifdef WIN32
 
@@ -48,7 +49,7 @@ __attribute__((always_inline))  inline void InitializeSpinLock(PSPIN_LOCK lck){
 		lck->sync_lock = 0;
 }
 
-__attribute__((always_inline)) inline void FinalizeSpinLock(PSPIN_LOCK lck){
+forceinline void FinalizeSpinLock(PSPIN_LOCK lck){
 		return;
 }
 
@@ -56,7 +57,7 @@ __attribute__((always_inline)) inline void FinalizeSpinLock(PSPIN_LOCK lck){
 #define getsynclock(l) { while(1){ if(InterlockedCompareExchange64(l, 1, 0) == 0) break; sched_yield(); } }
 #define dropsynclock(l) { InterlockedExchange64(l, 0); }
 
-__attribute__((always_inline)) inline void EnterSpinLock(PSPIN_LOCK lck){
+forceinline void EnterSpinLock(PSPIN_LOCK lck){
 		int tid = rathread_get_tid();
 		
 		// Get Sync Lock && Check if the requester thread already owns the lock. 
@@ -86,7 +87,7 @@ __attribute__((always_inline)) inline void EnterSpinLock(PSPIN_LOCK lck){
 }
 
 
-__attribute__((always_inline)) inline void LeaveSpinLock(PSPIN_LOCK lck){
+forceinline void LeaveSpinLock(PSPIN_LOCK lck){
 		int tid = rathread_get_tid();
 
 		getsynclock(&lck->sync_lock);

@@ -221,6 +221,9 @@ typedef uintptr_t uintptr;
 // keyword replacement in windows
 #ifdef _WIN32
 #define inline __inline
+#define forceinline __forceinline
+#else
+#define forceinline __attribute__((always_inline)) inline
 #endif
 
 /////////////////////////////
