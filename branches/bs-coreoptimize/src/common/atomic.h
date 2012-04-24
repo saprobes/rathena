@@ -22,7 +22,7 @@
 #error Your Target Platfrom is not supported
 #endif
 
-forceinline volatile long InterlockedExchangeAdd64(volatile long *addend, long increment){
+forceinline volatile int64 InterlockedExchangeAdd64(volatile int64 *addend, int64 increment){
 	long ret;
 	
 	__asm__ __volatile__(
@@ -36,7 +36,7 @@ forceinline volatile long InterlockedExchangeAdd64(volatile long *addend, long i
 }//end: InterlockedExchangeAdd64()
 
 
-forceinline volatile long InterlockedExchangeAdd(volatile int *addend, int increment){
+forceinline volatile int32 InterlockedExchangeAdd(volatile int32 *addend, int32 increment){
 	int ret;
 	
 	__asm__ __volatile__(
@@ -50,27 +50,27 @@ forceinline volatile long InterlockedExchangeAdd(volatile int *addend, int incre
 }//end: InterlockedExchangeAdd()
 
 
-forceinline volatile long InterlockedIncrement64(volatile long *addend){
+forceinline volatile int64 InterlockedIncrement64(volatile int64 *addend){
 	return InterlockedExchangeAdd64(addend, 1)+1;
 }//end: InterlockedIncrement64()
 
 
-forceinline volatile int InterlockedIncrement(volatile int *addend){
+forceinline volatile int32 InterlockedIncrement(volatile int32 *addend){
 	return InterlockedExchangeAdd(addend, 1)+1;
 }//end: InterlockedIncrement()
 
 
-forceinline volatile long InterlockedDecrement64(volatile long *addend){
+forceinline volatile int64 InterlockedDecrement64(volatile int64 *addend){
 	return InterlockedExchangeAdd64(addend, -1)-1;
 }//end: InterlockedDecrement64()
 
 
-forceinline volatile int InterlockedDecrement(volatile int *addend){
+forceinline volatile int32 InterlockedDecrement(volatile int32 *addend){
 	return InterlockedExchangeAdd(addend, -1)-1;
 }//end: InterlockedDecrement()
 
 
-forceinline volatile long InterlockedCompareExchange64(volatile long *dest, long exch, long cmp){
+forceinline volatile int64 InterlockedCompareExchange64(volatile int64 *dest, int64 exch, int64 cmp){
 	long old;
 	
 	__asm__ __volatile__(
@@ -83,7 +83,7 @@ forceinline volatile long InterlockedCompareExchange64(volatile long *dest, long
 }//end: InterlockedCompareExchange64()
 
 
-forceinline volatile int InterlockedCompareExchange(volatile int *dest, int exch, int cmp){
+forceinline volatile int32 InterlockedCompareExchange(volatile int32 *dest, int32 exch, int32 cmp){
 	int old;
 	
 	__asm__ __volatile__(
@@ -96,7 +96,7 @@ forceinline volatile int InterlockedCompareExchange(volatile int *dest, int exch
 }//end: InterlockedCompareExchange()
 
 
-forceinline volatile long InterlockedExchange64(volatile long *target, long val){
+forceinline volatile int64 InterlockedExchange64(volatile int64 *target, int64 val){
 	int ret;
 	
 	__asm__ __volatile__(
@@ -110,7 +110,7 @@ forceinline volatile long InterlockedExchange64(volatile long *target, long val)
 }//end: InterlockedExchange64()
 
 
-forceinline volatile int InterlockedExchange(volatile int *target, int val){
+forceinline volatile int32 InterlockedExchange(volatile int32 *target, int32 val){
 	int ret;
 	
 	__asm__ __volatile__(
