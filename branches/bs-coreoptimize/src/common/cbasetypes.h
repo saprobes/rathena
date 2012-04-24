@@ -222,8 +222,10 @@ typedef uintptr_t uintptr;
 #ifdef _WIN32
 #define inline __inline
 #define forceinline __forceinline
+#define align(n) __declspec(align(n))
 #else
 #define forceinline __attribute__((always_inline)) inline
+#define align(n) __attribute__(( aligned(n) ))
 #endif
 
 /////////////////////////////

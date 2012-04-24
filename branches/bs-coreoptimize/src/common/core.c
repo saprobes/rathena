@@ -12,6 +12,7 @@
 #include "../common/timer.h"
 #include "../common/plugins.h"
 #include "../common/thread.h"
+#include "../common/mempool.h"
 #endif
 
 #include <stdio.h>
@@ -21,7 +22,7 @@
 #ifndef _WIN32
 #include <unistd.h>
 #else
-#include <windows.h> // Console close event handling
+#include "../common/oswin_headers.h" // Console close event handling
 #endif
 
 /// Called when a terminate signal is received.
@@ -280,7 +281,6 @@ int main (int argc, char **argv)
 	display_title();
 	usercheck();
 
-	db_init();
 	signals_init();
 
 #ifdef _WIN32
@@ -288,12 +288,14 @@ int main (int argc, char **argv)
 #endif
 	
 	rathread_init();
+	mempool_init();
+
+	db_init();
 
 	tick_init();	
 	timer_init();
 	socket_init();
 	plugins_init();
-
 
 	do_init(argc,argv);
 	plugin_event_trigger(EVENT_ATHENA_INIT);
@@ -315,9 +317,11 @@ int main (int argc, char **argv)
 	
 	tick_final();
 	
-	rathread_final();
-	
 	db_final();
+	rathread_final();
+	mempool_final();
+	
+
 #endif
 
 	malloc_final();

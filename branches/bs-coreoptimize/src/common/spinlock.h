@@ -15,7 +15,7 @@
 //
  
 #ifdef WIN32
-#include <Windows.h>
+#include "../common/oswin_headers.h"
 #define sched_yield SwitchToThread
 #else
 #include <sched.h> // for yield() 
