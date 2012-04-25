@@ -2,13 +2,13 @@
 #ifdef WIN32
 #include "../common/oswin_headers.h"
 #else
-#include <time.h>
 #include <sys/time.h>
 #include <unistd.h>
 #endif
 
 #include <stdlib.h>
 #include <string.h> // memset
+#include <time.h>
 
 #include "../common/cbasetypes.h"
 #include "../common/tick.h"

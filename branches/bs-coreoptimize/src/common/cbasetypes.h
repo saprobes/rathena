@@ -222,10 +222,10 @@ typedef uintptr_t uintptr;
 #ifdef _WIN32
 #define inline __inline
 #define forceinline __forceinline
-#define align(n) __declspec(align(n))
+#define ra_align(n) __declspec(align(n))
 #else
 #define forceinline __attribute__((always_inline)) inline
-#define align(n) __attribute__(( aligned(n) ))
+#define ra_align(n) __attribute__(( aligned(n) ))
 #endif
 
 /////////////////////////////
@@ -372,7 +372,7 @@ void SET_FUNCPOINTER(T1& var, T2 p)
 		typedef uint32 usysint;
 	#endif
 	
-#elif defined(MSVC)
+#elif defined(_MSC_VER)
 	#if defined(_M_X64)
 		typedef int64 sysint;
 		typedef uint64 usysint;

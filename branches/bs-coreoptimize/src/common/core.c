@@ -12,7 +12,7 @@
 #include "../common/timer.h"
 #include "../common/plugins.h"
 #include "../common/thread.h"
-#include "../common/mempool.h"
+//#include "../common/mempool.h"
 #endif
 
 #include <stdio.h>
@@ -288,7 +288,7 @@ int main (int argc, char **argv)
 #endif
 	
 	rathread_init();
-	mempool_init();
+	//mempool_init();
 
 	db_init();
 
@@ -319,7 +319,7 @@ int main (int argc, char **argv)
 	
 	db_final();
 	rathread_final();
-	mempool_final();
+	//mempool_final();
 	
 
 #endif
