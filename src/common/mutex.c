@@ -82,7 +82,7 @@ void ramutex_lock( ramutex m ){
 
 bool ramutex_trylock( ramutex m ){
 #ifdef WIN32
-	if(TryEnterCrticalSection(&m->hMutex) == TRUE)
+	if(TryEnterCriticalSection(&m->hMutex) == TRUE)
 		return true;
 
 	return false;
@@ -133,7 +133,7 @@ racond racond_create(){
 
 void racond_destroy( racond c ){
 #ifdef WIN32
-	DeleteConditionVariable(&c->hCond);
+	//DeleteConditionVariable(&c->hCond);
 #else
 	pthread_cond_destroy(&c->hCond);
 #endif

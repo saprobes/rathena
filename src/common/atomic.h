@@ -13,7 +13,7 @@
 // 
 #include "../common/cbasetypes.h"
 
-#if defined(MSVC)
+#if defined(_MSC_VER)
 #include "../common/oswin_headers.h"
 
 #elif defined(__GNUC__)
