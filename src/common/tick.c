@@ -19,8 +19,10 @@
 // About this subsystem
 //
 // Windows:
-//  upon server start, we're creating a thread which will tick every millisecond
-//  and increases g_CurrentTick by one.
+//  We're using timeGetTime as timesource ( on application start we're setting it to a higher resolution )
+//	This is the safest way to get a reliable clocksource under win.
+//	(Which wont jump under Virtualized environments..)
+//
 //
 // Linux/BSD:
 //  adding interval timer that causes one thread to interrupt every ms.
@@ -53,8 +55,7 @@ static uint64 l_StartTick = 0;
 
 static forceinline uint64 _getTick(){
 	#if defined(WIN32)
-		return GetTickCount();
-		
+		return timeGetTime(); 
 	#elif defined(HAVE_MONOTONIC_CLOCK)
 		struct timespec tval;
 		clock_gettime(CLOCK_MONOTONIC, &tval);
@@ -76,7 +77,7 @@ static void *tick_workerProc(void *p){
 
 	while(1){
 		Sleep(1);
-		g_CurrentTick = (usysint) ( _getTick() - l_StartTick );
+		g_CurrentTick = (usysint) ( (DWORD)_getTick() - (DWORD)l_StartTick );
 	}
 
 #else
@@ -99,6 +100,25 @@ static void *tick_workerProc(void *p){
 
 void tick_init(){
 	
+#ifdef WIN32
+	// try (hopefully!) to increase timing resolution to be more accurate
+	if( timeBeginPeriod( 1 ) != TIMERR_NOERROR){
+		ShowError("tick_init: could not increase timer Precission.\n");
+		ShowError(" this may result in a more laggy gameplay.\n");
+	}
+	
+
+	if(sizeof(sysint) > 4){
+		ShowWarning("============ ATTENTION ===========\n");
+		ShowWarning("tick: The TickCount will overflow after 49.71 Days.\n");
+		ShowWarning("tick: \n");
+		ShowWarning("tick: Please restart Athena within this timeframe, to\n");
+		ShowWarning("tick: prevent unpredictable behavior.\n");
+		ShowWarning("==================================\n");
+	}
+
+#endif
+
 	l_StartTick = _getTick();
 	g_CurrentTick = 0; // 
 
@@ -144,6 +164,11 @@ void tick_final(){
 		rathread_destroy(l_hThread);
 		l_hThread = NULL;
 	}
+
+#ifdef WIN32
+	// Release our high precession timing ..
+	timeEndPeriod( 1 );
+#endif
 	
 }//end: tick_final()
 
