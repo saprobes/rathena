@@ -10,6 +10,7 @@
 #include "../common/cbasetypes.h"
 #include "../common/malloc.h"
 #include "../common/showmsg.h"
+#include "../common/tick.h"
 #include "../common/mutex.h"
 
 struct ramutex{
@@ -155,22 +156,11 @@ void racond_wait( racond c,  ramutex m,  sysint timeout_ticks){
 	if(timeout_ticks < 0){
 		pthread_cond_wait( &c->hCond,  &m->hMutex );
 	}else{
-		struct timeval ctime;
 		struct timespec wtime;
-		int64 sec, usec;
-		
-		gettimeofday(&ctime, NULL);
-
-		sec  = timeout_ticks/1000;
-		usec = timeout_ticks%1000*1000;
-		
-		wtime.tv_nsec = ctime.tv_usec + usec;
-		if(wtime.tv_nsec > 1000000000L){
-			wtime.tv_nsec -= 1000000000L;
-			sec--;
-		}
-		
-		wtime.tv_sec = ctime.tv_sec + sec;
+		int64 exact_timeout = gettick() + timeout_ticks;
+	
+		wtime.tv_sec = exact_timeout/1000;
+		wtime.tv_nsec = (exact_timeout%1000)*1000000;
 		
 		pthread_cond_timedwait( &c->hCond,  &m->hMutex,  &wtime);
 	}
