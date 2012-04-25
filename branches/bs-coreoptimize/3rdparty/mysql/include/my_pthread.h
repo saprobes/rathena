@@ -2,8 +2,7 @@
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
+   the Free Software Foundation; version 2 of the License.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -62,20 +61,18 @@ typedef struct st_pthread_link {
 
 typedef struct {
   uint32 waiting;
-#ifdef OS2
-  HEV    semaphore;
-#else
-  HANDLE semaphore;
-#endif
+  CRITICAL_SECTION lock_waiting;
+ 
+  enum {
+    SIGNAL= 0,
+    BROADCAST= 1,
+    MAX_EVENTS= 2
+  } EVENTS;
+
+  HANDLE events[MAX_EVENTS];
+  HANDLE broadcast_block_event;
+
 } pthread_cond_t;
-
-
-#ifndef OS2
-struct timespec {		/* For pthread_cond_timedwait() */
-    time_t tv_sec;
-    long tv_nsec;
-};
-#endif
 
 typedef int pthread_mutexattr_t;
 #define win_pthread_self my_thread_var->pthread_self
@@ -87,8 +84,39 @@ typedef void * (_Optlink *pthread_handler)(void *);
 typedef void * (__cdecl *pthread_handler)(void *);
 #endif
 
+/*
+  Struct and macros to be used in combination with the
+  windows implementation of pthread_cond_timedwait
+*/
+
+/*
+   Declare a union to make sure FILETIME is properly aligned
+   so it can be used directly as a 64 bit value. The value
+   stored is in 100ns units.
+ */
+ union ft64 {
+  FILETIME ft;
+  __int64 i64;
+ };
+struct timespec {
+  union ft64 tv;
+  /* The max timeout value in millisecond for pthread_cond_timedwait */
+  long max_timeout_msec;
+};
+#define set_timespec(ABSTIME,SEC) { \
+  GetSystemTimeAsFileTime(&((ABSTIME).tv.ft)); \
+  (ABSTIME).tv.i64+= (__int64)(SEC)*10000000; \
+  (ABSTIME).max_timeout_msec= (long)((SEC)*1000); \
+}
+#define set_timespec_nsec(ABSTIME,NSEC) { \
+  GetSystemTimeAsFileTime(&((ABSTIME).tv.ft)); \
+  (ABSTIME).tv.i64+= (__int64)(NSEC)/100; \
+  (ABSTIME).max_timeout_msec= (long)((NSEC)/1000000); \
+}
+
 void win_pthread_init(void);
 int win_pthread_setspecific(void *A,void *B,uint length);
+int win_pthread_mutex_trylock(pthread_mutex_t *mutex);
 int pthread_create(pthread_t *,pthread_attr_t *,pthread_handler,void *);
 int pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr);
 int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);
@@ -149,11 +177,11 @@ extern int pthread_mutex_destroy (pthread_mutex_t *);
 #else
 #define pthread_mutex_init(A,B)  (InitializeCriticalSection(A),0)
 #define pthread_mutex_lock(A)	 (EnterCriticalSection(A),0)
-#define pthread_mutex_trylock(A) (WaitForSingleObject((A), 0) == WAIT_TIMEOUT)
+#define pthread_mutex_trylock(A) win_pthread_mutex_trylock((A))
 #define pthread_mutex_unlock(A)  LeaveCriticalSection(A)
 #define pthread_mutex_destroy(A) DeleteCriticalSection(A)
 #define my_pthread_setprio(A,B)  SetThreadPriority(GetCurrentThread(), (B))
-#define pthread_kill(A,B) pthread_dummy(0)
+#define pthread_kill(A,B) pthread_dummy((A) ? 0 : ESRCH)
 #endif /* OS2 */
 
 /* Dummy defines for easier code */
@@ -164,8 +192,6 @@ extern int pthread_mutex_destroy (pthread_mutex_t *);
 #define pthread_condattr_init(A)
 #define pthread_condattr_destroy(A)
 
-/*Irena: compiler does not like this: */
-/*#define my_pthread_getprio(pthread_t thread_id) pthread_dummy(0) */
 #define my_pthread_getprio(thread_id) pthread_dummy(0)
 
 #elif defined(HAVE_UNIXWARE7_THREADS)
@@ -332,12 +358,14 @@ int sigwait(sigset_t *setp, int *sigp);		/* Use our implemention */
   we want to make sure that no such flags are set.
 */
 #if defined(HAVE_SIGACTION) && !defined(my_sigset)
-#define my_sigset(A,B) do { struct sigaction s; sigset_t set;              \
-                            sigemptyset(&set);                             \
-                            s.sa_handler = (B);                            \
-                            s.sa_mask    = set;                            \
-                            s.sa_flags   = 0;                              \
-                            sigaction((A), &s, (struct sigaction *) NULL); \
+#define my_sigset(A,B) do { struct sigaction l_s; sigset_t l_set; int l_rc; \
+                            DBUG_ASSERT((A) != 0);                          \
+                            sigemptyset(&l_set);                            \
+                            l_s.sa_handler = (B);                           \
+                            l_s.sa_mask   = l_set;                          \
+                            l_s.sa_flags   = 0;                             \
+                            l_rc= sigaction((A), &l_s, (struct sigaction *) NULL);\
+                            DBUG_ASSERT(l_rc == 0);                         \
                           } while (0)
 #elif defined(HAVE_SIGSET) && !defined(my_sigset)
 #define my_sigset(A,B) sigset((A),(B))
@@ -417,14 +445,14 @@ struct tm *gmtime_r(const time_t *clock, struct tm *res);
 #define pthread_attr_setdetachstate(A,B) pthread_dummy(0)
 #define pthread_create(A,B,C,D) pthread_create((A),*(B),(C),(D))
 #define pthread_sigmask(A,B,C) sigprocmask((A),(B),(C))
-#define pthread_kill(A,B) pthread_dummy(0)
+#define pthread_kill(A,B) pthread_dummy((A) ? 0 : ESRCH)
 #undef	pthread_detach_this_thread
 #define pthread_detach_this_thread() { pthread_t tmp=pthread_self() ; pthread_detach(&tmp); }
 #endif
 
 #ifdef HAVE_DARWIN5_THREADS
 #define pthread_sigmask(A,B,C) sigprocmask((A),(B),(C))
-#define pthread_kill(A,B) pthread_dummy(0)
+#define pthread_kill(A,B) pthread_dummy((A) ? 0 : ESRCH)
 #define pthread_condattr_init(A) pthread_dummy(0)
 #define pthread_condattr_destroy(A) pthread_dummy(0)
 #undef	pthread_detach_this_thread
@@ -444,7 +472,7 @@ struct tm *gmtime_r(const time_t *clock, struct tm *res);
 #ifndef pthread_sigmask
 #define pthread_sigmask(A,B,C) sigprocmask((A),(B),(C))
 #endif
-#define pthread_kill(A,B) pthread_dummy(0)
+#define pthread_kill(A,B) pthread_dummy((A) ? 0 : ESRCH)
 #undef	pthread_detach_this_thread
 #define pthread_detach_this_thread() { pthread_t tmp=pthread_self() ; pthread_detach(&tmp); }
 #elif !defined(__NETWARE__) /* HAVE_PTHREAD_ATTR_CREATE && !HAVE_SIGWAIT */
@@ -470,6 +498,47 @@ void my_pthread_attr_getstacksize(pthread_attr_t *attrib, size_t *size);
 #define pthread_mutex_trylock(a) my_pthread_mutex_trylock((a))
 int my_pthread_mutex_trylock(pthread_mutex_t *mutex);
 #endif
+
+/*
+  The defines set_timespec and set_timespec_nsec should be used
+  for calculating an absolute time at which
+  pthread_cond_timedwait should timeout
+*/
+#ifdef HAVE_TIMESPEC_TS_SEC
+#ifndef set_timespec
+#define set_timespec(ABSTIME,SEC) \
+{ \
+  (ABSTIME).ts_sec=time(0) + (time_t) (SEC); \
+  (ABSTIME).ts_nsec=0; \
+}
+#endif /* !set_timespec */
+#ifndef set_timespec_nsec
+#define set_timespec_nsec(ABSTIME,NSEC) \
+{ \
+  ulonglong now= my_getsystime() + (NSEC/100); \
+  (ABSTIME).ts_sec=  (now / ULL(10000000)); \
+  (ABSTIME).ts_nsec= (now % ULL(10000000) * 100 + ((NSEC) % 100)); \
+}
+#endif /* !set_timespec_nsec */
+#else
+#ifndef set_timespec
+#define set_timespec(ABSTIME,SEC) \
+{\
+  struct timeval tv;\
+  gettimeofday(&tv,0);\
+  (ABSTIME).tv_sec=tv.tv_sec+(time_t) (SEC);\
+  (ABSTIME).tv_nsec=tv.tv_usec*1000;\
+}
+#endif /* !set_timespec */
+#ifndef set_timespec_nsec
+#define set_timespec_nsec(ABSTIME,NSEC) \
+{\
+  ulonglong now= my_getsystime() + (NSEC/100); \
+  (ABSTIME).tv_sec=  (time_t) (now / ULL(10000000));                  \
+  (ABSTIME).tv_nsec= (long) (now % ULL(10000000) * 100 + ((NSEC) % 100)); \
+}
+#endif /* !set_timespec_nsec */
+#endif /* HAVE_TIMESPEC_TS_SEC */
 
 	/* safe_mutex adds checking to mutex for easier debugging */
 
@@ -506,7 +575,7 @@ typedef struct st_safe_mutex_info_t
 
 int safe_mutex_init(safe_mutex_t *mp, const pthread_mutexattr_t *attr,
                     const char *file, uint line);
-int safe_mutex_lock(safe_mutex_t *mp,const char *file, uint line);
+int safe_mutex_lock(safe_mutex_t *mp, my_bool try_lock, const char *file, uint line);
 int safe_mutex_unlock(safe_mutex_t *mp,const char *file, uint line);
 int safe_mutex_destroy(safe_mutex_t *mp,const char *file, uint line);
 int safe_cond_wait(pthread_cond_t *cond, safe_mutex_t *mp,const char *file,
@@ -529,12 +598,12 @@ void safe_mutex_end(FILE *file);
 #undef pthread_cond_timedwait
 #undef pthread_mutex_trylock
 #define pthread_mutex_init(A,B) safe_mutex_init((A),(B),__FILE__,__LINE__)
-#define pthread_mutex_lock(A) safe_mutex_lock((A),__FILE__,__LINE__)
+#define pthread_mutex_lock(A) safe_mutex_lock((A), FALSE, __FILE__, __LINE__)
 #define pthread_mutex_unlock(A) safe_mutex_unlock((A),__FILE__,__LINE__)
 #define pthread_mutex_destroy(A) safe_mutex_destroy((A),__FILE__,__LINE__)
 #define pthread_cond_wait(A,B) safe_cond_wait((A),(B),__FILE__,__LINE__)
 #define pthread_cond_timedwait(A,B,C) safe_cond_timedwait((A),(B),(C),__FILE__,__LINE__)
-#define pthread_mutex_trylock(A) pthread_mutex_lock(A)
+#define pthread_mutex_trylock(A) safe_mutex_lock((A), TRUE, __FILE__, __LINE__)
 #define pthread_mutex_t safe_mutex_t
 #define safe_mutex_assert_owner(mp) \
           DBUG_ASSERT((mp)->count > 0 && \
@@ -630,6 +699,11 @@ extern pthread_mutexattr_t my_errorcheck_mutexattr;
 #define MY_MUTEX_INIT_ERRCHK   NULL
 #endif
 
+#ifndef ESRCH
+/* Define it to something */
+#define ESRCH 1
+#endif
+
 extern my_bool my_thread_global_init(void);
 extern void my_thread_global_end(void);
 extern my_bool my_thread_init(void);
@@ -675,13 +749,21 @@ struct st_my_thread_var
 };
 
 extern struct st_my_thread_var *_my_thread_var(void) __attribute__ ((const));
+extern uint my_thread_end_wait_time;
 #define my_thread_var (_my_thread_var())
 #define my_errno my_thread_var->thr_errno
 /*
   Keep track of shutdown,signal, and main threads so that my_end() will not
   report errors with them
 */
-extern pthread_t shutdown_th, main_th, signal_th;
+
+/* Which kind of thread library is in use */
+
+#define THD_LIB_OTHER 1
+#define THD_LIB_NPTL  2
+#define THD_LIB_LT    4
+
+extern uint thd_lib_detected;
 
 	/* statistics_xxx functions are for not essential statistic */
 

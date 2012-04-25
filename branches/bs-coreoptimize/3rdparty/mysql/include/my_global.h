@@ -1,9 +1,8 @@
-/* Copyright (C) 2000-2003 MySQL AB
+/* Copyright (c) 2001, 2011, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
+   the Free Software Foundation; version 2 of the License.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -12,7 +11,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 /* This is the include file that should be included 'first' in every C file. */
 
@@ -87,13 +86,55 @@
 #endif
 #endif /* _WIN32... */
 
+/* Make it easier to add conditionl code for windows */
+#ifdef __WIN__
+#define IF_WIN(A,B) (A)
+#else
+#define IF_WIN(A,B) (B)
+#endif
+
+
 /* Some defines to avoid ifdefs in the code */
 #ifndef NETWARE_YIELD
 #define NETWARE_YIELD
 #define NETWARE_SET_SCREEN_MODE(A)
 #endif
 
-#include "../common/strlib.h"
+/* Workaround for _LARGE_FILES and _LARGE_FILE_API incompatibility on AIX */
+#if defined(_AIX) && defined(_LARGE_FILE_API)
+#undef _LARGE_FILE_API
+#endif
+
+/*
+  The macros below are used to allow build of Universal/fat binaries of
+  MySQL and MySQL applications under darwin. 
+*/
+#if defined(__APPLE__) && defined(__MACH__)
+#  undef SIZEOF_CHARP 
+#  undef SIZEOF_SHORT 
+#  undef SIZEOF_INT 
+#  undef SIZEOF_LONG 
+#  undef SIZEOF_LONG_LONG 
+#  undef SIZEOF_OFF_T 
+#  undef WORDS_BIGENDIAN
+#  define SIZEOF_SHORT 2
+#  define SIZEOF_INT 4
+#  define SIZEOF_LONG_LONG 8
+#  define SIZEOF_OFF_T 8
+#  if defined(__i386__) || defined(__ppc__)
+#    define SIZEOF_CHARP 4
+#    define SIZEOF_LONG 4
+#  elif defined(__x86_64__) || defined(__ppc64__)
+#    define SIZEOF_CHARP 8
+#    define SIZEOF_LONG 8
+#  else
+#    error Building FAT binary for an unknown architecture.
+#  endif
+#  if defined(__ppc__) || defined(__ppc64__)
+#    define WORDS_BIGENDIAN
+#  endif
+#endif /* defined(__APPLE__) && defined(__MACH__) */
+
 
 /*
   The macros below are borrowed from include/linux/compiler.h in the
@@ -113,7 +154,7 @@
 
 
 /* Fix problem with S_ISLNK() on Linux */
-#if defined(TARGET_OS_LINUX)
+#if defined(TARGET_OS_LINUX) || defined(__GLIBC__)
 #undef  _GNU_SOURCE
 #define _GNU_SOURCE 1
 #endif
@@ -214,7 +255,7 @@ C_MODE_END
 #define ulonglong2double(A) my_ulonglong2double(A)
 #define my_off_t2double(A)  my_ulonglong2double(A)
 C_MODE_START
-double my_ulonglong2double(unsigned long long A);
+inline double my_ulonglong2double(unsigned long long A) { return (double) A; }
 C_MODE_END
 #endif /* _AIX */
 
@@ -282,6 +323,9 @@ C_MODE_END
 #endif
 #ifdef HAVE_FLOAT_H
 #include <float.h>
+#endif
+#ifdef HAVE_FENV_H
+#include <fenv.h> /* For fesetround() */
 #endif
 
 #ifdef HAVE_SYS_TYPES_H
@@ -414,10 +458,17 @@ int	__void__;
 #define LINT_INIT(var)
 #endif
 
-#if defined(_lint) || defined(FORCE_INIT_OF_VARS) || defined(HAVE_purify)
-#define PURIFY_OR_LINT_INIT(var) var=0
+/* 
+   Suppress uninitialized variable warning without generating code.
+
+   The _cplusplus is a temporary workaround for C++ code pending a fix
+   for a g++ bug (http://gcc.gnu.org/bugzilla/show_bug.cgi?id=34772). 
+*/
+#if defined(_lint) || defined(FORCE_INIT_OF_VARS) || defined(__cplusplus) || \
+  !defined(__GNUC__)
+#define UNINIT_VAR(x) x= 0
 #else
-#define PURIFY_OR_LINT_INIT(var)
+#define UNINIT_VAR(x) x= x
 #endif
 
 /* Define some useful general macros */
@@ -442,9 +493,6 @@ typedef unsigned short ushort;
 #define test_all_bits(a,b) (((a) & (b)) == (b))
 #define set_bits(type, bit_count) (sizeof(type)*8 <= (bit_count) ? ~(type) 0 : ((((type) 1) << (bit_count)) - (type) 1))
 #define array_elements(A) ((uint) (sizeof(A)/sizeof(A[0])))
-#ifndef HAVE_RINT
-#define rint(A) floor((A)+(((A) < 0)? -0.5 : 0.5))
-#endif
 
 /* Define some general constants */
 #ifndef TRUE
@@ -456,20 +504,22 @@ typedef unsigned short ushort;
 #define function_volatile	volatile
 #define my_reinterpret_cast(A) reinterpret_cast<A>
 #define my_const_cast(A) const_cast<A>
+# ifndef GCC_VERSION
+#  define GCC_VERSION (__GNUC__ * 1000 + __GNUC_MINOR__)
+# endif
 #elif !defined(my_reinterpret_cast)
 #define my_reinterpret_cast(A) (A)
 #define my_const_cast(A) (A)
 #endif
-#if !defined(__attribute__) && (defined(__cplusplus) || !defined(__GNUC__)  || __GNUC__ == 2 && __GNUC_MINOR__ < 8)
-#define __attribute__(A)
-#endif
+
+#include <my_attribute.h>
 
 /*
   Wen using the embedded library, users might run into link problems,
-  dupicate declaration of __cxa_pure_virtual, solved by declaring it a
+  duplicate declaration of __cxa_pure_virtual, solved by declaring it a
   weak symbol.
 */
-#ifdef USE_MYSYS_NEW
+#if defined(USE_MYSYS_NEW) && ! defined(DONT_DECLARE_CXA_PURE_VIRTUAL)
 C_MODE_START
 int __cxa_pure_virtual () __attribute__ ((weak));
 C_MODE_END
@@ -484,14 +534,17 @@ C_MODE_END
 */
 #define _VARARGS(X) X
 #define _STATIC_VARARGS(X) X
-#define _PC(X)	X
 
 #if defined(DBUG_ON) && defined(DBUG_OFF)
 #undef DBUG_OFF
 #endif
 
-#if defined(_lint) && !defined(DBUG_OFF)
-#define DBUG_OFF
+/* We might be forced to turn debug off, if not turned off already */
+#if (defined(FORCE_DBUG_OFF) || defined(_lint)) && !defined(DBUG_OFF)
+#  define DBUG_OFF
+#  ifdef DBUG_ON
+#    undef DBUG_ON
+#  endif
 #endif
 
 #include <my_dbug.h>
@@ -601,7 +654,6 @@ typedef SOCKET_SIZE_TYPE size_socket;
 #define FN_HOMELIB	'~'	/* ~/ is used as abbrev for home dir */
 #define FN_CURLIB	'.'	/* ./ is used as abbrev for current dir */
 #define FN_PARENTDIR	".."	/* Parent directory; Must be a string */
-#define FN_DEVCHAR	':'
 
 #ifndef FN_LIBCHAR
 #ifdef __EMX__
@@ -666,6 +718,9 @@ typedef SOCKET_SIZE_TYPE size_socket;
 #ifndef ulonglong2double
 #define ulonglong2double(A) ((double) (ulonglong) (A))
 #define my_off_t2double(A)  ((double) (my_off_t) (A))
+#endif
+#ifndef double2ulonglong
+#define double2ulonglong(A) ((ulonglong) (double) (A))
 #endif
 #endif
 
@@ -738,9 +793,33 @@ typedef SOCKET_SIZE_TYPE size_socket;
 #define DBL_MAX		1.79769313486231470e+308
 #define FLT_MAX		((float)3.40282346638528860e+38)
 #endif
+#ifndef SIZE_T_MAX
+#define SIZE_T_MAX      (~((size_t) 0))
+#endif
 
-#if !defined(HAVE_ISINF) && !defined(isinf)
-#define isinf(X)    0
+#ifndef HAVE_FINITE
+#define finite(x) (1.0 / fabs(x) > 0.0)
+#endif
+
+#ifndef HAVE_ISNAN
+#define isnan(x) ((x) != (x))
+#endif
+
+#ifdef HAVE_ISINF
+/* Check if C compiler is affected by GCC bug #39228 */
+#if !defined(__cplusplus) && defined(HAVE_BROKEN_ISINF)
+/* Force store/reload of the argument to/from a 64-bit double */
+static inline double my_isinf(double x)
+{
+  volatile double t= x;
+  return isinf(t);
+}
+#else
+/* System-provided isinf() is available and safe to use */
+#define my_isinf(X) isinf(X)
+#endif
+#else /* !HAVE_ISINF */
+#define my_isinf(X) (!finite(X) && !isnan(X))
 #endif
 
 /* Define missing math constants. */
@@ -772,6 +851,21 @@ typedef long long	my_ptrdiff_t;
 #define OFFSET(t, f)	((size_t)(char *)&((t *)0)->f)
 #define ADD_TO_PTR(ptr,size,type) (type) ((byte*) (ptr)+size)
 #define PTR_BYTE_DIFF(A,B) (my_ptrdiff_t) ((byte*) (A) - (byte*) (B))
+
+/*
+  Custom version of standard offsetof() macro which can be used to get
+  offsets of members in class for non-POD types (according to the current
+  version of C++ standard offsetof() macro can't be used in such cases and
+  attempt to do so causes warnings to be emitted, OTOH in many cases it is
+  still OK to assume that all instances of the class has the same offsets
+  for the same members).
+
+  This is temporary solution which should be removed once File_parser class
+  and related routines are refactored.
+*/
+
+#define my_offsetof(TYPE, MEMBER) \
+        ((size_t)((char *)&(((TYPE *)0x10)->MEMBER) - (char*)0x10))
 
 #define NullS		(char *) 0
 /* Nowdays we do not support MessyDos */
@@ -824,7 +918,12 @@ typedef unsigned long	uint32; /* Short for unsigned integer >= 32 bits */
 typedef unsigned long	ulong;		  /* Short for unsigned long */
 #endif
 #ifndef longlong_defined
-#if defined(HAVE_LONG_LONG) && SIZEOF_LONG != 8
+/* 
+  Using [unsigned] long long is preferable as [u]longlong because we use 
+  [unsigned] long long unconditionally in many places, 
+  for example in constants with [U]LL suffix.
+*/
+#if defined(HAVE_LONG_LONG) && SIZEOF_LONG_LONG == 8
 typedef unsigned long long int ulonglong; /* ulong or unsigned long long */
 typedef long long int	longlong;
 #else
@@ -907,7 +1006,7 @@ typedef int		myf;	/* Type of MyFlags in my_funcs */
 typedef char		byte;	/* Smallest addressable unit */
 #endif
 typedef char		my_bool; /* Small bool */
-#if !defined(bool) && !defined(bool_defined) && (!defined(HAVE_BOOL) || !defined(__cplusplus))
+#if !defined(bool) && (!defined(HAVE_BOOL) || !defined(__cplusplus))
 typedef char		bool;	/* Ordinary boolean values 0 1 */
 #endif
 	/* Macros for converting *constants* to the right type */
@@ -972,41 +1071,7 @@ typedef char		bool;	/* Ordinary boolean values 0 1 */
 #define MY_HOW_OFTEN_TO_ALARM	2	/* How often we want info on screen */
 #define MY_HOW_OFTEN_TO_WRITE	1000	/* How often we want info on screen */
 
-#ifdef HAVE_TIMESPEC_TS_SEC
-#ifndef set_timespec
-#define set_timespec(ABSTIME,SEC) \
-{ \
-  (ABSTIME).ts_sec=time(0) + (time_t) (SEC); \
-  (ABSTIME).ts_nsec=0; \
-}
-#endif /* !set_timespec */
-#ifndef set_timespec_nsec
-#define set_timespec_nsec(ABSTIME,NSEC) \
-{ \
-  ulonglong now= my_getsystime() + (NSEC/100); \
-  (ABSTIME).ts_sec=  (now / ULL(10000000)); \
-  (ABSTIME).ts_nsec= (now % ULL(10000000) * 100 + ((NSEC) % 100)); \
-}
-#endif /* !set_timespec_nsec */
-#else
-#ifndef set_timespec
-#define set_timespec(ABSTIME,SEC) \
-{\
-  struct timeval tv;\
-  gettimeofday(&tv,0);\
-  (ABSTIME).tv_sec=tv.tv_sec+(time_t) (SEC);\
-  (ABSTIME).tv_nsec=tv.tv_usec*1000;\
-}
-#endif /* !set_timespec */
-#ifndef set_timespec_nsec
-#define set_timespec_nsec(ABSTIME,NSEC) \
-{\
-  ulonglong now= my_getsystime() + (NSEC/100); \
-  (ABSTIME).tv_sec=  (now / ULL(10000000)); \
-  (ABSTIME).tv_nsec= (now % ULL(10000000) * 100 + ((NSEC) % 100));    \
-}
-#endif /* !set_timespec_nsec */
-#endif /* HAVE_TIMESPEC_TS_SEC */
+
 
 /*
   Define-funktions for reading and storing in machine independent format
@@ -1014,7 +1079,7 @@ typedef char		bool;	/* Ordinary boolean values 0 1 */
 */
 
 /* Optimized store functions for Intel x86 */
-#if defined(__i386__) && !defined(_WIN64)
+#if defined(__i386__) || defined(_WIN32)
 #define sint2korr(A)	(*((int16 *) (A)))
 #define sint3korr(A)	((int32) ((((uchar) (A)[2]) & 128) ? \
 				  (((uint32) 255L << 24) | \
@@ -1026,7 +1091,7 @@ typedef char		bool;	/* Ordinary boolean values 0 1 */
 				  ((uint32) (uchar) (A)[0])))
 #define sint4korr(A)	(*((long *) (A)))
 #define uint2korr(A)	(*((uint16 *) (A)))
-#ifdef HAVE_purify
+#if defined(HAVE_purify) && !defined(_WIN32)
 #define uint3korr(A)	(uint32) (((uint32) ((uchar) (A)[0])) +\
 				  (((uint32) ((uchar) (A)[1])) << 8) +\
 				  (((uint32) ((uchar) (A)[2])) << 16))
@@ -1038,8 +1103,8 @@ typedef char		bool;	/* Ordinary boolean values 0 1 */
     It means, that you have to provide enough allocated space !
 */
 #define uint3korr(A)	(long) (*((unsigned int *) (A)) & 0xFFFFFF)
-#endif
-#define uint4korr(A)	(*((unsigned long *) (A)))
+#endif /* HAVE_purify && !_WIN32 */
+#define uint4korr(A)	(*((uint32 *) (A)))
 #define uint5korr(A)	((ulonglong)(((uint32) ((uchar) (A)[0])) +\
 				    (((uint32) ((uchar) (A)[1])) << 8) +\
 				    (((uint32) ((uchar) (A)[2])) << 16) +\
@@ -1071,15 +1136,14 @@ do { doubleget_union _tmp; \
 #define doublestore(T,V) do { *((long *) T) = ((doubleget_union *)&V)->m[0]; \
 			     *(((long *) T)+1) = ((doubleget_union *)&V)->m[1]; \
                          } while (0)
-#define float4get(V,M) do { *((long *) &(V)) = *((long*) (M)); } while(0)
-#define float8get(V,M) doubleget((V),(M))
+#define float4get(V,M)   do { *((float *) &(V)) = *((float*) (M)); } while(0)
+#define float8get(V,M)   doubleget((V),(M))
 #define float4store(V,M) memcpy((byte*) V,(byte*) (&M),sizeof(float))
 #define floatstore(T,V)  memcpy((byte*)(T), (byte*)(&V),sizeof(float))
 #define floatget(V,M)    memcpy((byte*) &V,(byte*) (M),sizeof(float))
 #define float8store(V,M) doublestore((V),(M))
-#endif /* __i386__ */
+#else
 
-#ifndef sint2korr
 /*
   We're here if it's not a IA-32 architecture (Win32 and UNIX IA-32 defines
   were done before)
@@ -1204,7 +1268,7 @@ do { doubleget_union _tmp; \
 #define float8store(V,M) doublestore((V),(M))
 #endif /* WORDS_BIGENDIAN */
 
-#endif /* sint2korr */
+#endif /* __i386__ OR _WIN32 */
 
 /*
   Macro for reading 32-bit integer from network byte order (big-endian)
@@ -1302,5 +1366,49 @@ do { doubleget_union _tmp; \
 #if defined(EMBEDDED_LIBRARY) && !defined(HAVE_EMBEDDED_PRIVILEGE_CONTROL)
 #define NO_EMBEDDED_ACCESS_CHECKS
 #endif
+
+
+/* Length of decimal number represented by INT32. */
+
+#define MY_INT32_NUM_DECIMAL_DIGITS 11
+
+/* Length of decimal number represented by INT64. */
+
+#define MY_INT64_NUM_DECIMAL_DIGITS 21
+
+#ifndef HAVE_RINT
+/**
+   All integers up to this number can be represented exactly as double precision
+   values (DBL_MANT_DIG == 53 for IEEE 754 hardware).
+*/
+#define MAX_EXACT_INTEGER ((1LL << DBL_MANT_DIG) - 1)
+
+/**
+   rint(3) implementation for platforms that do not have it.
+   Always rounds to the nearest integer with ties being rounded to the nearest
+   even integer to mimic glibc's rint() behavior in the "round-to-nearest"
+   FPU mode. Hardware-specific optimizations are possible (frndint on x86).
+   Unlike this implementation, hardware will also honor the FPU rounding mode.
+*/
+
+static inline double rint(double x)
+{
+  double f, i;
+  f = modf(x, &i);
+  /*
+    All doubles with absolute values > MAX_EXACT_INTEGER are even anyway,
+    no need to check it.
+  */
+  if (x > 0.0)
+    i += (double) ((f > 0.5) || (f == 0.5 &&
+                                 i <= (double) MAX_EXACT_INTEGER &&
+                                 (longlong) i % 2));
+  else
+    i -= (double) ((f < -0.5) || (f == -0.5 &&
+                                  i >= (double) -MAX_EXACT_INTEGER &&
+                                  (longlong) i % 2));
+  return i;
+}
+#endif /* HAVE_RINT */
 
 #endif /* my_global_h */
