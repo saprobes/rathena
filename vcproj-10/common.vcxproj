@@ -112,6 +112,12 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
+    <PreBuildEvent>
+      <Command>del $(OutDir)\..\libmysql.dll</Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>copy $(Solutiondir)3rdparty\mysql-redist\lib\libmysql.dll $(OutDir)\..\</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -129,6 +135,12 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
+    <PreBuildEvent>
+      <Command>del $(OutDir)\..\libmysql.dll</Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>copy $(Solutiondir)3rdparty\mysql-redist\lib-x64\libmysql.dll $(OutDir)\..\</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
