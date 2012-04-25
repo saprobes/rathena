@@ -1,9 +1,8 @@
-/* Copyright (C) 2000 MySQL AB
+/* Copyright (c) 2000, 2010, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
+   the Free Software Foundation; version 2 of the License.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -12,7 +11,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 /*
 ** Common definition between mysql server & client
@@ -134,13 +133,14 @@ enum enum_server_command
 #define CLIENT_TRANSACTIONS	8192	/* Client knows about transactions */
 #define CLIENT_RESERVED         16384   /* Old flag for 4.1 protocol  */
 #define CLIENT_SECURE_CONNECTION 32768  /* New 4.1 authentication */
-#define CLIENT_MULTI_STATEMENTS 65536   /* Enable/disable multi-stmt support */
-#define CLIENT_MULTI_RESULTS    131072  /* Enable/disable multi-results */
-#define CLIENT_REMEMBER_OPTIONS	(((ulong) 1) << 31)
+#define CLIENT_MULTI_STATEMENTS (1UL << 16) /* Enable/disable multi-stmt support */
+#define CLIENT_MULTI_RESULTS    (1UL << 17) /* Enable/disable multi-results */
+
+#define CLIENT_SSL_VERIFY_SERVER_CERT (1UL << 30)
+#define CLIENT_REMEMBER_OPTIONS (1UL << 31)
 
 #define SERVER_STATUS_IN_TRANS     1	/* Transaction has started */
 #define SERVER_STATUS_AUTOCOMMIT   2	/* Server in auto_commit mode */
-#define SERVER_STATUS_MORE_RESULTS 4	/* More results on server */
 #define SERVER_MORE_RESULTS_EXISTS 8    /* Multi query - next query exists */
 #define SERVER_QUERY_NO_GOOD_INDEX_USED 16
 #define SERVER_QUERY_NO_INDEX_USED      32
@@ -210,9 +210,25 @@ typedef struct st_net {
   char last_error[MYSQL_ERRMSG_SIZE], sqlstate[SQLSTATE_LENGTH+1];
   unsigned int last_errno;
   unsigned char error;
+
+  /*
+    'query_cache_query' should be accessed only via query cache
+    functions and methods to maintain proper locking.
+  */
   gptr query_cache_query;
+
   my_bool report_error; /* We should report error (we have unreported error) */
   my_bool return_errno;
+#if defined(MYSQL_SERVER) && !defined(EMBEDDED_LIBRARY)
+  /*
+    Controls whether a big packet should be skipped.
+
+    Initially set to FALSE by default. Unauthenticated sessions must have
+    this set to FALSE so that the server can't be tricked to read packets
+    indefinitely.
+  */
+  my_bool skip_big_packet;
+#endif
 } NET;
 
 #define packet_error (~(unsigned long) 0)
@@ -339,6 +355,11 @@ my_bool	net_write_command(NET *net,unsigned char command,
 int	net_real_write(NET *net,const char *packet,unsigned long len);
 unsigned long my_net_read(NET *net);
 
+#ifdef _global_h
+void my_net_set_write_timeout(NET *net, uint timeout);
+void my_net_set_read_timeout(NET *net, uint timeout);
+#endif
+
 /*
   The following function is not meant for normal usage
   Currently it's used internally by manager.c
@@ -376,12 +397,16 @@ typedef struct st_udf_args
 
 typedef struct st_udf_init
 {
-  my_bool maybe_null;			/* 1 if function can return NULL */
-  unsigned int decimals;		/* for real functions */
-  unsigned long max_length;		/* For string functions */
-  char	  *ptr;				/* free pointer for function data */
-  my_bool const_item;			/* 0 if result is independent of arguments */
+  my_bool maybe_null;          /* 1 if function can return NULL */
+  unsigned int decimals;       /* for real functions */
+  unsigned long max_length;    /* For string functions */
+  char *ptr;                   /* free pointer for function data */
+  my_bool const_item;          /* 1 if function always returns the same value */
 } UDF_INIT;
+/* 
+  TODO: add a notion for determinism of the UDF. 
+  See Item_udf_func::update_used_tables ()
+*/
 
   /* Constants when using compression */
 #define NET_HEADER_SIZE 4		/* standard header size */

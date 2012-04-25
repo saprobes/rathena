@@ -1,9 +1,9 @@
-/* Copyright (C) 2000-2003 MySQL AB
+/* Copyright (c) 2000-2007 MySQL AB, 2009 Sun Microsystems, Inc.
+   Use is subject to license terms.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
+   the Free Software Foundation; version 2 of the License.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -12,10 +12,25 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
+
+/*
+  This file defines the client API to MySQL and also the ABI of the
+  dynamically linked libmysqlclient.
+
+  The ABI should never be changed in a released product of MySQL
+  thus you need to take great care when changing the file. In case
+  the file is changed so the ABI is broken, you must also
+  update the SHAREDLIB_MAJOR_VERSION in configure.in .
+
+*/
 
 #ifndef _mysql_h
 #define _mysql_h
+
+#ifdef _AIX           /* large-file support will break without this */
+#include <standards.h>
+#endif
 
 #ifdef __CYGWIN__     /* CYGWIN implements a UNIX API */
 #undef WIN
@@ -54,9 +69,9 @@ typedef int my_socket;
 #endif /* my_socket_defined */
 #endif /* _global_h */
 
+#include "mysql_version.h"
 #include "mysql_com.h"
 #include "mysql_time.h"
-#include "mysql_version.h"
 #include "typelib.h"
 
 #include "my_list.h" /* for LISTs used in 'MYSQL' and 'MYSQL_STMT' */
@@ -77,6 +92,7 @@ extern char *mysql_unix_port;
 #define IS_NUM(t)	((t) <= FIELD_TYPE_INT24 || (t) == FIELD_TYPE_YEAR || (t) == FIELD_TYPE_NEWDECIMAL)
 #define IS_NUM_FIELD(f)	 ((f)->flags & NUM_FLAG)
 #define INTERNAL_NUM_FIELD(f) (((f)->type <= FIELD_TYPE_INT24 && ((f)->type != FIELD_TYPE_TIMESTAMP || (f)->length == 14 || (f)->length == 8)) || (f)->type == FIELD_TYPE_YEAR)
+#define IS_LONGDATA(t) ((t) >= MYSQL_TYPE_TINY_BLOB && (t) <= MYSQL_TYPE_STRING)
 
 
 typedef struct st_mysql_field {
@@ -149,7 +165,8 @@ enum mysql_option
   MYSQL_OPT_WRITE_TIMEOUT, MYSQL_OPT_USE_RESULT,
   MYSQL_OPT_USE_REMOTE_CONNECTION, MYSQL_OPT_USE_EMBEDDED_CONNECTION,
   MYSQL_OPT_GUESS_CONNECTION, MYSQL_SET_CLIENT_IP, MYSQL_SECURE_AUTH,
-  MYSQL_REPORT_DATA_TRUNCATION, MYSQL_OPT_RECONNECT
+  MYSQL_REPORT_DATA_TRUNCATION, MYSQL_OPT_RECONNECT,
+  MYSQL_OPT_SSL_VERIFY_SERVER_CERT
 };
 
 struct st_mysql_options {
@@ -234,6 +251,7 @@ typedef struct character_set
 } MY_CHARSET_INFO;
 
 struct st_mysql_methods;
+struct st_mysql_stmt;
 
 typedef struct st_mysql
 {
@@ -409,6 +427,7 @@ MYSQL *		STDCALL mysql_init(MYSQL *mysql);
 my_bool		STDCALL mysql_ssl_set(MYSQL *mysql, const char *key,
 				      const char *cert, const char *ca,
 				      const char *capath, const char *cipher);
+const char *    STDCALL mysql_get_ssl_cipher(MYSQL *mysql);
 my_bool		STDCALL mysql_change_user(MYSQL *mysql, const char *user, 
 					  const char *passwd, const char *db);
 MYSQL *		STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
@@ -742,7 +761,8 @@ typedef struct st_mysql_methods
 			      unsigned long header_length,
 			      const char *arg,
 			      unsigned long arg_length,
-			      my_bool skip_check);
+			      my_bool skip_check,
+                              MYSQL_STMT *stmt);
   MYSQL_DATA *(*read_rows)(MYSQL *mysql,MYSQL_FIELD *mysql_fields,
 			   unsigned int fields);
   MYSQL_RES * (*use_result)(MYSQL *mysql);
@@ -769,7 +789,7 @@ int STDCALL mysql_stmt_prepare(MYSQL_STMT *stmt, const char *query,
                                unsigned long length);
 int STDCALL mysql_stmt_execute(MYSQL_STMT *stmt);
 int STDCALL mysql_stmt_fetch(MYSQL_STMT *stmt);
-int STDCALL mysql_stmt_fetch_column(MYSQL_STMT *stmt, MYSQL_BIND *bind, 
+int STDCALL mysql_stmt_fetch_column(MYSQL_STMT *stmt, MYSQL_BIND *bind_arg, 
                                     unsigned int column,
                                     unsigned long offset);
 int STDCALL mysql_stmt_store_result(MYSQL_STMT *stmt);
@@ -832,9 +852,11 @@ int		STDCALL mysql_drop_db(MYSQL *mysql, const char *DB);
 */
 
 #define simple_command(mysql, command, arg, length, skip_check) \
-  (*(mysql)->methods->advanced_command)(mysql, command,         \
-					NullS, 0, arg, length, skip_check)
-unsigned long net_safe_read(MYSQL* mysql);
+  (*(mysql)->methods->advanced_command)(mysql, command, NullS,  \
+                                        0, arg, length, skip_check, NULL)
+#define stmt_command(mysql, command, arg, length, stmt) \
+  (*(mysql)->methods->advanced_command)(mysql, command, NullS,  \
+                                        0, arg, length, 1, stmt)
 
 #ifdef __NETWARE__
 #pragma pack(pop)		/* restore alignment */

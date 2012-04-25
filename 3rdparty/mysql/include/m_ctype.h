@@ -1,9 +1,9 @@
-/* Copyright (C) 2000 MySQL AB
+/* Copyright (c) 2000-2007 MySQL AB, 2008 Sun Microsystems, Inc.
+   Use is subject to license terms.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
+   the Free Software Foundation; version 2 of the License.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 /*
   A better inplementation of the UNIX ctype(3) library.
@@ -21,6 +21,8 @@
 
 #ifndef _m_ctype_h
 #define _m_ctype_h
+
+#include <my_attribute.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -76,8 +78,14 @@ extern MY_UNICASE_INFO *my_unicase_turkish[256];
 #define MY_CS_UNICODE	128    /* is a charset is full unicode   */
 #define MY_CS_READY	256    /* if a charset is initialized    */
 #define MY_CS_AVAILABLE	512    /* If either compiled-in or loaded*/
-#define MY_CS_CSSORT	1024   /* if case sensitive sort order   */
+#define MY_CS_CSSORT	1024   /* if case sensitive sort order   */	
+#define MY_CS_PUREASCII 2048   /* if a charset is pure ascii     */
 #define MY_CHARSET_UNDEFINED 0
+
+/* Character repertoire flags */
+#define MY_REPERTOIRE_ASCII      1 /* Pure ASCII            U+0000..U+007F */
+#define MY_REPERTOIRE_EXTENDED   2 /* Extended characters:  U+0080..U+FFFF */
+#define MY_REPERTOIRE_UNICODE30  3 /* ASCII | EXTENDED:     U+0000..U+FFFF */
 
 
 typedef struct my_uni_idx_st
@@ -91,7 +99,7 @@ typedef struct
 {
   uint beg;
   uint end;
-  uint mblen;
+  uint mb_len;
 } my_match_t;
 
 enum my_lex_states
@@ -112,6 +120,8 @@ enum my_lex_states
 
 struct charset_info_st;
 
+
+/* See strings/CHARSET_INFO.txt for information about this structure  */
 typedef struct my_collation_handler_st
 {
   my_bool (*init)(struct charset_info_st *, void *(*alloc)(uint));
@@ -154,6 +164,7 @@ extern MY_COLLATION_HANDLER my_collation_8bit_simple_ci_handler;
 extern MY_COLLATION_HANDLER my_collation_ucs2_uca_handler;
 
 
+/* See strings/CHARSET_INFO.txt about information on this structure  */
 typedef struct my_charset_handler_st
 {
   my_bool (*init)(struct charset_info_st *, void *(*alloc)(uint));
@@ -175,8 +186,8 @@ typedef struct my_charset_handler_st
 	       unsigned char *s,unsigned char *e);
   
   /* Functions for case and sort convertion */
-  void    (*caseup_str)(struct charset_info_st *, char *);
-  void    (*casedn_str)(struct charset_info_st *, char *);
+  uint    (*caseup_str)(struct charset_info_st *, char *);
+  uint    (*casedn_str)(struct charset_info_st *, char *);
   uint    (*caseup)(struct charset_info_st *, char *src, uint srclen,
                                               char *dst, uint dstlen);
   uint    (*casedn)(struct charset_info_st *, char *src, uint srclen,
@@ -184,7 +195,7 @@ typedef struct my_charset_handler_st
   
   /* Charset dependant snprintf() */
   int  (*snprintf)(struct charset_info_st *, char *to, uint n, const char *fmt,
-		   ...);
+		   ...) ATTRIBUTE_FORMAT_FPTR(printf, 4, 5);
   int  (*long10_to_str)(struct charset_info_st *, char *to, uint n, int radix,
 			long int val);
   int (*longlong10_to_str)(struct charset_info_st *, char *to, uint n,
@@ -205,6 +216,9 @@ typedef struct my_charset_handler_st
 			 int *err);
   longlong    (*strtoll10)(struct charset_info_st *cs,
                            const char *nptr, char **endptr, int *error);
+  ulonglong   (*strntoull10rnd)(struct charset_info_st *cs,
+                                const char *str, uint length, int unsigned_fl,
+                                char **endptr, int *error);
   ulong        (*scan)(struct charset_info_st *, const char *b, const char *e,
 		       int sq);
 } MY_CHARSET_HANDLER;
@@ -213,6 +227,7 @@ extern MY_CHARSET_HANDLER my_charset_8bit_handler;
 extern MY_CHARSET_HANDLER my_charset_ucs2_handler;
 
 
+/* See strings/CHARSET_INFO.txt about information on this structure  */
 typedef struct charset_info_st
 {
   uint      number;
@@ -273,10 +288,11 @@ extern CHARSET_INFO my_charset_tis620_thai_ci;
 extern CHARSET_INFO my_charset_tis620_bin;
 extern CHARSET_INFO my_charset_ucs2_general_ci;
 extern CHARSET_INFO my_charset_ucs2_bin;
-extern CHARSET_INFO my_charset_ucs2_general_uca;
+extern CHARSET_INFO my_charset_ucs2_unicode_ci;
 extern CHARSET_INFO my_charset_ujis_japanese_ci;
 extern CHARSET_INFO my_charset_ujis_bin;
 extern CHARSET_INFO my_charset_utf8_general_ci;
+extern CHARSET_INFO my_charset_utf8_unicode_ci;
 extern CHARSET_INFO my_charset_utf8_bin;
 extern CHARSET_INFO my_charset_cp1250_czech_ci;
 
@@ -304,8 +320,8 @@ extern uint my_instr_simple(struct charset_info_st *,
 
 
 /* Functions for 8bit */
-extern void my_caseup_str_8bit(CHARSET_INFO *, char *);
-extern void my_casedn_str_8bit(CHARSET_INFO *, char *);
+extern uint my_caseup_str_8bit(CHARSET_INFO *, char *);
+extern uint my_casedn_str_8bit(CHARSET_INFO *, char *);
 extern uint my_caseup_8bit(CHARSET_INFO *, char *src, uint srclen,
                                            char *dst, uint dstlen);
 extern uint my_casedn_8bit(CHARSET_INFO *, char *src, uint srclen,
@@ -319,7 +335,8 @@ int my_wc_mb_8bit(CHARSET_INFO *cs,my_wc_t wc, uchar *s, uchar *e);
 ulong my_scan_8bit(CHARSET_INFO *cs, const char *b, const char *e, int sq);
 
 int my_snprintf_8bit(struct charset_info_st *, char *to, uint n,
-		     const char *fmt, ...);
+		     const char *fmt, ...)
+  ATTRIBUTE_FORMAT(printf, 4, 5);
 
 long        my_strntol_8bit(CHARSET_INFO *, const char *s, uint l, int base,
 			    char **e, int *err);
@@ -340,6 +357,13 @@ longlong my_strtoll10_8bit(CHARSET_INFO *cs,
                            const char *nptr, char **endptr, int *error);
 longlong my_strtoll10_ucs2(CHARSET_INFO *cs, 
                            const char *nptr, char **endptr, int *error);
+
+ulonglong my_strntoull10rnd_8bit(CHARSET_INFO *cs,
+                                 const char *str, uint length, int unsigned_fl,
+                                 char **endptr, int *error);
+ulonglong my_strntoull10rnd_ucs2(CHARSET_INFO *cs, 
+                                 const char *str, uint length, int unsigned_fl,
+                                 char **endptr, int *error);
 
 void my_fill_8bit(CHARSET_INFO *cs, char* to, uint l, int fill);
 
@@ -384,8 +408,8 @@ int my_mbcharlen_8bit(CHARSET_INFO *, uint c);
 
 
 /* Functions for multibyte charsets */
-extern void my_caseup_str_mb(CHARSET_INFO *, char *);
-extern void my_casedn_str_mb(CHARSET_INFO *, char *);
+extern uint my_caseup_str_mb(CHARSET_INFO *, char *);
+extern uint my_casedn_str_mb(CHARSET_INFO *, char *);
 extern uint my_caseup_mb(CHARSET_INFO *, char *src, uint srclen,
                                          char *dst, uint dstlen);
 extern uint my_casedn_mb(CHARSET_INFO *, char *src, uint srclen,
@@ -417,6 +441,12 @@ extern my_bool my_parse_charset_xml(const char *bug, uint len,
 
 my_bool my_propagate_simple(CHARSET_INFO *cs, const uchar *str, uint len);
 my_bool my_propagate_complex(CHARSET_INFO *cs, const uchar *str, uint len);
+
+
+uint my_string_repertoire(CHARSET_INFO *cs, const char *str, ulong len);
+my_bool my_charset_is_ascii_based(CHARSET_INFO *cs);
+my_bool my_charset_is_8bit_pure_ascii(CHARSET_INFO *cs);
+uint my_charset_repertoire(CHARSET_INFO *cs);
 
 
 #define	_MY_U	01	/* Upper case */
