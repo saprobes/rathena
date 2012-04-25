@@ -911,6 +911,7 @@ int unit_can_move(struct block_list *bl)
 			|| sc->data[SC_WHITEIMPRISON]
 			|| sc->data[SC_ELECTRICSHOCKER]
 			|| sc->data[SC_BITE]
+			|| sc->data[SC_THORNSTRAP]
 			|| sc->data[SC_MAGNETICFIELD]
 			|| sc->data[SC__MANHOLE]
 			|| sc->data[SC_VACUUM_EXTREME]
@@ -2368,6 +2369,8 @@ int unit_free(struct block_list *bl, clr_type clrtype)
 			}
 			if( mob_is_clone(md->class_) )
 				mob_clone_delete(md);
+			if( md->tomb_nid )
+				mvptomb_destroy(md);
 			break;
 		}
 		case BL_HOM:

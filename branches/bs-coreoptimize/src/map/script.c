@@ -7483,8 +7483,6 @@ BUILDIN_FUNC(setoption)
 	if( flag ){// Add option
 		if( option&OPTION_WEDDING && !battle_config.wedding_modifydisplay )
 			option &= ~OPTION_WEDDING;// Do not show the wedding sprites
-		else if ( option&OPTION_MOUNTING && pc_cant_newmount(sd) )
-			option &= ~OPTION_MOUNTING;
 		pc_setoption(sd, sd->sc.option|option);
 	} else// Remove option
 		pc_setoption(sd, sd->sc.option&~option);
@@ -15809,7 +15807,7 @@ BUILDIN_FUNC(setmounting) {
 	TBL_PC* sd;
 	if( (sd = script_rid2sd(st)) == NULL )
 		return 0;
-	if( sd->sc.option&(OPTION_WUGRIDER|OPTION_RIDING|OPTION_DRAGON|OPTION_MADOGEAR) || pc_cant_newmount(sd) )
+	if( sd->sc.option&(OPTION_WUGRIDER|OPTION_RIDING|OPTION_DRAGON|OPTION_MADOGEAR) )
 		script_pushint(st,0);//can't mount with one of these
 	else {
 		if( sd->sc.option&OPTION_MOUNTING )
@@ -15844,7 +15842,7 @@ BUILDIN_FUNC(getargcount) {
 BUILDIN_FUNC(is_function) {
 	const char* str = script_getstr(st,2);
 
-	if( ((struct script_code*)strdb_get(userfunc_db, str)) != NULL )
+	if( strdb_exists(userfunc_db, str) )
 		script_pushint(st,1);
 	else
 		script_pushint(st,0);
@@ -15858,9 +15856,9 @@ BUILDIN_FUNC(get_revision) {
 	const char * revision;
 
 	if ( (revision = get_svn_revision()) != 0 )
-		script_pushstrcopy(st,revision);
+		script_pushint(st,atoi(revision));
 	else
-		script_pushconststr(st,"Unknown");
+		script_pushint(st,-1);//unknown
 
 	return 0;
 }
