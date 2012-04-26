@@ -45,12 +45,20 @@ class CMakeFactory(BuildFactory):
             command=["cmake", "--build", ".", "--target", "install"] + buildTypeArgument,
             logEnviron=False))
         # package - the package target creates an installer/package/archive
-        # that contains the production files
+        # that contains the production files; the target is only available if 
+        # CPack and a package generator are available
+        self.addStep(shell.SetProperty(
+            haltOnFailure = True,
+            flunkOnFailure = True,
+            extract_fn=lambda rc, stdout, stderr: {"WITH_CPACK": stdout.find("WITH_CPACK:BOOL=ON") != -1},
+            command=["cmake", "-N", "-LA"],
+            logEnviron=False))
         self.addStep(shell.ShellCommand(
             name = "Package",
             description = ["packaging"],
             descriptionDone = ["package"],
             haltOnFailure = True,
             flunkOnFailure = True,
+            doStepIf=lambda step: step.build.getProperty("WITH_CPACK"),
             command=["cmake", "--build", ".", "--target", "package"] + buildTypeArgument,
             logEnviron=False))
