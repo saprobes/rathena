@@ -9,6 +9,7 @@
 #include "../common/mmo.h"
 #include "../common/showmsg.h"
 #include "../common/utils.h"
+#include "../common/random.h"
 
 #include "log.h"
 #include "clif.h"
@@ -247,11 +248,14 @@ int elemental_clean_single_effect(struct elemental_data *ed, int skill_num) {
 			case SC_UPHEAVAL_OPTION:
 			case SC_CIRCLE_OF_FIRE_OPTION:
 			case SC_TIDAL_WEAPON_OPTION:
-				if( bl ) status_change_end(bl,type,-1);	// Master
-				status_change_end(&ed->bl,type-1,-1);	// Elemental Spirit
+				if( bl ) status_change_end(bl,type,INVALID_TIMER);	// Master
+				status_change_end(&ed->bl,type-1,INVALID_TIMER);	// Elemental Spirit
 				break;
 			case SC_ZEPHYR:
-				if( bl ) status_change_end(bl,type,-1);
+				if( bl ) status_change_end(bl,type,INVALID_TIMER);
+				break;
+			default:
+				ShowWarning("Invalid SC=%d in elemental_clean_single_effect\n",type);
 				break;
 		}
 	}
@@ -346,7 +350,7 @@ int elemental_action(struct elemental_data *ed, struct block_list *bl, unsigned 
 	if( elemental_skillnotok(skillnum, ed) )
 		return 0;
 	
-	if( ed->ud.skilltimer != -1 )
+	if( ed->ud.skilltimer != INVALID_TIMER )
 		return 0;
 	else if( DIFF_TICK(tick, ed->ud.canact_tick) < 0 )
 		return 0;
@@ -410,7 +414,7 @@ int elemental_change_mode_ack(struct elemental_data *ed, int mode) {
 	if( elemental_skillnotok(skillnum, ed) )
 		return 0;
 	
-	if( ed->ud.skilltimer != -1 )
+	if( ed->ud.skilltimer != INVALID_TIMER )
 		return 0;
 	else if( DIFF_TICK(gettick(), ed->ud.canact_tick) < 0 )
 		return 0;
@@ -563,10 +567,10 @@ static int elemental_ai_sub_timer(struct elemental_data *ed, struct map_session_
 	
 	ed->last_thinktime = tick;
 	
-	if( ed->ud.skilltimer != -1 )
+	if( ed->ud.skilltimer != INVALID_TIMER )
 		return 0;
 	
-	if( ed->ud.walktimer != -1 && ed->ud.walkpath.path_pos <= 2 )
+	if( ed->ud.walktimer != INVALID_TIMER && ed->ud.walkpath.path_pos <= 2 )
 		return 0; //No thinking when you just started to walk.
 	
 	if(ed->ud.walkpath.path_pos < ed->ud.walkpath.path_len && ed->ud.target == sd->bl.id)
@@ -582,13 +586,13 @@ static int elemental_ai_sub_timer(struct elemental_data *ed, struct map_session_
 	master_dist = distance_bl(&sd->bl, &ed->bl);
 	if( master_dist > AREA_SIZE ) {	// Master out of vision range.
 		elemental_unlocktarget(ed);
-		unit_warp(&ed->bl,sd->bl.m,sd->bl.x,sd->bl.y,3);
+		unit_warp(&ed->bl,sd->bl.m,sd->bl.x,sd->bl.y,CLR_TELEPORT);
 		return 0;
 	} else if( master_dist > MAX_ELEDISTANCE ) {	// Master too far, chase.
 		short x = sd->bl.x, y = sd->bl.y;
 		if( ed->target_id )
 			elemental_unlocktarget(ed);
-		if( ed->ud.walktimer != -1 && ed->ud.target == sd->bl.id )
+		if( ed->ud.walktimer != INVALID_TIMER && ed->ud.target == sd->bl.id )
 			return 0; //Already walking to him
 		if( DIFF_TICK(tick, ed->ud.canmove_tick) < 0 )
 			return 0; //Can't move yet.
@@ -608,14 +612,14 @@ static int elemental_ai_sub_timer(struct elemental_data *ed, struct map_session_
 			return 1;
 		}
 		
-		if( battle_check_range(&ed->bl,target,ed->db->range2) && rand()%100 < 2 ) { // 2% chance to cast attack skill.
+		if( battle_check_range(&ed->bl,target,ed->db->range2) && rnd()%100 < 2 ) { // 2% chance to cast attack skill.
 			if(	elemental_action(ed,target,tick) )
 				return 1;
 		}
 		
 		//Attempt to attack.
 		//At this point we know the target is attackable, we just gotta check if the range matches.
-		if( ed->ud.target == target->id && ed->ud.attacktimer != -1 ) //Already locked.
+		if( ed->ud.target == target->id && ed->ud.attacktimer != INVALID_TIMER ) //Already locked.
 			return 1;
 		
 		if( battle_check_range(&ed->bl, target, ed->base_status.rhw.range) ) {//Target within range, engage
