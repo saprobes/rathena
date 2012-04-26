@@ -24,7 +24,13 @@ struct ramutex{
 
 struct racond{
 #ifdef WIN32
-	CONDITION_VARIABLE hCond;
+	HANDLE events[2];
+	ra_align(8) volatile LONG nWaiters;
+	CRITICAL_SECTION waiters_lock;
+
+#define EVENT_COND_SIGNAL 0
+#define EVENT_COND_BROADCAST 1
+
 #else
 	pthread_cond_t hCond;
 #endif
@@ -122,7 +128,9 @@ racond racond_create(){
 	}
 
 #ifdef WIN32
-	InitializeConditionVariable(&c->hCond);
+	c->nWaiters = 0;
+	c->events[ EVENT_COND_SIGNAL ]		= CreateEvent( NULL,  FALSE,  FALSE,  NULL );
+	c->events[ EVENT_COND_BROADCAST ]	= CreateEvent( NULL,  TRUE,   FALSE,  NULL );
 #else
 	pthread_cond_init(&c->hCond, NULL);
 #endif
@@ -133,7 +141,9 @@ racond racond_create(){
 
 void racond_destroy( racond c ){
 #ifdef WIN32
-	//DeleteConditionVariable(&c->hCond);
+	CloseHandle( c->events[ EVENT_COND_SIGNAL ] );
+	CloseHandle( c->events[ EVENT_COND_BROADCAST ] );
+	InitializeCriticalSection( &c->waiters_lock );
 #else
 	pthread_cond_destroy(&c->hCond);
 #endif
@@ -145,13 +155,44 @@ void racond_destroy( racond c ){
 void racond_wait( racond c,  ramutex m,  sysint timeout_ticks){
 #ifdef WIN32
 	register DWORD ms;
+	int result;
+	bool is_last = false;
+
+
+	EnterCriticalSection(&c->waiters_lock);
+	c->nWaiters++;
+	LeaveCriticalSection(&c->waiters_lock);
+
 	if(timeout_ticks < 0)
 		ms = INFINITE;
 	else
-		ms = timeout_ticks;
+		ms = (timeout_ticks > MAXDWORD) ? (MAXDWORD - 1) : (DWORD)timeout_ticks;
 		
-	SleepConditionVariableCS( &c->hCond,  &m->hMutex,  ms);
 	
+	// we can release the mutex (m) here, cause win's
+	// manual reset events maintain state when used with
+	// SetEvent()
+	ramutex_unlock(m);
+
+	result = WaitForMultipleObjects(2, c->events, FALSE, ms);
+	
+	
+	EnterCriticalSection(&c->waiters_lock);
+	c->nWaiters--;
+	if( (result == WAIT_OBJECT_0 + EVENT_COND_BROADCAST) && (c->nWaiters == 0) )
+		is_last = true; // Broadcast called!
+	LeaveCriticalSection(&c->waiters_lock);
+
+	
+
+	// we are the last waiter that has to be notified, or to stop waiting
+	// so we have to do a manual reset
+	if(is_last == true)
+		ResetEvent( c->events[EVENT_COND_BROADCAST] );
+
+
+	ramutex_lock(m);
+
 #else
 	if(timeout_ticks < 0){
 		pthread_cond_wait( &c->hCond,  &m->hMutex );
@@ -171,7 +212,14 @@ void racond_wait( racond c,  ramutex m,  sysint timeout_ticks){
 
 void racond_signal( racond c ){
 #ifdef WIN32
-	WakeConditionVariable(&c->hCond);
+//	bool has_waiters = false;
+//	EnterCriticalSection(&c->waiters_lock);
+//	if(c->nWaiters > 0)
+//			has_waiters = true;
+//	LeaveCriticalSection(&c->waiters_lock);
+	
+//	if(has_waiters == true)
+		SetEvent( c->events[ EVENT_COND_SIGNAL ] );
 #else
 	pthread_cond_signal(&c->hCond);
 #endif
@@ -180,8 +228,17 @@ void racond_signal( racond c ){
 
 void racond_broadcast( racond c ){
 #ifdef WIN32
-	WakeAllConditionVariable(&c->hCond);
+//	bool has_waiters = false;
+//	EnterCriticalSection(&c->waiters_lock);
+//	if(c->nWaiters > 0)
+//			has_waiters = true;
+//	LeaveCriticalSection(&c->waiters_lock);
+	
+//	if(has_waiters == true)
+		SetEvent( c->events[ EVENT_COND_BROADCAST ] );
 #else
 	pthread_cond_broadcast(&c->hCond);
 #endif
 }//end: racond_broadcast()
+
+
