@@ -10,9 +10,8 @@
 ////// Dynamic Link Library functions ///////////////
 
 #ifdef WIN32
-
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
+	#include "../common/oswin_headers.h"
+	
 	#define DLL_OPEN(x)		LoadLibraryA(x)
 	#define DLL_SYM(x,y)	GetProcAddress(x,y)
 	#define DLL_CLOSE(x)	FreeLibrary(x)

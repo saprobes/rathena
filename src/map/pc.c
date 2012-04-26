@@ -4373,7 +4373,7 @@ int pc_steal_coin(struct map_session_data *sd,struct block_list *target)
 	rate = skill + (sd->status.base_level - md->level)*3 + sd->battle_status.dex*2 + sd->battle_status.luk*2;
 	if(rnd()%1000 < rate)
 	{
-		int amount = md->level*10 + rand()%100;
+		int amount = md->level*10 + rnd()%100;
 
 		log_zeny(sd, LOG_TYPE_STEAL, sd, amount);
 		pc_getzeny(sd, amount);
@@ -7107,20 +7107,20 @@ int pc_setoption(struct map_session_data *sd,int type)
 	if( (sd->class_&MAPID_THIRDMASK) == MAPID_MECHANIC ) {
 		if( type&OPTION_MADOGEAR && !(p_type&OPTION_MADOGEAR) ) {
 			status_calc_pc(sd, 0);
-			status_change_end(&sd->bl,SC_MAXIMIZEPOWER,-1);
-			status_change_end(&sd->bl,SC_OVERTHRUST,-1);
-			status_change_end(&sd->bl,SC_WEAPONPERFECTION,-1);
-			status_change_end(&sd->bl,SC_ADRENALINE,-1);
-			status_change_end(&sd->bl,SC_CARTBOOST,-1);
-			status_change_end(&sd->bl,SC_MELTDOWN,-1);
-			status_change_end(&sd->bl,SC_MAXOVERTHRUST,-1);
+			status_change_end(&sd->bl,SC_MAXIMIZEPOWER,INVALID_TIMER);
+			status_change_end(&sd->bl,SC_OVERTHRUST,INVALID_TIMER);
+			status_change_end(&sd->bl,SC_WEAPONPERFECTION,INVALID_TIMER);
+			status_change_end(&sd->bl,SC_ADRENALINE,INVALID_TIMER);
+			status_change_end(&sd->bl,SC_CARTBOOST,INVALID_TIMER);
+			status_change_end(&sd->bl,SC_MELTDOWN,INVALID_TIMER);
+			status_change_end(&sd->bl,SC_MAXOVERTHRUST,INVALID_TIMER);
 		} else if( !(type&OPTION_MADOGEAR) && p_type&OPTION_MADOGEAR ) {
 			status_calc_pc(sd, 0);
-			status_change_end(&sd->bl,SC_SHAPESHIFT,-1);
-			status_change_end(&sd->bl,SC_HOVERING,-1);
-			status_change_end(&sd->bl,SC_ACCELERATION,-1);
-			status_change_end(&sd->bl,SC_OVERHEAT_LIMITPOINT,-1);
-			status_change_end(&sd->bl,SC_OVERHEAT,-1);
+			status_change_end(&sd->bl,SC_SHAPESHIFT,INVALID_TIMER);
+			status_change_end(&sd->bl,SC_HOVERING,INVALID_TIMER);
+			status_change_end(&sd->bl,SC_ACCELERATION,INVALID_TIMER);
+			status_change_end(&sd->bl,SC_OVERHEAT_LIMITPOINT,INVALID_TIMER);
+			status_change_end(&sd->bl,SC_OVERHEAT,INVALID_TIMER);
 		}
 	}
 
