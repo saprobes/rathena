@@ -3,18 +3,21 @@ from buildbot.process.factory import BuildFactory
 class CMakeFactory(BuildFactory):
     sourcedir = "source"
 
-    def __init__ ( self, svnurl, generator, useBuildType=None, arguments=[]):
+    def __init__ ( self, svnurl, useBuildType=None, arguments=[]):
         """Factory for CMake out-of-source builds with extra buildbot code.
 
+        Uses the following builder properties (strings) when generating a build:
+        - generator: CMake generator
+        - arguments: build-specific CMake arguments
+
         @cvar svnurl: url of the svn repository
-        @cvar generator: CMake generator
         @cvar useBuildType: for multi-configuration generators (see CMAKE_BUILD_TYPE)
         @cvar arguments: extra CMake arguments
         """
         assert svnurl is not None
-        assert generator is not None
-        assert arguments is not None
+        assert type(arguments) == type([])
         from buildbot.steps import source, slave, shell
+        from buildbot.process.properties import WithProperties, Property
         BuildFactory.__init__(self)
         if useBuildType is None:
             buildTypeArgument=[]
@@ -35,7 +38,7 @@ class CMakeFactory(BuildFactory):
             dir=self.workdir))
         # configure
         self.addStep(shell.Configure(
-            command=["cmake", "../source", "-G%s" % generator, "-DENABLE_EXTRA_BUILDBOT_CODE=ON"] + arguments,
+            command=["cmake", "../source", WithProperties("-G%s", 'generator'), "-DENABLE_EXTRA_BUILDBOT_CODE=ON"] + arguments + [Property('arguments', default='')],
             logEnviron=False))
         # compile - the install target builds and then copies files to the
         # production directory (default is subdirectory 'install') and removes
