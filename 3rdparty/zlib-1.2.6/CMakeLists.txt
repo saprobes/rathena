@@ -1,0 +1,18 @@
+
+find_path( ZLIB_INCLUDE_DIRS "zlib.h"
+	PATHS "${CMAKE_CURRENT_SOURCE_DIR}"
+	NO_DEFAULT_PATH )
+find_path( ZLIB_SOURCE_DIR "zlib.c"
+	PATHS "${CMAKE_CURRENT_SOURCE_DIR}"
+	NO_DEFAULT_PATH )
+mark_as_advanced( ZLIB_INCLUDE_DIRS )
+mark_as_advanced( ZLIB_SOURCE_DIR )
+
+file( GLOB _HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/*.h" )
+file( GLOB _SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.c" )
+set( ZLIB_HEADERS
+	${_HEADERS}
+	CACHE INTERNAL "zlib headers" )
+set( ZLIB_SOURCES
+	${_SOURCES}
+	CACHE INTERNAL "zlib sources" )

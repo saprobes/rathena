@@ -2,12 +2,6 @@
 #
 # mapcache
 #
-if( WITH_ZLIB )
-	option( BUILD_MAPCACHE "build mapcache executable" ON )
-else()
-	message( STATUS "Disabled mapcache target (required ZLIB)" )
-endif()
-if( BUILD_MAPCACHE )
 message( STATUS "Creating target mapcache" )
 set( COMMON_HEADERS
 	${COMMON_MINI_HEADERS}
@@ -24,10 +18,11 @@ set( COMMON_SOURCES
 set( MAPCACHE_SOURCES
 	"${CMAKE_CURRENT_SOURCE_DIR}/mapcache.c"
 	)
-set( LIBRARIES ${GLOBAL_LIBRARIES} ${ZLIB_LIBRARIES} )
+set( LIBRARIES ${GLOBAL_LIBRARIES} )
 set( INCLUDE_DIRS ${GLOBAL_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS} ${COMMON_MINI_INCLUDE_DIRS} )
 set( DEFINITIONS "${GLOBAL_DEFINITIONS} ${COMMON_MINI_DEFINITIONS}" )
-set( SOURCE_FILES ${COMMON_HEADERS} ${COMMON_SOURCES} ${MAPCACHE_SOURCES} )
+set( SOURCE_FILES ${ZLIB_HEADERS} ${ZLIB_SOURCES} ${COMMON_HEADERS} ${COMMON_SOURCES} ${MAPCACHE_SOURCES} )
+source_group( zlib FILES ${ZLIB_HEADERS} ${ZLIB_SOURCES} )
 source_group( common FILES ${COMMON_HEADERS} ${COMMON_SOURCES} )
 source_group( mapcache FILES ${MAPCACHE_SOURCES} )
 add_executable( mapcache ${SOURCE_FILES} )
@@ -42,4 +37,3 @@ if( INSTALL_COMPONENT_RUNTIME )
 endif( INSTALL_COMPONENT_RUNTIME )
 set( TARGET_LIST ${TARGET_LIST} mapcache  CACHE INTERNAL "" )
 message( STATUS "Creating target mapcache - done" )
-endif( BUILD_MAPCACHE )

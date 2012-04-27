@@ -27,17 +27,13 @@ set( COMMON_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
 	CACHE PATH "common source directory" )
 mark_as_advanced( COMMON_SOURCE_DIR )
 
-set( COMMON_ALL_HEADERS
+set( COMMON_MINI_HEADERS
 	"${CMAKE_CURRENT_BINARY_DIR}/svnversion.h"
 	"${COMMON_SOURCE_DIR}/cbasetypes.h"
-	"${COMMON_SOURCE_DIR}/mmo.h"
-	"${COMMON_SOURCE_DIR}/plugin.h"
-	)
-
-set( COMMON_MINI_HEADERS
-	${COMMON_ALL_HEADERS}
 	"${COMMON_SOURCE_DIR}/core.h"
+	"${COMMON_SOURCE_DIR}/mmo.h"
 	"${COMMON_SOURCE_DIR}/malloc.h"
+	"${COMMON_SOURCE_DIR}/plugin.h"
 	"${COMMON_SOURCE_DIR}/showmsg.h"
 	"${COMMON_SOURCE_DIR}/strlib.h"
 	${LIBCONFIG_HEADERS} # needed by showmsg.h
@@ -54,98 +50,30 @@ set( COMMON_MINI_DEFINITIONS "-DMINICORE ${LIBCONFIG_DEFINITIONS}" CACHE INTERNA
 
 
 #
-# common_base
-#
-if( WITH_ZLIB )
-message( STATUS "Creating target common_base" )
-set( COMMON_BASE_HEADERS
-	${COMMON_ALL_HEADERS}
-	"${COMMON_SOURCE_DIR}/conf.h"
-	"${COMMON_SOURCE_DIR}/core.h"
-	"${COMMON_SOURCE_DIR}/db.h"
-	"${COMMON_SOURCE_DIR}/des.h"
-	"${COMMON_SOURCE_DIR}/ers.h"
-	"${COMMON_SOURCE_DIR}/grfio.h"
-	"${COMMON_SOURCE_DIR}/lock.h"
-	"${COMMON_SOURCE_DIR}/malloc.h"
-	"${COMMON_SOURCE_DIR}/mapindex.h"
-	"${COMMON_SOURCE_DIR}/md5calc.h"
-	"${COMMON_SOURCE_DIR}/nullpo.h"
-	"${COMMON_SOURCE_DIR}/plugins.h"
-	"${COMMON_SOURCE_DIR}/random.h"
-	"${COMMON_SOURCE_DIR}/showmsg.h"
-	"${COMMON_SOURCE_DIR}/socket.h"
-	"${COMMON_SOURCE_DIR}/strlib.h"
-	"${COMMON_SOURCE_DIR}/timer.h"
-	"${COMMON_SOURCE_DIR}/utils.h"
-	"${COMMON_SOURCE_DIR}/thread.h"
-	"${COMMON_SOURCE_DIR}/tick.h"
-	${LIBCONFIG_HEADERS} # needed by conf.h/showmsg.h
-	CACHE INTERNAL "common_base headers" )
-set( COMMON_BASE_SOURCES
-	"${COMMON_SOURCE_DIR}/conf.c"
-	"${COMMON_SOURCE_DIR}/core.c"
-	"${COMMON_SOURCE_DIR}/db.c"
-	"${COMMON_SOURCE_DIR}/des.c"
-	"${COMMON_SOURCE_DIR}/ers.c"
-	"${COMMON_SOURCE_DIR}/grfio.c"
-	"${COMMON_SOURCE_DIR}/lock.c"
-	"${COMMON_SOURCE_DIR}/malloc.c"
-	"${COMMON_SOURCE_DIR}/mapindex.c"
-	"${COMMON_SOURCE_DIR}/md5calc.c"
-	"${COMMON_SOURCE_DIR}/nullpo.c"
-	"${COMMON_SOURCE_DIR}/plugins.c"
-	"${COMMON_SOURCE_DIR}/random.c"
-	"${COMMON_SOURCE_DIR}/showmsg.c"
-	"${COMMON_SOURCE_DIR}/socket.c"
-	"${COMMON_SOURCE_DIR}/strlib.c"
-	"${COMMON_SOURCE_DIR}/timer.c"
-	"${COMMON_SOURCE_DIR}/utils.c"
-	"${COMMON_SOURCE_DIR}/thread.c"
-	"${COMMON_SOURCE_DIR}/tick.c"
-	${LIBCONFIG_SOURCES} # needed by conf.c/showmsg.c
-	CACHE INTERNAL "common_base sources" )
-set( COMMON_BASE_INCLUDE_DIRS
-	${LIBCONFIG_INCLUDE_DIRS}
-	CACHE INTERNAL "common_base include dirs" )
-set( COMMON_BASE_DEFINITIONS
-	${LIBCONFIG_DEFINITIONS}
-	CACHE INTERNAL "common_base definitions" )
-set( LIBRARIES ${GLOBAL_LIBRARIES} ${ZLIB_LIBRARIES} )
-set( INCLUDE_DIRS ${GLOBAL_INCLUDE_DIRS} ${MT19937AR_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS} ${COMMON_BASE_INCLUDE_DIRS} )
-set( DEFINITIONS "${GLOBAL_DEFINITIONS} ${COMMON_BASE_DEFINITIONS}" )
-set( SOURCE_FILES ${MT19937AR_HEADERS} ${MT19937AR_SOURCES} ${COMMON_BASE_HEADERS} ${COMMON_BASE_SOURCES} )
-source_group( mt19937ar FILES ${MT19937AR_HEADERS} ${MT19937AR_SOURCES} )
-source_group( common FILES ${COMMON_BASE_HEADERS} ${COMMON_BASE_SOURCES} )
-add_library( common_base ${SOURCE_FILES} )
-target_link_libraries( common_base ${LIBRARIES} )
-set_target_properties( common_base PROPERTIES COMPILE_FLAGS "${DEFINITIONS}" )
-include_directories( ${INCLUDE_DIRS} )
-set( HAVE_common_base ON  CACHE INTERNAL "" )
-set( TARGET_LIST ${TARGET_LIST} common_base  CACHE INTERNAL "" )
-message( STATUS "Creating target common_base - done" )
-else()
-message( STATUS "Skipping target common_base (requires ZLIB)" )
-unset( HAVE_common_base CACHE )
-endif()
-
-
-#
 # common_sql
 #
-if( HAVE_common_base AND WITH_MYSQL )
+if( HAVE_3rdparty AND WITH_MYSQL )
 message( STATUS "Creating target common_sql" )
+file( GLOB _HEADERS "${COMMON_SOURCE_DIR}/*.h" )
+file( GLOB _SOURCES "${COMMON_SOURCE_DIR}/*.c" )
 set( COMMON_SQL_HEADERS
-	${COMMON_ALL_HEADERS}
-	"${CMAKE_CURRENT_SOURCE_DIR}/sql.h"
+	"${CMAKE_CURRENT_BINARY_DIR}/svnversion.h"
+	${_HEADERS}
 	CACHE INTERNAL "common_sql headers" )
 set( COMMON_SQL_SOURCES
-	"${CMAKE_CURRENT_SOURCE_DIR}/sql.c"
+	${_SOURCES}
 	CACHE INTERNAL "common_sql sources" )
-set( DEPENDENCIES common_base )
+set( COMMON_SQL_INCLUDE_DIRS
+	${3RDPARTY_INCLUDE_DIRS}
+	${MYSQL_INCLUDE_DIRS}
+	CACHE INTERNAL "common_sql include dirs" )
+set( COMMON_SQL_DEFINITIONS
+	${3RDPARTY_DEFINITIONS}
+	CACHE INTERNAL "common_sql definitions" )
+set( DEPENDENCIES 3rdparty )
 set( LIBRARIES ${GLOBAL_LIBRARIES} ${MYSQL_LIBRARIES} )
-set( INCLUDE_DIRS ${GLOBAL_INCLUDE_DIRS} ${MYSQL_INCLUDE_DIRS} )
-set( DEFINITIONS "${GLOBAL_DEFINITIONS}" )
+set( INCLUDE_DIRS ${GLOBAL_INCLUDE_DIRS} ${COMMON_SQL_INCLUDE_DIRS} )
+set( DEFINITIONS "${GLOBAL_DEFINITIONS} ${COMMON_SQL_DEFINITIONS}" )
 set( SOURCE_FILES ${COMMON_SQL_HEADERS} ${COMMON_SQL_SOURCES} )
 source_group( common FILES ${COMMON_SQL_HEADERS} ${COMMON_SQL_SOURCES} )
 add_library( common_sql ${SOURCE_FILES} )
@@ -157,6 +85,6 @@ set( HAVE_common_sql ON  CACHE INTERNAL "" )
 set( TARGET_LIST ${TARGET_LIST} common_sql  CACHE INTERNAL "" )
 message( STATUS "Creating target common_sql - done" )
 else()
-message( STATUS "Skipping target common_sql (requires common_base and MYSQL)" )
+message( STATUS "Skipping target common_sql (requires 3rdparty and MYSQL)" )
 unset( HAVE_common_sql CACHE )
 endif()

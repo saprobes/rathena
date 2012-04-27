@@ -17,20 +17,6 @@
 #####################################################################
 
 
-#cmake_minimum_required( VERSION 2.8.4 )
-# Functional changes from 2.8.3 to 2.8.4:
-#   string(SUBSTRING) works with length -1 as "rest of string"
-#   changes to some CPack generators
-#   CYGWIN no longer defines WIN32
-#   CMP0017: Prefer files from the CMake module directory when including from there.
-set( CMAKE_LEGACY_CYGWIN_WIN32 0 )
-cmake_minimum_required( VERSION 2.8.2 )
-project( rAthena C )
-if( CYGWIN )
-	unset( WIN32 )
-endif()
-
-
 #
 # Prevent building in the source directory by default
 #
@@ -51,6 +37,20 @@ elseif( "${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_BINARY_DIR}" )
 endif()
 
 
+#cmake_minimum_required( VERSION 2.8.4 )
+# Functional changes from 2.8.3 to 2.8.4:
+#   string(SUBSTRING) works with length -1 as "rest of string"
+#   changes to some CPack generators
+#   CYGWIN no longer defines WIN32
+#   CMP0017: Prefer files from the CMake module directory when including from there.
+set( CMAKE_LEGACY_CYGWIN_WIN32 0 )
+cmake_minimum_required( VERSION 2.8.3 )
+project( rAthena C )
+if( CYGWIN )
+	unset( WIN32 )
+endif()
+
+
 #
 # Global stuff
 #
@@ -62,15 +62,38 @@ if( WIN32 )
 	set_property( CACHE GLOBAL_DEFINITIONS  PROPERTY VALUE "${GLOBAL_DEFINITIONS} -DFD_SETSIZE=4096" )
 endif()
 if( MSVC )
-	set_property( CACHE GLOBAL_LIBRARIES    PROPERTY VALUE ${GLOBAL_LIBRARIES} "oldnames.lib" "ws2_32.lib" )
+	set_property( CACHE GLOBAL_LIBRARIES    PROPERTY VALUE ${GLOBAL_LIBRARIES} "oldnames.lib" "ws2_32.lib" "Winmm.lib" )
 	set_property( CACHE GLOBAL_DEFINITIONS  PROPERTY VALUE "${GLOBAL_DEFINITIONS} -D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE" )
 endif()
 
 
 #
-# 3rd party
+# MSVC stuff
 #
-add_subdirectory( 3rdparty )
+if( MSVC AND 0 )
+	option( ENABLE_STATIC_RUNTIME_LIBRARY "link to the static runtime library" ON )
+	#add_definitions( -D_CRT_SECURE_NO_WARNINGS )
+	#add_definitions( -D_CRT_SECURE_NO_DEPRECATE )
+	#add_definitions( -D_CRT_NONSTDC_NO_DEPRECATE )
+	foreach( _VAR IN ITEMS
+		CMAKE_C_FLAGS  CMAKE_C_FLAGS_DEBUG  CMAKE_C_FLAGS_RELEASE
+		CMAKE_C_FLAGS_MINSIZEREL  CMAKE_C_FLAGS_RELWITHDEBINFO
+		)
+		get_property( _STR CACHE ${_VAR} PROPERTY VALUE )
+		if( ENABLE_STATIC_RUNTIME_LIBRARY )
+			string( REPLACE "/MD" "/MT" _STR "${_STR}" )
+		else( ENABLE_STATIC_RUNTIME_LIBRARY )
+			string( REPLACE "/MT" "/MD" _STR "${_STR}" )
+		endif( ENABLE_STATIC_RUNTIME_LIBRARY )
+		set_property( CACHE ${_VAR} PROPERTY VALUE "${_STR}" )
+	endforeach()
+endif()
+
+
+#
+# includes
+#
+set( CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/cmake  CACHE INTERNAL "" )
 include( CheckCSourceCompiles )
 include( CheckCSourceRuns )
 include( CheckIncludeFile )
@@ -240,17 +263,43 @@ endif()
 
 
 #
+# Test if include file exists:
+#   xlocale.h - see 3rdparty/libconfig/libconfig.c
+#   unistd.h - see 3rdparty/zlib/zconf.h
+#   stdarg.h - see 3rdparty/zlib/zconf.h
+#
+CHECK_INCLUDE_FILE( xlocale.h HAVE_XLOCALE_H )
+CHECK_INCLUDE_FILE( unistd.h HAVE_UNISTD_H )
+CHECK_INCLUDE_FILE( stdarg.h HAVE_STDARG_H )
+foreach( define HAVE_XLOCALE_H HAVE_UNISTD_H HAVE_STDARG_H )
+	if( ${define} )
+		set_property( CACHE GLOBAL_DEFINITIONS  PROPERTY VALUE "${GLOBAL_DEFINITIONS} -D${define}" )
+	endif()
+endforeach()
+
+
+#
 # Test if function exists:
+#   newlocale - see 3rdparty/libconfig/libconfig.c
+#   uselocale - see 3rdparty/libconfig/libconfig.c
+#   freelocale - see 3rdparty/libconfig/libconfig.c
+#   memcpy - see 3rdparty/zlib/zutil.*
 #   setrlimit - used to set the socket limit
 #   strnlen - string length with upper scan bound
 #   getpid - process id
 #   gettid - thread id
 #
+set( CMAKE_REQUIRED_INCLUDES "locale.h" )
+CHECK_FUNCTION_EXISTS( newlocale HAVE_NEWLOCALE )
+CHECK_FUNCTION_EXISTS( uselocale HAVE_USELOCALE )
+CHECK_FUNCTION_EXISTS( freelocale HAVE_FREELOCALE )
+set( CMAKE_REQUIRED_INCLUDES )
+CHECK_FUNCTION_EXISTS( memcpy HAVE_MEMCPY )
 CHECK_FUNCTION_EXISTS( setrlimit HAVE_SETRLIMIT )
 CHECK_FUNCTION_EXISTS( strnlen HAVE_STRNLEN )
 CHECK_FUNCTION_EXISTS( getpid HAVE_GETPID )
 CHECK_FUNCTION_EXISTS( gettid HAVE_GETTID )
-foreach( define HAVE_SETRLIMIT HAVE_STRNLEN HAVE_GETPID HAVE_GETTID )
+foreach( define HAVE_NEWLOCALE HAVE_USELOCALE HAVE_FREELOCALE HAVE_MEMCPY HAVE_SETRLIMIT HAVE_STRNLEN HAVE_GETPID HAVE_GETTID )
 	if( ${define} )
 		set_property( CACHE GLOBAL_DEFINITIONS  PROPERTY VALUE "${GLOBAL_DEFINITIONS} -D${define}" )
 	endif()
@@ -473,19 +522,16 @@ set( RUNTIME_FILES
 	"${CMAKE_CURRENT_SOURCE_DIR}/char-server.sh"
 	"${CMAKE_CURRENT_SOURCE_DIR}/charserv-sql.bat"
 	"${CMAKE_CURRENT_SOURCE_DIR}/dbghelp.dll"
-	"${CMAKE_CURRENT_SOURCE_DIR}/libmysql.dll"
 	"${CMAKE_CURRENT_SOURCE_DIR}/LICENSE"
 	"${CMAKE_CURRENT_SOURCE_DIR}/login-server.sh"
 	"${CMAKE_CURRENT_SOURCE_DIR}/logserv-sql.bat"
 	"${CMAKE_CURRENT_SOURCE_DIR}/map-server.sh"
 	"${CMAKE_CURRENT_SOURCE_DIR}/mapserv-sql.bat"
 	"${CMAKE_CURRENT_SOURCE_DIR}/notice.txt"
-	"${CMAKE_CURRENT_SOURCE_DIR}/pcre3.dll"
 	"${CMAKE_CURRENT_SOURCE_DIR}/readme.html"
 	"${CMAKE_CURRENT_SOURCE_DIR}/runserver-sql.bat"
 	"${CMAKE_CURRENT_SOURCE_DIR}/serv.bat"
 	"${CMAKE_CURRENT_SOURCE_DIR}/start"
-	"${CMAKE_CURRENT_SOURCE_DIR}/zlib1.dll"
 	)
 set( RUNTIME_DIRECTORIES
 	"conf"
@@ -567,6 +613,7 @@ endif( INSTALL_COMPONENT_RUNTIME )
 # sources
 #
 set( TARGET_LIST  CACHE INTERNAL "" )
+add_subdirectory( 3rdparty )
 add_subdirectory( src )
 
 
