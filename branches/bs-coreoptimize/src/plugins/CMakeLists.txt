@@ -41,7 +41,7 @@ endif( BUILD_PLUGIN_console )
 #
 # dbghelpplug
 #
-if( WIN32 )
+if( WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4 )
 	find_path( HAVE_DBGHELP_H dbghelp.h )
 	mark_as_advanced( HAVE_DBGHELP_H )
 	if( HAVE_DBGHELP_H )

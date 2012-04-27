@@ -1,8 +1,18 @@
 
 #
+# Setup
+#
+if( CMAKE_SIZEOF_VOID_P EQUAL 4 )
+	set( _LIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib" )
+else()
+	set( _LIB_PATH )# not supported
+endif()
+
+
+#
 # local copy
 #
-if( WIN32 )
+if( WIN32 AND _LIB_PATH )
 message( STATUS "Detecting local PCRE" )
 find_path( PCRE_LOCAL_INCLUDE_DIRS "pcre.h"
 	PATHS "${CMAKE_CURRENT_SOURCE_DIR}/include"
@@ -32,7 +42,7 @@ else()
 	unset( HAVE_LOCAL_PCRE CACHE )
 endif()
 message( STATUS "Detecting local PCRE - done" )
-endif( WIN32 )
+endif( WIN32 AND _LIB_PATH )
 
 
 #
@@ -63,3 +73,12 @@ message( STATUS "Detecting system PCRE - done" )
 # configure
 #
 CONFIGURE_WITH_LOCAL_OR_SYSTEM( PCRE )
+if( WITH_LOCAL_PCRE AND INSTALL_COMPONENT_RUNTIME )
+	file( GLOB _FILES
+		"${_LIB_PATH}/*.dll"
+		"${_LIB_PATH}/*.pdb"
+		)
+	install( FILES ${_FILES}
+		DESTINATION "."
+		COMPONENT Runtime_base )
+endif( WITH_LOCAL_PCRE AND INSTALL_COMPONENT_RUNTIME )

@@ -46,11 +46,54 @@ macro( CONFIGURE_WITH_LOCAL_OR_SYSTEM name )
 	mark_as_advanced( ${name}_INCLUDE_DIRS )
 endmacro( CONFIGURE_WITH_LOCAL_OR_SYSTEM )
 
-
-set( CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake  CACHE INTERNAL "" )
 add_subdirectory( libconfig )
 add_subdirectory( msinttypes )
 add_subdirectory( mt19937ar )
-add_subdirectory( mysql )
+#add_subdirectory( mysql )
+add_subdirectory( mysql-redist )
 add_subdirectory( pcre )
-add_subdirectory( zlib )
+#add_subdirectory( zlib )
+add_subdirectory( zlib-1.2.6 )
+
+
+#####################################################################
+#
+# 3rdparty
+#
+message( STATUS "Creating target 3rdparty" )
+set( 3RDPARTY_HEADERS
+	${LIBCONFIG_HEADERS}
+	${MT19937AR_HEADERS}
+	${ZLIB_HEADERS}
+	CACHE INTERNAL "3rdparty headers" )
+set( 3RDPARTY_SOURCES
+	${LIBCONFIG_SOURCES}
+	${MT19937AR_SOURCES}
+	${ZLIB_SOURCES}
+	CACHE INTERNAL "3rdparty sources" )
+set( 3RDPARTY_INCLUDE_DIRS
+	${LIBCONFIG_INCLUDE_DIRS}
+	${MT19937AR_INCLUDE_DIRS}
+	${ZLIB_INCLUDE_DIRS}
+	CACHE INTERNAL "3rdparty include dirs" )
+set( _DEFINITIONS "${LIBCONFIG_DEFINITIONS}" )
+if( MSVC )
+	set( _DEFINITIONS "${_DEFINITIONS} -DYY_USE_CONST" )
+endif()
+set( 3RDPARTY_DEFINITIONS
+	${_DEFINITIONS}
+	CACHE INTERNAL "3rdparty definitions" )
+set( LIBRARIES ${GLOBAL_LIBRARIES} )
+set( INCLUDE_DIRS ${GLOBAL_INCLUDE_DIRS} ${3RDPARTY_INCLUDE_DIRS} )
+set( DEFINITIONS "${GLOBAL_DEFINITIONS} ${3RDPARTY_DEFINITIONS}" )
+set( SOURCE_FILES ${LIBCONFIG_HEADERS} ${LIBCONFIG_SOURCES} ${MT19937AR_HEADERS} ${MT19937AR_SOURCES} ${ZLIB_HEADERS} ${ZLIB_SOURCES} )
+source_group( libconfig FILES ${LIBCONFIG_HEADERS} ${LIBCONFIG_SOURCES} )
+source_group( mt19937ar FILES ${MT19937AR_HEADERS} ${MT19937AR_SOURCES} )
+source_group( zlib FILES ${ZLIB_HEADERS} ${ZLIB_SOURCES} )
+add_library( 3rdparty ${SOURCE_FILES} )
+target_link_libraries( 3rdparty ${LIBRARIES} )
+set_target_properties( 3rdparty PROPERTIES COMPILE_FLAGS "${DEFINITIONS}" )
+include_directories( ${INCLUDE_DIRS} )
+set( HAVE_3rdparty ON  CACHE INTERNAL "" )
+set( TARGET_LIST ${TARGET_LIST} 3rdparty  CACHE INTERNAL "" )
+message( STATUS "Creating target 3rdparty - done" )
