@@ -3,18 +3,18 @@ from buildbot.process.factory import BuildFactory
 class CMakeFactory(BuildFactory):
     sourcedir = "source"
 
-    def __init__ ( self, svnurl, useBuildType=None, arguments=[]):
+    def __init__ ( self, baseURL, useBuildType=None, arguments=[]):
         """Factory for CMake out-of-source builds with extra buildbot code.
 
         Uses the following builder properties (strings) when generating a build:
         - generator: CMake generator
         - arguments: build-specific CMake arguments
 
-        @cvar svnurl: url of the svn repository
+        @cvar baseURL: url of the svn repository
         @cvar useBuildType: for multi-configuration generators (see CMAKE_BUILD_TYPE)
         @cvar arguments: extra CMake arguments
         """
-        assert svnurl is not None
+        assert baseURL is not None
         assert type(arguments) == type([])
         from buildbot.steps import source, slave, shell
         from buildbot.process.properties import WithProperties, Property
@@ -28,7 +28,9 @@ class CMakeFactory(BuildFactory):
         self.addStep(source.SVN(
             workdir=self.sourcedir,
             mode='update',
-            svnurl=svnurl))
+            baseURL=baseURL,
+            defaultBranch='trunk',
+            retry=(30,2) ))
         # recreate build dir
         self.addStep(slave.RemoveDirectory(
             dir=self.workdir,
