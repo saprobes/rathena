@@ -38,7 +38,7 @@ class CMakeFactory(BuildFactory):
             dir=self.workdir))
         # configure
         self.addStep(shell.Configure(
-            command=["cmake", "../source", WithProperties("-G%s", 'generator'), "-DENABLE_EXTRA_BUILDBOT_CODE=ON"] + arguments + [Property('arguments', default='')],
+            command=["cmake", "../source", WithProperties("-G%s", 'generator'), "-DENABLE_EXTRA_BUILDBOT_CODE=ON", arguments, Property('extra_arguments', default=[])],
             logEnviron=False))
         # compile - the install target builds and then copies files to the
         # production directory (default is subdirectory 'install') and removes
