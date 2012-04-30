@@ -23,77 +23,43 @@
 #endif
 
 forceinline volatile int64 InterlockedExchangeAdd64(volatile int64 *addend, int64 increment){
-	long ret;
-	
-	__asm__ __volatile__(
-		"lock xadd %0, (%1)"
-		:"=r" (ret)
-		:"r" (addend), "0" (increment)
-		:"memory"
-	);
-	
-	return ret;
+	return __sync_fetch_and_add(addend, increment);
 }//end: InterlockedExchangeAdd64()
 
 
 forceinline volatile int32 InterlockedExchangeAdd(volatile int32 *addend, int32 increment){
-	int ret;
-	
-	__asm__ __volatile__(
-		"lock xaddl %0, (%1)"
-		:"=r" (ret)
-		:"r" (addend), "0" (increment)
-		:"memory"	
-	);
-	
-	return ret;
+	return __sync_fetch_and_add(addend, increment);
 }//end: InterlockedExchangeAdd()
 
 
 forceinline volatile int64 InterlockedIncrement64(volatile int64 *addend){
-	return InterlockedExchangeAdd64(addend, 1)+1;
+	return __sync_add_and_fetch(addend, 1);
 }//end: InterlockedIncrement64()
 
 
 forceinline volatile int32 InterlockedIncrement(volatile int32 *addend){
-	return InterlockedExchangeAdd(addend, 1)+1;
+        return __sync_add_and_fetch(addend, 1);
 }//end: InterlockedIncrement()
 
 
 forceinline volatile int64 InterlockedDecrement64(volatile int64 *addend){
-	return InterlockedExchangeAdd64(addend, -1)-1;
+	return __sync_sub_and_fetch(addend, 1);
 }//end: InterlockedDecrement64()
 
 
 forceinline volatile int32 InterlockedDecrement(volatile int32 *addend){
-	return InterlockedExchangeAdd(addend, -1)-1;
+	return __sync_sub_and_fetch(addend, 1);
 }//end: InterlockedDecrement()
 
 
 forceinline volatile int64 InterlockedCompareExchange64(volatile int64 *dest, int64 exch, int64 cmp){
-	long old;
-	
-	__asm__ __volatile__(
-		"lock cmpxchg %2, %0"
-		:"=m" (*dest), "=a" (old)
-		:"r"(exch), "m" (*dest), "a"(cmp)
-	);
-	
-	return old;
+	return __sync_val_compare_and_swap(dest, cmp, exch);
 }//end: InterlockedCompareExchange64()
 
 
 forceinline volatile int32 InterlockedCompareExchange(volatile int32 *dest, int32 exch, int32 cmp){
-	int old;
-	
-	__asm__ __volatile__(
-		"lock cmpxchgl %2, %0"
-		:"=m" (*dest), "=a" (old)
-		:"r"(exch), "m" (*dest), "a"(cmp)
-	);
-	
-	return old;
-}//end: InterlockedCompareExchange()
+        return __sync_val_compare_and_swap(dest, cmp, exch);
+}//end: InterlockedCompareExchnage()
 
 
 forceinline volatile int64 InterlockedExchange64(volatile int64 *target, int64 val){
