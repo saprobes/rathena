@@ -216,6 +216,12 @@ static int parse_options=0;
 DBMap* script_get_label_db(void){ return scriptlabel_db; }
 DBMap* script_get_userfunc_db(void){ return userfunc_db; }
 
+// important buildin function references for usage in scripts
+static int buildin_set_ref = 0;
+static int buildin_callsub_ref = 0;
+static int buildin_callfunc_ref = 0;
+static int buildin_getelementofarray_ref = 0;
+
 // Caches compiled autoscript item code. 
 // Note: This is not cleared when reloading itemdb.
 static DBMap* autobonus_db=NULL; // char* script -> char* bytecode
@@ -927,7 +933,7 @@ int add_word(const char* p)
 /// The argument list can have parenthesis or not.
 /// The number of arguments is checked.
 static
-const char* parse_callfunc(const char* p, int require_paren)
+const char* parse_callfunc(const char* p, int require_paren, int is_custom)
 {
 	const char* p2;
 	const char* arg=NULL;
@@ -941,17 +947,32 @@ const char* parse_callfunc(const char* p, int require_paren)
 		arg = buildin_func[str_data[func].val].arg;
 	} else if( str_data[func].type == C_USERFUNC || str_data[func].type == C_USERFUNC_POS ){
 		// script defined function
-		int callsub = search_str("callsub");
-		add_scriptl(callsub);
+		add_scriptl(buildin_callsub_ref);
 		add_scriptc(C_ARG);
 		add_scriptl(func);
-		arg = buildin_func[str_data[callsub].val].arg;
+		arg = buildin_func[str_data[buildin_callsub_ref].val].arg;
 		if( *arg == 0 )
 			disp_error_message("parse_callfunc: callsub has no arguments, please review it's definition",p);
 		if( *arg != '*' )
 			++arg; // count func as argument
-	} else
-		disp_error_message("parse_line: expect command, missing function name or calling undeclared function",p);
+	} else {
+#ifdef SCRIPT_CALLFUNC_CHECK
+		const char* name = get_str(func);
+		if( !is_custom && strdb_get(userfunc_db, name) == NULL ) {
+#endif
+			disp_error_message("parse_line: expect command, missing function name or calling undeclared function",p);
+#ifdef SCRIPT_CALLFUNC_CHECK
+		} else {;
+			add_scriptl(buildin_callfunc_ref);
+			add_scriptc(C_ARG);
+			add_scriptc(C_STR);
+			while( *name ) add_scriptb(*name ++);
+			add_scriptb(0);
+			arg = buildin_func[str_data[buildin_callfunc_ref].val].arg;
+			if( *arg != '*' ) ++ arg;
+		}
+#endif
+	}
 
 	p = skip_word(p);
 	p = skip_space(p);
@@ -1026,6 +1047,157 @@ static void parse_nextline(bool first, const char* p)
 	str_data[LABEL_NEXTLINE].label     = -1;
 }
 
+/// Parse a variable assignment using the direct equals operator
+/// @param p script position where the function should run from
+/// @return NULL if not a variable assignment, the new position otherwise
+const char* parse_variable(const char* p)
+{
+	int i, j, word;
+	c_op type = C_NOP;
+	const char *p2 = NULL;
+	const char *var = p;
+			
+	// skip the variable where applicable
+	p = skip_word(p);
+	p = skip_space(p);
+
+	if( p == NULL )
+	{// end of the line or invalid buffer
+		return NULL;
+	}
+
+	if( *p == '[' )
+	{// array variable so process the array as appropriate
+		for( p2 = p, i = 0, j = 1; p; ++ i )
+		{
+			if( *p ++ == ']' && --(j) == 0 ) break;
+			if( *p == '[' ) ++ j;
+		}
+
+		if( !(p = skip_space(p)) )
+		{// end of line or invalid characters remaining
+			disp_error_message("Missing right expression or closing bracket for variable.", p);
+		}
+	}
+
+	if( type == C_NOP &&
+	!( ( p[0] == '=' && p[1] != '=' && (type = C_EQ) ) // =
+	|| ( p[0] == '+' && p[1] == '=' && (type = C_ADD) ) // +=
+	|| ( p[0] == '-' && p[1] == '=' && (type = C_SUB) ) // -=
+	|| ( p[0] == '^' && p[1] == '=' && (type = C_XOR) ) // ^=
+	|| ( p[0] == '|' && p[1] == '=' && (type = C_OR ) ) // |=
+	|| ( p[0] == '&' && p[1] == '=' && (type = C_AND) ) // &=
+	|| ( p[0] == '*' && p[1] == '=' && (type = C_MUL) ) // *=
+	|| ( p[0] == '/' && p[1] == '=' && (type = C_DIV) ) // /=
+	|| ( p[0] == '%' && p[1] == '=' && (type = C_MOD) ) // %=
+	|| ( p[0] == '~' && p[1] == '=' && (type = C_NOT) ) // ~=
+	|| ( p[0] == '+' && p[1] == '+' && (type = C_ADD_PP) ) // ++
+	|| ( p[0] == '-' && p[1] == '-' && (type = C_SUB_PP) ) // --
+	|| ( p[0] == '<' && p[1] == '<' && p[2] == '=' && (type = C_L_SHIFT) ) // <<=
+	|| ( p[0] == '>' && p[1] == '>' && p[2] == '=' && (type = C_R_SHIFT) ) // >>=
+	) )
+	{// failed to find a matching operator combination so invalid
+		return NULL;
+	}
+
+	switch( type )
+	{
+		case C_EQ:
+		{// incremental modifier
+			p = skip_space( &p[1] );
+		}
+		break;
+
+		case C_L_SHIFT:
+		case C_R_SHIFT:
+		{// left or right shift modifier
+			p = skip_space( &p[3] );
+		}
+		break;
+
+		default:
+		{// normal incremental command
+			p = skip_space( &p[2] );
+		}
+	}
+
+	if( p == NULL )
+	{// end of line or invalid buffer
+		return NULL;
+	}
+	
+	// push the set function onto the stack
+	add_scriptl(buildin_set_ref);
+	add_scriptc(C_ARG);
+
+	// always append parenthesis to avoid errors
+	syntax.curly[syntax.curly_count].type = TYPE_ARGLIST;
+	syntax.curly[syntax.curly_count].count = 0;
+	syntax.curly[syntax.curly_count].flag = ARGLIST_PAREN;
+
+	// increment the total curly count for the position in the script
+	++ syntax.curly_count;
+	
+	// parse the variable currently being modified
+	word = add_word(var);
+
+	if( str_data[word].type == C_FUNC || str_data[word].type == C_USERFUNC || str_data[word].type == C_USERFUNC_POS )
+	{// cannot assign a variable which exists as a function or label
+		disp_error_message("Cannot modify a variable which has the same name as a function or label.", p);
+	}
+
+	if( p2 )
+	{// process the variable index
+		const char* p3 = NULL;
+
+		// push the getelementofarray method into the stack
+		add_scriptl(buildin_getelementofarray_ref);
+		add_scriptc(C_ARG);
+		add_scriptl(word);
+			
+		// process the sub-expression for this assignment
+		p3 = parse_subexpr(p2 + 1, 1);
+		p3 = skip_space(p3);
+
+		if( *p3 != ']' )
+		{// closing parenthesis is required for this script
+			disp_error_message("Missing closing ']' parenthesis for the variable assignment.", p3);
+		}
+
+		// push the closing function stack operator onto the stack
+		add_scriptc(C_FUNC);
+		p3 ++;
+	}
+	else
+	{// simply push the variable or value onto the stack
+		add_scriptl(word);
+	}
+	
+	if( type == C_ADD_PP || type == C_SUB_PP )
+	{// incremental operator for the method
+		add_scripti(1);
+		add_scriptc(type == C_ADD_PP ? C_ADD : C_SUB);
+	}
+	else
+	{// process the value as an expression
+		p = parse_subexpr(p, -1);
+
+		if( type != C_EQ )
+		{// push the type of modifier onto the stack
+			add_scriptc(type);
+		}
+	}
+
+	// decrement the curly count for the position within the script
+	-- syntax.curly_count;
+	
+	// close the script by appending the function operator
+	add_scriptc(C_FUNC);
+		
+	// push the buffer from the method
+	return p;
+}
+
 /*==========================================
  * 項の解析
  *------------------------------------------*/
@@ -1083,18 +1255,33 @@ const char* parse_simpleexpr(const char *p)
 		p++;	//'"'
 	} else {
 		int l;
+		const char* pv;
+
 		// label , register , function etc
 		if(skip_word(p)==p)
 			disp_error_message("parse_simpleexpr: unexpected character",p);
 
 		l=add_word(p);
 		if( str_data[l].type == C_FUNC || str_data[l].type == C_USERFUNC || str_data[l].type == C_USERFUNC_POS)
-			return parse_callfunc(p,1);
+			return parse_callfunc(p,1,0);
+#ifdef SCRIPT_CALLFUNC_CHECK
+		else {
+			const char* name = get_str(l);
+			if( strdb_get(userfunc_db,name) != NULL ) {
+				return parse_callfunc(p,1,1);
+			}
+		}
+#endif
+
+		if( (pv = parse_variable(p)) )
+		{// successfully processed a variable assignment
+			return pv;
+		}
 
 		p=skip_word(p);
 		if( *p == '[' ){
 			// array(name[i] => getelementofarray(name,i) )
-			add_scriptl(search_str("getelementofarray"));
+			add_scriptl(buildin_getelementofarray_ref);
 			add_scriptc(C_ARG);
 			add_scriptl(l);
 			
@@ -1214,15 +1401,23 @@ const char* parse_line(const char* p)
 	} else if(p[0] == '}') {
 		return parse_curly_close(p);
 	}
-
+		
 	// 構文関連の処理
 	p2 = parse_syntax(p);
 	if(p2 != NULL)
 		return p2;
 
-	p = parse_callfunc(p,0);
-	p = skip_space(p);
+	// attempt to process a variable assignment
+	p2 = parse_variable(p);
 
+	if( p2 != NULL )
+	{// variable assignment processed so leave the method
+		return parse_syntax_close(p2 + 1);
+	}
+
+	p = parse_callfunc(p,0,0);
+	p = skip_space(p);
+	
 	if(parse_syntax_for_flag) {
 		if( *p != ')' )
 			disp_error_message("parse_line: need ')'",p);
@@ -1544,7 +1739,7 @@ const char* parse_syntax(const char* p)
 			if(*p != ';')
 				disp_error_message("parse_syntax: need ';'",p);
 			p++;
-
+			
 			// ループ開始に飛ばす
 			sprintf(label,"goto __FR%x_BGN;",syntax.curly[pos].index);
 			syntax.curly[syntax.curly_count++].type = TYPE_NULL;
@@ -1555,7 +1750,7 @@ const char* parse_syntax(const char* p)
 			sprintf(label,"__FR%x_NXT",syntax.curly[pos].index);
 			l=add_str(label);
 			set_label(l,script_pos,p);
-
+			
 			// 次のループに入る時の処理
 			// for 最後の ')' を ';' として扱うフラグ
 			parse_syntax_for_flag = 1;
@@ -1943,6 +2138,11 @@ static void add_buildin_func(void)
 			str_data[n].type = C_FUNC;
 			str_data[n].val = i;
 			str_data[n].func = buildin_func[i].func;
+
+			if( !strcmp(buildin_func[i].name, "set") ) buildin_set_ref = n; else
+			if( !strcmp(buildin_func[i].name, "callsub") ) buildin_callsub_ref = n; else
+			if( !strcmp(buildin_func[i].name, "callfunc") ) buildin_callfunc_ref = n; else
+			if( !strcmp(buildin_func[i].name, "getelementofarray") ) buildin_getelementofarray_ref = n;
 		}
 	}
 }
@@ -2255,7 +2455,7 @@ struct script_code* parse_script(const char *src,const char *file,int line,int o
 	CREATE(code,struct script_code,1);
 	code->script_buf  = script_buf;
 	code->script_size = script_size;
-	code->script_vars = NULL;
+	code->script_vars = idb_alloc(DB_OPT_RELEASE_DATA);
 	return code;
 }
 
@@ -2332,23 +2532,23 @@ void get_val(struct script_state* st, struct script_data* data)
 			break;
 		case '.':
 			{
-				struct linkdb_node** n =
-					data->ref      ? data->ref:
-					name[1] == '@' ? st->stack->var_function:// instance/scope variable
-					                 &st->script->script_vars;// npc variable
-				data->u.str = (char*)linkdb_search(n, (void*)__64BPRTSIZE(reference_getuid(data)));
+				struct DBMap* n =
+					data->ref      ? *data->ref:
+					name[1] == '@' ?  st->stack->var_function:// instance/scope variable
+					                  st->script->script_vars;// npc variable
+				if( n )
+					data->u.str = (char*)idb_get(n,reference_getuid(data));
+				else
+					data->u.str = NULL;
 			}
 			break;
 		case '\'':
-			{
-				struct linkdb_node** n = NULL;
 				if (st->instance_id) {
-					n = &instance[st->instance_id].svar;
+					data->u.str = (char*)idb_get(instance[st->instance_id].vars,reference_getuid(data));
 				} else {
-					ShowWarning("script:get_val: cannot access instance variable '%s', defaulting to 0\n", name);
+					ShowWarning("script:get_val: cannot access instance variable '%s', defaulting to \"\"\n", name);
+					data->u.str = NULL;
 				}
-				data->u.str = (char*)linkdb_search(n, (void*)__64BPRTSIZE(reference_getuid(data)));
-			}
 			break;
 		default:
 			data->u.str = pc_readglobalreg_str(sd, name);
@@ -2397,20 +2597,23 @@ void get_val(struct script_state* st, struct script_data* data)
 			break;
 		case '.':
 			{
-				struct linkdb_node** n =
-					data->ref      ? data->ref:
-					name[1] == '@' ? st->stack->var_function:// instance/scope variable
-					                 &st->script->script_vars;// npc variable
-				data->u.num = (int)__64BPRTSIZE(linkdb_search(n, (void*)__64BPRTSIZE(reference_getuid(data))));
+				struct DBMap* n =
+					data->ref      ? *data->ref:
+					name[1] == '@' ?  st->stack->var_function:// instance/scope variable
+					                  st->script->script_vars;// npc variable
+				if( n )
+					data->u.num = (int)idb_iget(n,reference_getuid(data));
+				else
+					data->u.num = 0;
 			}
 			break;
 		case '\'':
-			{
-				struct linkdb_node** n = NULL;
 				if( st->instance_id )
-					n = &instance[st->instance_id].ivar;
-				data->u.num = (int)__64BPRTSIZE(linkdb_search(n, (void*)__64BPRTSIZE(reference_getuid(data))));
-			}
+					data->u.num = (int)idb_iget(instance[st->instance_id].vars,reference_getuid(data));
+				else {
+					ShowWarning("script:get_val: cannot access instance variable '%s', defaulting to 0\n", name);
+					data->u.num = 0;
+				}
 			break;
 		default:
 			data->u.num = pc_readglobalreg(sd, name);
@@ -2422,11 +2625,11 @@ void get_val(struct script_state* st, struct script_data* data)
 	return;
 }
 
-struct script_data* push_val2(struct script_stack* stack, enum c_op type, int val, struct linkdb_node** ref);
+struct script_data* push_val2(struct script_stack* stack, enum c_op type, int val, struct DBMap** ref);
 
 /// Retrieves the value of a reference identified by uid (variable, constant, param)
 /// The value is left in the top of the stack and needs to be removed manually.
-void* get_val2(struct script_state* st, int uid, struct linkdb_node** ref)
+void* get_val2(struct script_state* st, int uid, struct DBMap** ref)
 {
 	struct script_data* data;
 	push_val2(st->stack, C_NAME, uid, ref);
@@ -2439,7 +2642,7 @@ void* get_val2(struct script_state* st, int uid, struct linkdb_node** ref)
  * Stores the value of a script variable
  * Return value is 0 on fail, 1 on success.
  *------------------------------------------*/
-static int set_reg(struct script_state* st, TBL_PC* sd, int num, const char* name, const void* value, struct linkdb_node** ref)
+static int set_reg(struct script_state* st, TBL_PC* sd, int num, const char* name, const void* value, struct DBMap** ref)
 {
 	char prefix = name[0];
 
@@ -2455,24 +2658,20 @@ static int set_reg(struct script_state* st, TBL_PC* sd, int num, const char* nam
 			return (name[1] == '#') ?
 				pc_setaccountreg2str(sd, name, str) :
 				pc_setaccountregstr(sd, name, str);
-		case '.': {
-			char* p;
-			struct linkdb_node** n;
-			n = (ref) ? ref : (name[1] == '@') ? st->stack->var_function : &st->script->script_vars;
-			p = (char*)linkdb_erase(n, (void*)__64BPRTSIZE(num));
-			if (p) aFree(p);
-			if (str[0]) linkdb_insert(n, (void*)__64BPRTSIZE(num), aStrdup(str));
+		case '.':
+			{
+				struct DBMap* n;
+				n = (ref) ? *ref : (name[1] == '@') ? st->stack->var_function : st->script->script_vars;
+				if( n ) {
+					idb_remove(n, num);
+					if (str[0]) idb_put(n, num, aStrdup(str));
+				}
 			}
 			return 1;
-		case '\'': {
-			char *p;
-			struct linkdb_node** n = NULL;
-			if( st->instance_id )
-				n = &instance[st->instance_id].svar;
-
-			p = (char*)linkdb_erase(n, (void*)__64BPRTSIZE(num));
-			if (p) aFree(p);
-			if( str[0] ) linkdb_insert(n, (void*)__64BPRTSIZE(num), aStrdup(str));
+		case '\'':
+			if( st->instance_id ) {
+				idb_remove(instance[st->instance_id].vars, num);
+				if( str[0] ) idb_put(instance[st->instance_id].vars, num, aStrdup(str));
 			}
 			return 1;
 		default:
@@ -2506,27 +2705,24 @@ static int set_reg(struct script_state* st, TBL_PC* sd, int num, const char* nam
 			return (name[1] == '#') ?
 				pc_setaccountreg2(sd, name, val) :
 				pc_setaccountreg(sd, name, val);
-		case '.': {
-			struct linkdb_node** n;
-			n = (ref) ? ref : (name[1] == '@') ? st->stack->var_function : &st->script->script_vars;
-			if (val == 0)
-				linkdb_erase(n, (void*)__64BPRTSIZE(num));
-			else 
-				linkdb_replace(n, (void*)__64BPRTSIZE(num), (void*)__64BPRTSIZE(val));
+		case '.':
+			{
+				struct DBMap* n;
+				n = (ref) ? *ref : (name[1] == '@') ? st->stack->var_function : st->script->script_vars;
+				if( n ) {
+					idb_remove(n, num);
+					if( val != 0 )
+						idb_iput(n, num, val);
+				}
 			}
 			return 1;
 		case '\'':
-			{
-				struct linkdb_node** n = NULL;
-				if( st->instance_id )
-					n = &instance[st->instance_id].ivar;
-
-				if( val == 0 )
-					linkdb_erase(n, (void*)__64BPRTSIZE(num));
-				else
-					linkdb_replace(n, (void*)__64BPRTSIZE(num), (void*)__64BPRTSIZE(val));
-				return 1;
+			if( st->instance_id ) {
+				idb_remove(instance[st->instance_id].vars, num);
+				if( val != 0 )
+					idb_iput(instance[st->instance_id].vars, num, val);
 			}
+			return 1;
 		default:
 			return pc_setglobalreg(sd, name, val);
 		}
@@ -2538,7 +2734,7 @@ int set_var(TBL_PC* sd, char* name, void* val)
     return set_reg(NULL, sd, reference_uid(add_str(name),0), name, val, NULL);
 }
 
-void setd_sub(struct script_state *st, TBL_PC *sd, const char *varname, int elem, void *value, struct linkdb_node **ref)
+void setd_sub(struct script_state *st, TBL_PC *sd, const char *varname, int elem, void *value, struct DBMap **ref)
 {
 	set_reg(st, sd, reference_uid(add_str(varname),elem), varname, value, ref);
 }
@@ -2651,7 +2847,7 @@ void stack_expand(struct script_stack* stack)
 #define push_val(stack,type,val) push_val2(stack, type, val, NULL)
 
 /// Pushes a value into the stack (with reference)
-struct script_data* push_val2(struct script_stack* stack, enum c_op type, int val, struct linkdb_node** ref)
+struct script_data* push_val2(struct script_stack* stack, enum c_op type, int val, struct DBMap** ref)
 {
 	if( stack->sp >= stack->sp_max )
 		stack_expand(stack);
@@ -2736,10 +2932,7 @@ void pop_stack(struct script_state* st, int start, int end)
 		{
 			struct script_retinfo* ri = data->u.ri;
 			if( ri->var_function )
-			{
 				script_free_vars(ri->var_function);
-				aFree(ri->var_function);
-			}
 			aFree(ri);
 		}
 		data->type = C_NOP;
@@ -2768,22 +2961,17 @@ void pop_stack(struct script_state* st, int start, int end)
 /*==========================================
  * スクリプト依存変数、関数依存変数の解放
  *------------------------------------------*/
-void script_free_vars(struct linkdb_node **node)
+void script_free_vars(struct DBMap* storage)
 {
-	struct linkdb_node* n = *node;
-	while( n != NULL)
-	{
-		const char* name = get_str((int)__64BPRTSIZE((n->key)&0x00ffffff));
-		if( is_string_variable(name) )
-			aFree(n->data); // 文字型変数なので、データ削除
-		n = n->next;
+	if( storage )
+	{// destroy the storage construct containing the variables
+		db_destroy(storage);
 	}
-	linkdb_final( node );
 }
 
 void script_free_code(struct script_code* code)
 {
-	script_free_vars( &code->script_vars );
+	script_free_vars( code->script_vars );
 	aFree( code->script_buf );
 	aFree( code );
 }
@@ -2804,7 +2992,7 @@ struct script_state* script_alloc_state(struct script_code* script, int pos, int
 	st->stack->sp_max = 64;
 	CREATE(st->stack->stack_data, struct script_data, st->stack->sp_max);
 	st->stack->defsp = st->stack->sp;
-	CREATE(st->stack->var_function, struct linkdb_node*, 1);
+	st->stack->var_function = idb_alloc(DB_OPT_RELEASE_DATA);
 	st->state = RUN;
 	st->script = script;
 	//st->scriptroot = script;
@@ -2827,7 +3015,6 @@ void script_free_state(struct script_state* st)
 	if( st->sleep.timer != INVALID_TIMER )
 		delete_timer(st->sleep.timer, run_script_timer);
 	script_free_vars(st->stack->var_function);
-	aFree(st->stack->var_function);
 	pop_stack(st, 0, st->stack->sp);
 	aFree(st->stack->stack_data);
 	aFree(st->stack);
@@ -3264,7 +3451,6 @@ int run_func(struct script_state *st)
 			return 1;
 		}
 		script_free_vars( st->stack->var_function );
-		aFree(st->stack->var_function);
 
 		ri = st->stack->stack_data[st->stack->defsp-1].u.ri;
 		nargs = ri->nargs;
@@ -3627,6 +3813,9 @@ int script_config_read(char *cfgName)
 		else if(strcmpi(w1,"import")==0){
 			script_config_read(w2);
 		}
+		else {
+			ShowWarning("Unknown setting '%s' in file %s\n", w1, cfgName);
+		}
 	}
 	fclose(fp);
 
@@ -3830,8 +4019,7 @@ int do_init_script()
 	return 0;
 }
 
-int script_reload()
-{
+int script_reload() {
 	userfunc_db->clear(userfunc_db, db_script_free_code_sub);
 	db_clear(scriptlabel_db);
 
@@ -3844,7 +4032,6 @@ int script_reload()
 		}
 		linkdb_final(&sleep_db);
 	}
-
 	mapreg_reload();
 	return 0;
 }
@@ -4280,7 +4467,7 @@ BUILDIN_FUNC(callfunc)
 		{
 			const char* name = reference_getname(data);
 			if( name[0] == '.' && name[1] == '@' )
-				data->ref = st->stack->var_function;
+				data->ref = &st->stack->var_function;
 			else if( name[0] == '.' )
 				data->ref = &st->script->script_vars;
 		}
@@ -4298,7 +4485,7 @@ BUILDIN_FUNC(callfunc)
 	st->script = scr;
 	st->stack->defsp = st->stack->sp;
 	st->state = GOTO;
-	st->stack->var_function = (struct linkdb_node**)aCalloc(1, sizeof(struct linkdb_node*));
+	st->stack->var_function = idb_alloc(DB_OPT_RELEASE_DATA);
 
 	return 0;
 }
@@ -4326,7 +4513,7 @@ BUILDIN_FUNC(callsub)
 		{
 			const char* name = reference_getname(data);
 			if( name[0] == '.' && name[1] == '@' )
-				data->ref = st->stack->var_function;
+				data->ref = &st->stack->var_function;
 		}
 	}
 
@@ -4341,7 +4528,7 @@ BUILDIN_FUNC(callsub)
 	st->pos = pos;
 	st->stack->defsp = st->stack->sp;
 	st->state = GOTO;
-	st->stack->var_function = (struct linkdb_node**)aCalloc(1, sizeof(struct linkdb_node*));
+	st->stack->var_function = idb_alloc(DB_OPT_RELEASE_DATA);
 
 	return 0;
 }
@@ -4396,7 +4583,7 @@ BUILDIN_FUNC(return)
 			const char* name = reference_getname(data);
 			if( name[0] == '.' && name[1] == '@' )
 			{// scope variable
-				if( !data->ref || data->ref == st->stack->var_function )
+				if( !data->ref || data->ref == (DBMap**)&st->stack->var_function )
 					get_val(st, data);// current scope, convert to value
 			}
 			else if( name[0] == '.' && !data->ref )
@@ -4895,6 +5082,9 @@ BUILDIN_FUNC(input)
 	return 0;
 }
 
+// declare the copyarray method here for future reference
+BUILDIN_FUNC(copyarray);
+
 /// Sets the value of a variable.
 /// The value is converted to the type of the variable.
 ///
@@ -4903,11 +5093,13 @@ BUILDIN_FUNC(set)
 {
 	TBL_PC* sd = NULL;
 	struct script_data* data;
+	struct script_data* datavalue;
 	int num;
 	const char* name;
 	char prefix;
 
 	data = script_getdata(st,2);
+	datavalue = script_getdata(st,3);
 	if( !data_isreference(data) )
 	{
 		ShowError("script:set: not a variable\n");
@@ -4930,6 +5122,32 @@ BUILDIN_FUNC(set)
 		}
 	}
 
+	if( data_isreference(datavalue) )
+	{// the value being referenced is a variable
+		const char* namevalue = reference_getname(datavalue);
+
+		if( !not_array_variable(*namevalue) )
+		{// array variable being copied into another array variable
+			if( sd == NULL && not_server_variable(*namevalue) && !(sd = script_rid2sd(st)) )
+			{// player must be attached in order to copy a player variable
+				ShowError("script:set: no player attached for player variable '%s'\n", namevalue);
+				return 0;
+			}
+
+			if( is_string_variable(namevalue) != is_string_variable(name) )
+			{// non-matching array value types
+				ShowWarning("script:set: two array variables do not match in type.\n");
+				return 0;
+			}
+
+			// push the maximum number of array values to the stack
+			push_val(st->stack, C_INT, SCRIPT_MAX_ARRAYSIZE);
+
+			// call the copy array method directly
+			return buildin_copyarray(st);
+		}
+	}
+
 	if( is_string_variable(name) )
 		set_reg(st,sd,num,name,(void*)script_getstr(st,3),script_getref(st,2));
 	else
@@ -4946,7 +5164,7 @@ BUILDIN_FUNC(set)
 ///
 
 /// Returns the size of the specified array
-static int32 getarraysize(struct script_state* st, int32 id, int32 idx, int isstring, struct linkdb_node** ref)
+static int32 getarraysize(struct script_state* st, int32 id, int32 idx, int isstring, struct DBMap** ref)
 {
 	int32 ret = idx;
 

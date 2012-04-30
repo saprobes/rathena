@@ -55,17 +55,15 @@ static int npc_cache_mob=0;
 
 /// Returns a new npc id that isn't being used in id_db.
 /// Fatal error if nothing is available.
-int npc_get_new_npc_id(void)
-{
-	if( npc_id >= START_NPC_NUM && map_id2bl(npc_id) == NULL )
+int npc_get_new_npc_id(void) {
+	if( npc_id >= START_NPC_NUM && !map_blid_exists(npc_id) )
 		return npc_id++;// available
-	{// find next id
+	else {// find next id
 		int base_id = npc_id;
-		while( base_id != ++npc_id )
-		{
+		while( base_id != ++npc_id ) {
 			if( npc_id < START_NPC_NUM )
 				npc_id = START_NPC_NUM;
-			if( map_id2bl(npc_id) == NULL )
+			if( !map_blid_exists(npc_id) )
 				return npc_id++;// available
 		}
 		// full loop, nothing available
@@ -1725,7 +1723,7 @@ static int npc_unload_dup_sub(struct npc_data* nd, va_list args)
 
 	src_id = va_arg(args, int);
 	if (nd->src_id == src_id)
-		npc_unload(nd);
+		npc_unload(nd, true);
 	return 0;
 }
 
@@ -1735,12 +1733,12 @@ void npc_unload_duplicates(struct npc_data* nd)
 	map_foreachnpc(npc_unload_dup_sub,nd->bl.id);
 }
 
-int npc_unload(struct npc_data* nd)
-{
+int npc_unload(struct npc_data* nd, bool single) {
 	nullpo_ret(nd);
 
 	npc_remove_map(nd);
 	map_deliddb(&nd->bl);
+	if( single )
 	strdb_remove(npcname_db, nd->exname);
 
 	if (nd->chat_id) // remove npc chatroom object and kick users
@@ -1752,20 +1750,17 @@ int npc_unload(struct npc_data* nd)
 
 	if( (nd->subtype == SHOP || nd->subtype == CASHSHOP) && nd->src_id == 0) //src check for duplicate shops [Orcao]
 		aFree(nd->u.shop.shop_item);
-	else
-	if( nd->subtype == SCRIPT )
-	{
+	else if( nd->subtype == SCRIPT ) {
 		struct s_mapiterator* iter;
 		struct block_list* bl;
 
-		ev_db->foreach(ev_db,npc_unload_ev,nd->exname); //Clean up all events related
+		if( single )
+			ev_db->foreach(ev_db,npc_unload_ev,nd->exname); //Clean up all events related
 
 		iter = mapit_geteachpc();  
-		for( bl = (struct block_list*)mapit_first(iter); mapit_exists(iter); bl = (struct block_list*)mapit_next(iter) )  
-		{
-			struct map_session_data *sd = map_id2sd(bl->id);
-			if( sd && sd->npc_timer_id != INVALID_TIMER )
-			{
+		for( bl = (struct block_list*)mapit_first(iter); mapit_exists(iter); bl = (struct block_list*)mapit_next(iter) ) {
+			struct map_session_data *sd = ((TBL_PC*)bl);
+			if( sd && sd->npc_timer_id != INVALID_TIMER ) {
 				const struct TimerData *td = get_timer(sd->npc_timer_id);
 
 				if( td && td->id != nd->bl.id )
@@ -2767,9 +2762,9 @@ static const char* npc_parse_function(char* w1, char* w2, char* w3, char* w4, co
 	func_db = script_get_userfunc_db();
 	if (func_db->put(func_db, db_str2key(w3), db_ptr2data(script), &old_data))
 	{
-		struct script_code *oldscript = db_data2ptr(&old_data);
+		struct script_code *oldscript = (struct script_code*)db_data2ptr(&old_data);
 		ShowInfo("npc_parse_function: Overwriting user function [%s] (%s:%d)\n", w3, filepath, strline(buffer,start-buffer));
-		script_free_vars(&oldscript->script_vars);
+		script_free_vars(oldscript->script_vars);
 		aFree(oldscript->script_buf);
 		aFree(oldscript);
 	}
@@ -3427,22 +3422,24 @@ void npc_read_event_script(void)
 	}
 }
 
-int npc_reload(void)
-{
+int npc_reload(void) {
 	struct npc_src_list *nsl;
 	int m, i;
 	int npc_new_min = npc_id;
 	struct s_mapiterator* iter;
 	struct block_list* bl;
 
+	db_clear(npcname_db);
+	db_clear(ev_db);
+
 	//Remove all npcs/mobs. [Skotlex]
+
 	iter = mapit_geteachiddb();
-	for( bl = (struct block_list*)mapit_first(iter); mapit_exists(iter); bl = (struct block_list*)mapit_next(iter) )
-	{
+	for( bl = (struct block_list*)mapit_first(iter); mapit_exists(iter); bl = (struct block_list*)mapit_next(iter) ) {
 		switch(bl->type) {
 		case BL_NPC:
 			if( bl->id != fake_nd->bl.id )// don't remove fake_nd
-				npc_unload((struct npc_data *)bl);
+				npc_unload((struct npc_data *)bl, false);
 			break;
 		case BL_MOB:
 			unit_free(bl,CLR_OUTSIGHT);
@@ -3473,9 +3470,6 @@ int npc_reload(void)
 	// clear mob spawn lookup index
 	mob_clear_spawninfo();
 
-	// clear npc-related data structures
-	ev_db->clear(ev_db,NULL);
-	npcname_db->clear(npcname_db,NULL);
 	npc_warp = npc_shop = npc_script = 0;
 	npc_mob = npc_cache_mob = npc_delay_mob = 0;
 
@@ -3484,12 +3478,10 @@ int npc_reload(void)
 
 	//TODO: the following code is copy-pasted from do_init_npc(); clean it up
 	// Reloading npcs now
-	for (nsl = npc_src_files; nsl; nsl = nsl->next)
-	{
+	for (nsl = npc_src_files; nsl; nsl = nsl->next) {
 		ShowStatus("Loading NPC file: %s"CL_CLL"\r", nsl->name);
 		npc_parsesrcfile(nsl->name);
 	}
-
 	ShowInfo ("Done loading '"CL_WHITE"%d"CL_RESET"' NPCs:"CL_CLL"\n"
 		"\t-'"CL_WHITE"%d"CL_RESET"' Warps\n"
 		"\t-'"CL_WHITE"%d"CL_RESET"' Shops\n"
@@ -3504,9 +3496,10 @@ int npc_reload(void)
 
 	//Re-read the NPC Script Events cache.
 	npc_read_event_script();
-
+	
 	//Execute the OnInit event for freshly loaded npcs. [Skotlex]
 	ShowStatus("Event '"CL_WHITE"OnInit"CL_RESET"' executed with '"CL_WHITE"%d"CL_RESET"' NPCs.\n",npc_event_doall("OnInit"));
+	
 	// Execute rest of the startup events if connected to char-server. [Lance]
 	if(!CheckForCharServer()){
 		ShowStatus("Event '"CL_WHITE"OnInterIfInit"CL_RESET"' executed with '"CL_WHITE"%d"CL_RESET"' NPCs.\n", npc_event_doall("OnInterIfInit"));
@@ -3514,27 +3507,16 @@ int npc_reload(void)
 	}
 	return 0;
 }
-
+void do_clear_npc(void) {
+	db_clear(npcname_db);
+	db_clear(ev_db);
+}
 /*==========================================
  * èIóπ
  *------------------------------------------*/
-int do_final_npc(void)
-{
-	int i;
-	struct block_list *bl;
-
-	for (i = START_NPC_NUM; i < npc_id; i++){
-		if ((bl = map_id2bl(i))){
-			if (bl->type == BL_NPC)
-				npc_unload((struct npc_data *)bl);
-			else if (bl->type&(BL_MOB|BL_PET|BL_HOM|BL_MER))
-				unit_free(bl, CLR_OUTSIGHT);
-		}
-	}
+int do_final_npc(void) {
 
 	ev_db->destroy(ev_db, NULL);
-	//There is no free function for npcname_db because at this point there shouldn't be any npcs left!
-	//So if there is anything remaining, let the memory manager catch it and report it.
 	npcname_db->destroy(npcname_db, NULL);
 	ers_destroy(timer_event_ers);
 	npc_clearsrcfile();
@@ -3594,7 +3576,6 @@ int do_init_npc(void)
 	npcname_db = strdb_alloc(DB_OPT_BASE,NAME_LENGTH);
 
 	timer_event_ers = ers_new(sizeof(struct timer_event_data));
-
 	// process all npc files
 	ShowStatus("Loading NPCs...\r");
 	for( file = npc_src_files; file != NULL; file = file->next )
@@ -3602,7 +3583,6 @@ int do_init_npc(void)
 		ShowStatus("Loading NPC file: %s"CL_CLL"\r", file->name);
 		npc_parsesrcfile(file->name);
 	}
-
 	ShowInfo ("Done loading '"CL_WHITE"%d"CL_RESET"' NPCs:"CL_CLL"\n"
 		"\t-'"CL_WHITE"%d"CL_RESET"' Warps\n"
 		"\t-'"CL_WHITE"%d"CL_RESET"' Shops\n"

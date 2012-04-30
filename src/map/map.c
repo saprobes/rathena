@@ -1302,19 +1302,17 @@ int map_get_new_object_id(void)
 
 	// find a free id
 	i = last_object_id + 1;
-	while( i != last_object_id )
-	{
+	while( i != last_object_id ) {
 		if( i == MAX_FLOORITEM )
 			i = MIN_FLOORITEM;
 
-		if( idb_get(id_db, i) == NULL )
+		if( !idb_exists(id_db, i) )
 			break;
 
 		++i;
 	}
 
-	if( i == last_object_id )
-	{
+	if( i == last_object_id ) {
 		ShowError("map_addobject: no free object id!\n");
 		return 0;
 	}
@@ -1892,12 +1890,17 @@ struct map_session_data * map_nick2sd(const char *nick)
 }
 
 /*==========================================
- * idî‘?ÇÃï®ÇíTÇ∑
- * àÍéObjectÇÃèÍçáÇÕîzóÒÇà¯Ç≠ÇÃÇ›
+ * Looksup id_db DBMap and returns BL pointer of 'id' or NULL if not found
  *------------------------------------------*/
-struct block_list * map_id2bl(int id)
-{
+struct block_list * map_id2bl(int id) {
 	return (struct block_list*)idb_get(id_db,id);
+}
+
+/**
+ * Same as map_id2bl except it only checks for its existence
+ **/
+bool map_blid_exists( int id ) {
+	return (idb_exists(id_db,id));
 }
 
 /*==========================================
@@ -3342,11 +3345,11 @@ int map_config_read(char *cfgName)
 		if (strcmpi(w1, "use_grf") == 0)
 			enable_grf = config_switch(w2);
 		else
-		if (strcmpi(w1, "import") == 0)
-			map_config_read(w2);
-		else
 		if (strcmpi(w1, "console_msg_log") == 0)
 			console_msg_log = atoi(w2);//[Ind]
+		else
+		if (strcmpi(w1, "import") == 0)
+			map_config_read(w2);
 		else
 			ShowWarning("Unknown setting '%s' in file %s\n", w1, cfgName);
 	}
@@ -3533,7 +3536,7 @@ int cleanup_sub(struct block_list *bl, va_list ap)
 			map_quit((struct map_session_data *) bl);
 			break;
 		case BL_NPC:
-			npc_unload((struct npc_data *)bl);
+			npc_unload((struct npc_data *)bl,false);
 			break;
 		case BL_MOB:
 			unit_free(bl,CLR_OUTSIGHT);
@@ -3571,20 +3574,22 @@ void do_final(void)
 
 	ShowStatus("Terminating...\n");
 
+	//Ladies and babies first.
+	iter = mapit_getallusers();
+	for( sd = (TBL_PC*)mapit_first(iter); mapit_exists(iter); sd = (TBL_PC*)mapit_next(iter) )
+		map_quit(sd);
+	mapit_free(iter);
+	
+	/* prepares npcs for a faster shutdown process */
+	do_clear_npc();
+	
 	// remove all objects on maps
-	for (i = 0; i < map_num; i++)
-	{
+	for (i = 0; i < map_num; i++) {
 		ShowStatus("Cleaning up maps [%d/%d]: %s..."CL_CLL"\r", i+1, map_num, map[i].name);
 		if (map[i].m >= 0)
 			map_foreachinmap(cleanup_sub, i, BL_ALL);
 	}
 	ShowStatus("Cleaned up %d maps."CL_CLL"\n", map_num);
-
-	//Scan any remaining players (between maps?) to kick them out. [Skotlex]
-	iter = mapit_getallusers();
-	for( sd = (TBL_PC*)mapit_first(iter); mapit_exists(iter); sd = (TBL_PC*)mapit_next(iter) )
-		map_quit(sd);
-	mapit_free(iter);
 
 	id_db->foreach(id_db,cleanup_db_sub);
 	chrif_char_reset_offline();
