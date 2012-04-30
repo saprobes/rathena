@@ -38,11 +38,11 @@ help:
 #####################################################################
 
 %@DLLEXT@: %.c
-	@echo "\tCC\t$<"
+	@echo "	CC	$<"
 	@@CC@ @CFLAGS@ @CPPFLAGS@ @LDFLAGS@ -shared -o ../../plugins/$@ $<
 
 sig@DLLEXT@: sig.c $(COMMON_OBJ)
-	@echo "\tCC\t$<"
+	@echo "	CC	$<"
 	@@CC@ @CFLAGS@ @CPPFLAGS@ @LDFLAGS@ -shared -o ../../plugins/$@ $< $(COMMON_OBJ)
 
 # missing common object files

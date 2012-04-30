@@ -52,19 +52,19 @@ needs_mysql:
 # object directories
 
 obj_sql:
-	@echo "\tMKDIR\tobj_sql"
+	@echo "	MKDIR	obj_sql"
 	@-mkdir obj_sql
 	
 #executables
 
 login-server_sql: $(LOGIN_SERVER_SQL_DEPENDS)
-	@echo "\tLD\t$@"
+	@echo "	LD	$@"
 	@@CC@ @LDFLAGS@ -o ../../login-server_sql@EXEEXT@ $(LOGIN_SQL_OBJ) ../common/obj_sql/common_sql.a ../common/obj_all/common.a $(MT19937AR_OBJ) $(LIBCONFIG_OBJ) @LIBS@ @MYSQL_LIBS@
 
 # login object files
 
 obj_sql/%.o: %.c $(LOGIN_H) $(COMMON_H) $(MT19937AR_H) $(LIBCONFIG_H)
-	@echo "\tCC\t$<"
+	@echo "	CC	$<"
 	@@CC@ @CFLAGS@ $(MT19937AR_INCLUDE) $(LIBCONFIG_INCLUDE) -DWITH_SQL @MYSQL_CFLAGS@ @CPPFLAGS@ -c $(OUTPUT_OPTION) $<
 
 # missing object files

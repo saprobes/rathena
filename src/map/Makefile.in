@@ -80,23 +80,23 @@ needs_mysql:
 
 # object directories
 obj_txt:
-	@echo "\tMKDIR\tobj_txt"
+	@echo "	MKDIR	obj_txt"
 	@-mkdir obj_txt
 
 obj_sql:
-	@echo "\tMKDIR\tobj_sql"
+	@echo "	MKDIR	obj_sql"
 	@-mkdir obj_sql
 
 # executables
 
 map-server_sql: obj_sql $(MAP_SQL_OBJ) ../common/obj_sql/common_sql.a ../common/obj_all/common.a
-	@echo "\tLD\t$@"
+	@echo "	LD	$@"
 	@@CC@ @LDFLAGS@ -o ../../map-server_sql@EXEEXT@ $(MAP_SQL_OBJ) ../common/obj_sql/common_sql.a ../common/obj_all/common.a $(MT19937AR_OBJ) $(LIBCONFIG_OBJ) @LIBS@ @PCRE_LIBS@ @MYSQL_LIBS@
 
 # map object files
 
 obj_sql/%.o: %.c $(MAP_H) $(COMMON_H)  $(MT19937AR_H) $(LIBCONFIG_H)
-	@echo "\tCC\t$<"
+	@echo "	CC	$<"
 	@@CC@ @CFLAGS@ $(MT19937AR_INCLUDE) $(LIBCONFIG_INCLUDE) $(PCRE_CFLAGS) @MYSQL_CFLAGS@ @CPPFLAGS@ -c $(OUTPUT_OPTION) $<
 
 # missing object files
