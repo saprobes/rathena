@@ -22,7 +22,7 @@ Temporarily Changelog
 	
 
  = Build / Release Related:
-	+ Autoconf: Enabled 64BIT Build default (you can disable by passing --disable=64bit)
+	+ Autoconf: Enabled 64BIT Build default (you can disable by passing --disable-64bit)
 	+ Autoconf: Added LTO (Linktime Optimization) Detection && support 
 	- Autoconf: Removed --enable-rdtsc (due to core changes)
 	+ Makefiles: Cleaned output during build, now its kernel style. (supressing the gcc command line print.)
