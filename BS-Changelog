@@ -1,0 +1,41 @@
+
+Temporarily Changelog 
+(file gets removed when changes 're getting applied on mainline / trunk)
+
+
+
+ = Fature Related:
+
+ = Core Related:
+	+ Added Threading abstration (rathread, declared in thread.h) [Platforms: Windows, PThread]
+	+ Added Spinlock imlementation using Interlocked functions 
+	+ Added Atomic operation abstraction for MSC and GCC builds
+		(This implements Atomic Increment, Decrement, Exchange, Cas [compare exchange..])
+	+ Improved / Changed gettick() implementation:
+		Spawning dedicated thread on startup, that ticks every millisecond to store the actual tick 
+		in a global integer variable. 
+		This reduces the syscalls per cycle on non-idle servers ;)
+		Additionally this improves accuracy on Windows platforms due to changed timer source.
+	+ Added Warning when running 32BIT Build on Program start that notifies the user
+		that the tick will overflow after pow(2,31) ticks (ms) ~ 24,8 Days 
+		(The server should be restarted within this time to prevent unpredictable behavior!)
+	
+
+ = Build / Release Related:
+	+ Autoconf: Enabled 64BIT Build default (you can disable by passing --disable=64bit)
+	+ Autoconf: Added LTO (Linktime Optimization) Detection && support 
+	- Autoconf: Removed --enable-rdtsc (due to core changes)
+	+ Makefiles: Cleaned output during build, now its kernel style. (supressing the gcc command line print.)
+	+ Makefiles: Cleaned up core-deps in all projects (map/char/login ...),
+		Now building an ar archive (.lib) of the core (common) and link against that.
+		(This eliminates the deps to all core object files to be specified in all Makefiles of subprojects)
+	+ Makefiles: Cleaned up core header file deps in subproject Makefiles, now all subs (map/login/char ..) 
+		depending all .h files in the common/ folder.
+	+ Windows-VC10: Cleaned up / rebuild the Solution,  added 64BIT Build support 
+
+
+ = Generic / Other:
+	+ Replaced Zlib distribution (for windows builds) with source to be able to compile 64bit releases.
+	+ Replaced old MySQL 5.0.20 distribution (for windows builds) with 5.5 for 32 and 64 bit, to be able to compile 64bit releases.
+
+
