@@ -8,6 +8,7 @@ ifeq ($(HAVE_MYSQL),yes)
 	LOGIN_SQL_DEPENDS=mt19937ar libconfig common_sql
 	CHAR_SQL_DEPENDS=mt19937ar libconfig common_sql
 	MAP_SQL_DEPENDS=mt19937ar libconfig common_sql
+	TEST_DEPENDS=common_sql libconfig mt19937ar
 	CONVERTERS_DEPENDS=common_sql
 else
 	ALL_DEPENDS=needs_mysql
@@ -35,6 +36,7 @@ endif
 	map_sql \
 	tools plugins addons \
 	import \
+	test \
 	clean help
 
 %.o: %.c
@@ -68,7 +70,7 @@ tools:
 
 plugins addons: $(PLUGIN_DEPENDS)
 	@$(MAKE) -C src/plugins
-	
+
 import:
 # 1) create conf/import folder
 # 2) add missing files
@@ -77,6 +79,12 @@ import:
 	@if test ! -d conf/import ; then mkdir conf/import ; fi
 	@for f in $$(ls conf/import-tmpl) ; do if test ! -e conf/import/$$f ; then cp conf/import-tmpl/$$f conf/import ; fi ; done
 	@rm -rf conf/import/.svn
+
+test: $(TEST_DEPENDS) test_spinlock
+
+test_spinlock:
+	@$(MAKE) -C src/test $@
+	
 
 clean:
 	@$(MAKE) -C src/common $@
@@ -87,6 +95,7 @@ clean:
 	@$(MAKE) -C src/map $@
 	@$(MAKE) -C src/plugins $@
 	@$(MAKE) -C src/tool $@
+	@$(MAKE) -C src/test $@
 
 help:
 	@echo "most common targets are 'all' 'sql' 'conf' 'clean' 'help'"
