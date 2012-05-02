@@ -5,6 +5,7 @@ Temporarily Changelog
 
 
  = Fature Related:
+	
 
  = Core Related:
 	+ Added Threading abstration (rathread, declared in thread.h) [Platforms: Windows, PThread]
@@ -32,7 +33,7 @@ Temporarily Changelog
 	+ Makefiles: Cleaned up core header file deps in subproject Makefiles, now all subs (map/login/char ..) 
 		depending all .h files in the common/ folder.
 	+ Windows-VC10: Cleaned up / rebuild the Solution,  added 64BIT Build support 
-
+	- Autoconf/Makefiles: Dropped support for i586 and below for 32bit builds (Intel: Pentium PRO, Amd: K6-III should work fine)
 
  = Generic / Other:
 	+ Replaced Zlib distribution (for windows builds) with source to be able to compile 64bit releases.
