@@ -1,3 +1,4 @@
+#pragma once
 #ifndef _rA_SPINLOCK_H_
 #define _rA_SPINLOCK_H_
 
@@ -25,43 +26,43 @@
 #ifdef WIN32
 
 typedef struct __declspec( align(64) ) SPIN_LOCK{
-	volatile LONGLONG lock;
-	volatile LONGLONG nest;
-	volatile LONGLONG sync_lock;
+	volatile LONG lock;
+	volatile LONG nest;
+	volatile LONG sync_lock;
 }  SPIN_LOCK, *PSPIN_LOCK;
 #else
 typedef struct SPIN_LOCK{
-		volatile int64 lock;
-		volatile int64 nest; // nesting level.
+		volatile int32 lock;
+		volatile int32 nest; // nesting level.
 		
-		volatile int64 sync_lock;
+		volatile int32 sync_lock;
 } __attribute__((aligned(64))) SPIN_LOCK, *PSPIN_LOCK;
 #endif
 
 
 
-__attribute__((always_inline))  inline void InitializeSpinLock(PSPIN_LOCK lck){
+static forceinline void InitializeSpinLock(PSPIN_LOCK lck){
 		lck->lock = 0;
 		lck->nest = 0;
 		lck->sync_lock = 0;
 }
 
-forceinline void FinalizeSpinLock(PSPIN_LOCK lck){
+static forceinline void FinalizeSpinLock(PSPIN_LOCK lck){
 		return;
 }
 
 
-#define getsynclock(l) { while(1){ if(InterlockedCompareExchange64(l, 1, 0) == 0) break; rathread_yield(); } }
-#define dropsynclock(l) { InterlockedExchange64(l, 0); }
+#define getsynclock(l) { while(1){ if(InterlockedCompareExchange(l, 1, 0) == 0) break; rathread_yield(); } }
+#define dropsynclock(l) { InterlockedExchange(l, 0); }
 
-forceinline void EnterSpinLock(PSPIN_LOCK lck){
+static forceinline void EnterSpinLock(PSPIN_LOCK lck){
 		int tid = rathread_get_tid();
 		
 		// Get Sync Lock && Check if the requester thread already owns the lock. 
 		// if it owns, increase nesting level
 		getsynclock(&lck->sync_lock);
-		if(InterlockedCompareExchange64(&lck->lock, tid, tid) == tid){
-				InterlockedIncrement64(&lck->nest);
+		if(InterlockedCompareExchange(&lck->lock, tid, tid) == tid){
+				InterlockedIncrement(&lck->nest);
 				dropsynclock(&lck->sync_lock);
 				return; // Got Lock
 		}
@@ -72,9 +73,9 @@ forceinline void EnterSpinLock(PSPIN_LOCK lck){
 		// Spin until we've got it ! 
 		while(1){
 				
-				if(InterlockedCompareExchange64(&lck->lock, tid, 0) == 0){
+				if(InterlockedCompareExchange(&lck->lock, tid, 0) == 0){
 						
-						InterlockedIncrement64(&lck->nest);
+						InterlockedIncrement(&lck->nest);
 						return; // Got Lock
 				}
 				
@@ -84,14 +85,14 @@ forceinline void EnterSpinLock(PSPIN_LOCK lck){
 }
 
 
-forceinline void LeaveSpinLock(PSPIN_LOCK lck){
+static forceinline void LeaveSpinLock(PSPIN_LOCK lck){
 		int tid = rathread_get_tid();
 
 		getsynclock(&lck->sync_lock);
 		
-		if(InterlockedCompareExchange64(&lck->lock, tid, tid) == tid){ // this thread owns the lock.
-			if(InterlockedDecrement64(&lck->nest) == 0)
-					InterlockedExchange64(&lck->lock, 0); // Unlock!
+		if(InterlockedCompareExchange(&lck->lock, tid, tid) == tid){ // this thread owns the lock.
+			if(InterlockedDecrement(&lck->nest) == 0)
+					InterlockedExchange(&lck->lock, 0); // Unlock!
 		}
 		
 		dropsynclock(&lck->sync_lock);
