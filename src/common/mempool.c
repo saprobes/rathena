@@ -120,7 +120,6 @@ static void *mempool_async_allocator(void *x){
 }//end: mempool_async_allocator()
 
 
-
 void mempool_init(){
 	
 	if(sizeof(struct node)%16 != 0 ){
@@ -226,6 +225,7 @@ static void segment_allocate_add(mempool p,  uint64 count){
 	for(i = 0; i < count; i++){
 		node = (struct node*)ptr;
 		ptr += sizeof(struct node);
+		ptr += p->elem_size;
 			
 		node->segment = seg;
 #ifdef MEMPOOLASSERT
@@ -261,7 +261,6 @@ static void segment_allocate_add(mempool p,  uint64 count){
 	InterlockedExchangeAdd64(&p->num_bytes_total,	total_sz);
 	
 }//end: segment_allocate_add()
-
 
 
 mempool mempool_create(const char *name,
@@ -327,10 +326,12 @@ mempool mempool_create(const char *name,
 }//end: mempool_create()
 
 
-
 void mempool_destroy(mempool p){
 	struct  pool_segment *seg, *segnext;
+	struct	node *niter;
 	mempool piter, pprev;
+	char *ptr;
+	uint64 i;
 
     ShowDebug("Mempool [%s] Destroy\n", p->name);
     
@@ -380,6 +381,28 @@ void mempool_destroy(mempool p){
 			break;
 		
 		segnext = seg->next;
+	
+		// ..
+		if(p->ondealloc != NULL){
+			// walk over the segment, and call dealloc callback!
+			ptr = (char*)seg;
+			ptr += ALIGN_TO_16(sizeof(struct pool_segment));
+			for(i = 0; i < seg->num_nodes_total; i++){
+				niter = (struct node*)ptr;
+				ptr += sizeof(struct node);
+				ptr += p->elem_size;
+#ifdef MEMPOOLASSERT
+				if(niter->magic != NODE_MAGIC){
+					ShowError("Mempool [%s] Destroy - walk over segment - node %p invalid magic!\n", p->name, niter);
+					continue;
+				}
+#endif
+				
+				p->ondealloc( NODE_TO_DATA(niter) );
+				
+				
+			}
+		}//endif: ondealloc callback?
 		
 		// simple ..
 		aFree(seg);
@@ -434,8 +457,6 @@ void *mempool_node_get(mempool p){
 
 	return NODE_TO_DATA(node);
 }//end: mempool_node_get()
-
-
 
 
 void mempool_node_put(mempool p, void *data){
