@@ -1,26 +1,34 @@
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include <time.h>
 
 #include "../common/cbasetypes.h"
 #include "../common/showmsg.h"
 #include "../common/mempool.h"
 #include "../common/atomic.h"
+#include "../common/spinlock.h"
+#include "../common/thread.h"
+#include "../common/malloc.h"
+#include "../common/mutex.h"
 
 #define ALIGN16	ra_align(16)
 #define ALIGN_TO(x, a) (x + ( a - ( x % a) ) )
 #define ALIGN_TO_16(x)	ALIGN_TO(x, 16)
 
 
-
 #define MEMPOOLASSERT
 
-struct node{
+
+#define NODE_TO_DATA(x) ( ((char*)x) + sizeof(struct node) )
+#define DATA_TO_NODE(x) ( (struct node*)(((char*)x) - sizeof(struct node)) )
+struct ra_align(16) node{
 	void 	*next;
 	void 	*segment;
 #ifdef MEMPOOLASSERT
 	bool	used;
-	uint32	magic;
+	uint64	magic;
 	#define NODE_MAGIC 0xBEEF00EAEACAFE07 
 #endif
 };
@@ -28,8 +36,9 @@ struct node{
 
 // The Pointer to this struct is the base address of the segment itself.
 struct pool_segment{
-	void	*pool; // pool, this segment belongs to
-	int32	num_nodes_total;	
+	mempool	pool; // pool, this segment belongs to
+	struct 	pool_segment *next;
+	int64	num_nodes_total;	
 	int64	num_bytes;
 };
 
@@ -39,34 +48,219 @@ struct mempool{
 	char *name;
 	uint64	elem_size;
 	uint64	elem_realloc_step;
+	uint64	elem_realloc_thresh;
 	
 	// Callbacks that get called for every node that gets allocated
 	// Example usage: initialization of mutex/lock for each node.
-	memPoolOnNodeAllocationProc		*onalloc;
-	memPoolOnNodeDeallocationProc	*ondealloc;
+	memPoolOnNodeAllocationProc		onalloc;
+	memPoolOnNodeDeallocationProc	ondealloc;
 
+	// Locks
+	SPIN_LOCK segmentLock;
+	SPIN_LOCK nodeLock;
+	
 
 	// Internal 
 	struct pool_segment *segments;
 	struct node	*free_list;
 		
-	volatile int32  num_nodes_total;
-	volatile int32	num_nodes_free;
+	volatile int64  num_nodes_total;
+	volatile int64	num_nodes_free;
 
-	volatile int32	num_pools;
+	volatile int64	num_segments;
 	volatile int64	num_bytes_total;
 	
+	// list (used for global management such as allocator..)
+	struct mempool *next;
 } ra_align(8); // Dont touch the alignment, otherwise interlocked functions are broken ..
 
 
+/// 
+// Implementation:
+//
+static void segment_allocate_add(mempool p,  uint64 count);
+
+static SPIN_LOCK l_mempoolListLock;
+static mempool 	l_mempoolList = NULL;
+static rAthread l_async_thread = NULL;
+static ramutex	l_async_lock = NULL;
+static racond	l_async_cond = NULL;
+static volatile int32 l_async_terminate = 0;
+
+static void *mempool_async_allocator(void *x){
+	(void)x;
+	
+	mempool p;
+	
+	
+	while(1){
+		if(l_async_terminate > 0)
+			break;
+
+		EnterSpinLock(&l_mempoolListLock);
+		
+			for(p = l_mempoolList;  p != NULL;  p = p->next){
+				
+				if(p->num_nodes_free < p->elem_realloc_thresh){
+					// add new segment.
+					segment_allocate_add(p, p->elem_realloc_step);
+				}
+				
+			}
+	
+		LeaveSpinLock(&l_mempoolListLock);
+		
+		ramutex_lock( l_async_lock );
+		racond_wait( l_async_cond,	l_async_lock,  -1 );
+		ramutex_unlock( l_async_lock );
+	}
+	
+	
+	return NULL;
+}//end: mempool_async_allocator()
+
+
+
 void mempool_init(){
+	
+	if(sizeof(struct node)%16 != 0 ){
+		ShowFatalError("mempool_init: struct node alignment failure.  %u != multiple of 16\n", sizeof(struct node));
+		exit(EXIT_FAILURE);
+	}
+	
+	// Global List start
+	InitializeSpinLock(&l_mempoolListLock);
+	l_mempoolList = NULL;
+
+	// Initialize mutex + stuff needed for async allocator worker.
+	l_async_terminate = 0;
+	l_async_lock = ramutex_create();
+	l_async_cond = racond_create();
+
+	l_async_thread = rathread_createEx(mempool_async_allocator, NULL,  512*1024,  RAT_PRIO_NORMAL);
+	if(l_async_thread == NULL){
+		ShowFatalError("mempool_init: cannot spawn Async Allocator Thread.\n");
+		exit(EXIT_FAILURE);
+	}
+
 }//end: mempool_init()
 
 
 void mempool_final(){
+	mempool p;
+	
+	ShowStatus("Mempool: Terminating async. allocation worker and remaining pools.\n");
+
+	// Terminate worker / wait until its terminated.
+	InterlockedIncrement(&l_async_terminate);
+	racond_signal(l_async_cond);
+	rathread_wait(l_async_thread, NULL);
+	
+	// Destroy cond var and mutex.
+	racond_destroy( l_async_cond );
+	ramutex_destroy( l_async_lock );
+	
+	// Free remaining mempools
+	// ((bugged code! this should halppen, every mempool should 
+	//		be freed by the subsystem that has allocated it.)
+	//
+	EnterSpinLock(&l_mempoolListLock);
+	for(p = l_mempoolList; p != NULL; p = p->next){
+		ShowWarning("Mempool [%s] was not properly destroyed - forcing destroy.\n", p->name);
+		mempool_destroy(p);
+	}
+	LeaveSpinLock(&l_mempoolListLock);
+	
 }//end: mempool_final()
 
 
+static void segment_allocate_add(mempool p,  uint64 count){
+	
+	// Required Memory:
+	//	sz( segment ) 
+	//  count * sz( real_node_size )
+	// 
+	//  where real node size is:
+	//		ALIGN_TO_16( sz( node ) ) + p->elem_size 
+	//  so the nodes usable address is  nodebase + ALIGN_TO_16(sz(node)) 
+	//
+	size_t total_sz;
+	struct pool_segment *seg = NULL;
+	struct node *nodeList = NULL;
+	struct node *node = NULL;
+	char *ptr = NULL;	
+	uint64 i;
+	
+	total_sz = ALIGN_TO_16( sizeof(struct pool_segment) ) 
+				+ ( count * (sizeof(struct node) + p->elem_size) ) ;
+	
+	ShowDebug("Mempool [%s] Segment AllocateAdd (num: %u, total size: %0.2fMiB)\n", p->name, count, (float)total_sz/1024.f/1024.f);
+
+	// allocate! (spin forever until weve got the memory.)
+	i=0;
+	while(1){
+		ptr = (char*)aMalloc(total_sz);
+		if(ptr != NULL)	break;
+		
+		i++; // increase failcount.
+		if(!(i & 7)){
+			ShowWarning("Mempool [%s] Segment AllocateAdd => System seems to be Out of Memory (%0.2f MiB). Try #%u\n", (float)total_sz/1024.f/1024.f,  i);
+			sleep(1);
+		}else{
+			rathread_yield(); /// allow/force vuln. ctxswitch 
+		}
+	}//endwhile: allocation spinloop.
+	
+	
+	// Initialize segment struct.
+	seg = (struct pool_segment*)ptr;
+	ptr += ALIGN_TO_16(sizeof(struct pool_segment));
+	
+	seg->pool = p;
+	seg->num_nodes_total = count;
+	seg->num_bytes = total_sz;
+	
+	
+	// Initialze nodes! 
+	nodeList = NULL; 
+	for(i = 0; i < count; i++){
+		node = (struct node*)ptr;
+		ptr += sizeof(struct node);
+			
+		node->segment = seg;
+#ifdef MEMPOOLASSERT
+		node->used = false;
+		node->magic = NODE_MAGIC;
+#endif
+
+		if(p->onalloc != NULL)  p->onalloc( NODE_TO_DATA(node) );
+
+		node->next = nodeList;
+		nodeList = node;
+	}	
+
+
+	
+	// Link in Segment.
+	EnterSpinLock(&p->segmentLock);
+		seg->next = p->segments;
+		p->segments = seg;
+	LeaveSpinLock(&p->segmentLock);
+	
+	// Link in Nodes
+	EnterSpinLock(&p->nodeLock);
+		nodeList->next = p->free_list;
+		p->free_list = nodeList;
+	LeaveSpinLock(&p->nodeLock);
+
+
+	// Increase Stats:
+	InterlockedExchangeAdd64(&p->num_nodes_total,  count);
+	InterlockedExchangeAdd64(&p->num_nodes_free,   count);
+	InterlockedIncrement64(&p->num_segments);
+	InterlockedExchangeAdd64(&p->num_bytes_total,	total_sz);
+	
+}//end: segment_allocate_add()
 
 
 
@@ -74,10 +268,205 @@ mempool mempool_create(const char *name,
 						uint64 elem_size,
 						uint64 initial_count,
 						uint64 realloc_count,
-						memPoolOnNodeAllocationProc *onNodeAlloc,
-						memPoolOnNodeDeallocationProc *onNodeDealloc){
+						memPoolOnNodeAllocationProc onNodeAlloc,
+						memPoolOnNodeDeallocationProc onNodeDealloc){
 	//..
+	uint64 realloc_thresh;
+	mempool pool;
+	pool = (mempool)aCalloc( 1,  sizeof(struct mempool) );
 	
+	if(pool == NULL){
+		ShowFatalError("mempool_create: Failed to allocate %u bytes memory.\n", sizeof(struct mempool) );
+		exit(EXIT_FAILURE);		
+	}
+	
+	// Check minimum initial count / realloc count requirements.
+	if(initial_count < 50)
+		initial_count = 50;
+	if(realloc_count < 50)
+		realloc_count = 50;
+	
+	// Set Reallocation threshold to 5% of realloc_count, at least 10.
+	realloc_thresh = (realloc_count/100)*5; // 
+	if(realloc_thresh < 10)
+		realloc_thresh = 10;
+
+	// Initialize members..
+	pool->name = aStrdup(name);
+	pool->elem_size	= ALIGN_TO_16(elem_size);
+	pool->elem_realloc_step = realloc_count;
+	pool->elem_realloc_thresh = realloc_thresh;
+	pool->onalloc = onNodeAlloc;
+	pool->ondealloc = onNodeDealloc;
+	
+	InitializeSpinLock(&pool->segmentLock);
+	InitializeSpinLock(&pool->nodeLock);
+
+	// Initial Statistic values:
+	pool->num_nodes_total = 0;
+	pool->num_nodes_free = 0;
+	pool->num_segments = 0;
+	pool->num_bytes_total = 0;
+	
+	//
+	ShowDebug("Mempool [%s] Init (ElemSize: %u,  Initial Count: %u,  Realloc Count: %u)\n", pool->name,  pool->elem_size,  initial_count,  pool->elem_realloc_step);
+
+
+	// Allocate first segment directly :) 	
+	segment_allocate_add(pool, initial_count);
+	
+
+	// Add Pool to the global pool list
+	EnterSpinLock(&l_mempoolListLock);
+		pool->next = l_mempoolList;
+		l_mempoolList = pool;
+	LeaveSpinLock(&l_mempoolListLock);
+
+	
+	return pool;	
 }//end: mempool_create()
 
+
+
+void mempool_destroy(mempool p){
+	struct  pool_segment *seg, *segnext;
+	mempool piter, pprev;
+
+    ShowDebug("Mempool [%s] Destroy\n", p->name);
+    
+	// Unlink from global list.
+	EnterSpinLock(&l_mempoolListLock);
+		piter = l_mempoolList;
+		pprev = l_mempoolList;
+		while(1){
+			if(piter == NULL)
+				break;
+			
+			
+			if(piter == p){
+				// unlink from list,
+				// 
+				if(pprev == l_mempoolList){
+					// this (p) is list begin. so set next as head.
+					l_mempoolList = p->next;
+				}else{
+					// replace prevs next wuth our next.
+					pprev->next = p->next;
+				}
+				break;
+			}
+			
+			pprev = piter;			
+			piter = piter->next;
+		}
+
+		p->next = NULL;
+	LeaveSpinLock(&l_mempoolListLock);
+	
+	
+	// Get both locks.
+	EnterSpinLock(&p->segmentLock);
+	EnterSpinLock(&p->nodeLock);
+
+
+	if(p->num_nodes_free != p->num_nodes_total)
+		ShowWarning("Mempool [%s] Destroy - %u nodes are not freed properly!\n", p->name, (p->num_nodes_total - p->num_nodes_free) );
+	
+	// Free All Segments (this will also free all nodes)
+	// The segment pointer is the base pointer to the whole segment.
+	seg = p->segments;
+	while(1){
+		if(seg == NULL)
+			break;
+		
+		segnext = seg->next;
+		
+		// simple ..
+		aFree(seg);
+		
+		seg = segnext;
+	}
+	
+	// Clear node ptr 
+	p->free_list = NULL;
+	InterlockedExchange64(&p->num_nodes_free, 0);	
+	InterlockedExchange64(&p->num_nodes_total, 0);
+	InterlockedExchange64(&p->num_segments, 0);
+	InterlockedExchange64(&p->num_bytes_total, 0);
+	
+	LeaveSpinLock(&p->nodeLock);
+	LeaveSpinLock(&p->segmentLock);
+
+	// Free pool itself :D
+	aFree(p->name);
+	aFree(p);
+
+}//end: mempool_destroy()
+
+
+void *mempool_node_get(mempool p){
+	struct node *node;
+	
+	if(p->num_nodes_free < p->elem_realloc_thresh)
+		racond_signal(l_async_cond);
+	
+	while(1){
+
+		EnterSpinLock(&p->nodeLock);
+		
+			node = p->free_list;
+			if(node != NULL)
+				p->free_list = node->next;
+		
+		LeaveSpinLock(&p->nodeLock);
+
+		if(node != NULL)
+			break;
+			
+		rathread_yield();
+	}
+
+	InterlockedDecrement64(&p->num_nodes_free);
+	
+#ifdef MEMPOOLASSERT
+	node->used = true;
+#endif
+
+	return NODE_TO_DATA(node);
+}//end: mempool_node_get()
+
+
+
+
+void mempool_node_put(mempool p, void *data){
+	struct node *node;
+	
+	node = DATA_TO_NODE(data);
+#ifdef MEMPOOLASSERT
+	if(node->magic != NODE_MAGIC){
+		ShowError("Mempool [%s] node_put failed, given address (%p) has invalid magic.\n", p->name,  data);
+		return; // lost, 
+	}
+
+	{
+		struct pool_segment *node_seg = node->segment;
+		if(node_seg->pool != p){
+			ShowError("Mempool [%s] node_put faild, given node (data address %p) doesnt belongs to this pool. ( Node Origin is [%s] )\n", p->name, data, node_seg->pool);
+			return;
+		}
+	}
+	
+	// reset used flag.
+	node->used = false;
+#endif
+
+	// 
+	EnterSpinLock(&p->nodeLock);
+		node->next = p->free_list;
+		p->free_list = node;
+	LeaveSpinLock(&p->nodeLock);
+	
+	InterlockedIncrement64(&p->num_nodes_free);
+
+}//end: mempool_node_put()
 
