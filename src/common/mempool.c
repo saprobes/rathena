@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <time.h>
 
@@ -210,6 +211,8 @@ static void segment_allocate_add(mempool p,  uint64 count){
 		}
 	}//endwhile: allocation spinloop.
 	
+	// Clear Memory.
+	memset(ptr, 0x00, total_sz);
 	
 	// Initialize segment struct.
 	seg = (struct pool_segment*)ptr;
