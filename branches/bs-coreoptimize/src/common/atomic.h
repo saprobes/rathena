@@ -16,6 +16,67 @@
 #if defined(_MSC_VER)
 #include "../common/oswin_headers.h"
 
+#if !defined(_M_X64)
+// When compiling for windows 32bit, the 8byte interlocked operations are not provided by microsoft
+// (because they need at least i586 so its not generic enough.. ... )
+forceinline int64 InterlockedCompareExchange64(volatile int64 *dest, int64 exch, int64 _cmp){
+	_asm{
+		lea esi,_cmp;
+		lea edi,exch;
+        
+		mov eax,[esi];
+		mov edx,4[esi];
+		mov ebx,[edi];
+		mov ecx,4[edi];
+		mov esi,dest;
+		
+		lock CMPXCHG8B [esi];					
+	}
+}
+
+
+forceinline volatile int64 InterlockedIncrement64(volatile int64 *addend){
+	__int64 old;
+	do{
+		old = *addend;
+	}while(InterlockedCompareExchange64(addend, (old+1), old) != old);
+
+	return (old + 1);
+}
+
+
+
+forceinline volatile int64 InterlockedDecrement64(volatile int64 *addend){
+	__int64 old;
+
+	do{
+		old = *addend;
+	}while(InterlockedCompareExchange64(addend, (old-1), old) != old);
+
+	return (old - 1);
+}
+
+forceinline volatile int64 InterlockedExchangeAdd64(volatile int64 *addend, int64 increment){
+	__int64 old;
+
+	do{
+		old = *addend;
+	}while(InterlockedCompareExchange64(addend, (old + increment), old) != old);
+
+	return old;
+}
+
+forceinline volatile int64 InterlockedExchange64(volatile int64 *target, int64 val){
+	__int64 old;
+	do{
+		old = *target;
+	}while(InterlockedCompareExchange64(target, val, old) != old);
+
+	return old;
+}
+
+#endif //endif 32bit windows
+
 #elif defined(__GNUC__)
 
 #if !defined(__x86_64__) && !defined(__i386__)

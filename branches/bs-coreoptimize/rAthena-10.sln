@@ -23,6 +23,12 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "map-server_sql", "vcproj-10
 		{58732DBE-2D33-4BB2-8CB8-607CDED2EA53} = {58732DBE-2D33-4BB2-8CB8-607CDED2EA53}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_spinlock", "vcproj-10\test_spinlock.vcxproj", "{19E11BE1-9AEA-4A05-8CA9-264CB756D8E8}"
+	ProjectSection(ProjectDependencies) = postProject
+		{C2F078B3-258F-48AC-BC78-8DAD32D18BEE} = {C2F078B3-258F-48AC-BC78-8DAD32D18BEE}
+		{58732DBE-2D33-4BB2-8CB8-607CDED2EA53} = {58732DBE-2D33-4BB2-8CB8-607CDED2EA53}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Release|Win32 = Release|Win32
@@ -49,6 +55,8 @@ Global
 		{5BDEDFA1-0EC5-4CEE-B4EC-39A0068EB194}.Release|Win32.Build.0 = Release|Win32
 		{5BDEDFA1-0EC5-4CEE-B4EC-39A0068EB194}.Release|x64.ActiveCfg = Release|x64
 		{5BDEDFA1-0EC5-4CEE-B4EC-39A0068EB194}.Release|x64.Build.0 = Release|x64
+		{19E11BE1-9AEA-4A05-8CA9-264CB756D8E8}.Release|Win32.ActiveCfg = Release|Win32
+		{19E11BE1-9AEA-4A05-8CA9-264CB756D8E8}.Release|x64.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -24,7 +24,6 @@ static int val = 0;
 static volatile int32 done_threads = 0;
 
 static  void *worker(void *p){
-	(void)(p); // defref unused param.
 	register int i;
 	
 	for(i = 0; i < PERINC; i++){
