@@ -2,8 +2,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <time.h>
+
+#ifdef WIN32
+#include "../common/oswin_headers.h"
+#else
+#include <unistd.h>
+#endif
 
 #include "../common/cbasetypes.h"
 #include "../common/showmsg.h"
@@ -49,7 +54,7 @@ struct mempool{
 	char *name;
 	uint64	elem_size;
 	uint64	elem_realloc_step;
-	uint64	elem_realloc_thresh;
+	int64	elem_realloc_thresh;
 	
 	// Callbacks that get called for every node that gets allocated
 	// Example usage: initialization of mutex/lock for each node.
@@ -89,8 +94,6 @@ static racond	l_async_cond = NULL;
 static volatile int32 l_async_terminate = 0;
 
 static void *mempool_async_allocator(void *x){
-	(void)x;
-	
 	mempool p;
 	
 	
@@ -205,7 +208,11 @@ static void segment_allocate_add(mempool p,  uint64 count){
 		i++; // increase failcount.
 		if(!(i & 7)){
 			ShowWarning("Mempool [%s] Segment AllocateAdd => System seems to be Out of Memory (%0.2f MiB). Try #%u\n", (float)total_sz/1024.f/1024.f,  i);
+#ifdef WIN32
+			Sleep(1000);
+#else
 			sleep(1);
+#endif
 		}else{
 			rathread_yield(); /// allow/force vuln. ctxswitch 
 		}
@@ -334,7 +341,7 @@ void mempool_destroy(mempool p){
 	struct	node *niter;
 	mempool piter, pprev;
 	char *ptr;
-	uint64 i;
+	int64 i;
 
     ShowDebug("Mempool [%s] Destroy\n", p->name);
     
