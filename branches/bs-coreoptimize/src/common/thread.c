@@ -261,3 +261,10 @@ RATHREAD_PRIO rathread_prio_get( rAthread handle){
 }//end: rathread_prio_get()
 
 
+void rathread_yield(){
+#ifdef WIN32 
+	SwitchToThread();
+#else
+	sched_yield();
+#endif	
+}//end: rathread_yield()
