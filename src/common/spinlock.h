@@ -31,10 +31,10 @@ typedef struct __declspec( align(64) ) SPIN_LOCK{
 }  SPIN_LOCK, *PSPIN_LOCK;
 #else
 typedef struct SPIN_LOCK{
-		volatile long lock;
-		volatile long nest; // nesting level.
+		volatile int64 lock;
+		volatile int64 nest; // nesting level.
 		
-		volatile long sync_lock;
+		volatile int64 sync_lock;
 } __attribute__((aligned(64))) SPIN_LOCK, *PSPIN_LOCK;
 #endif
 

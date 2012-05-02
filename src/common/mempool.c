@@ -29,7 +29,7 @@ struct ra_align(16) node{
 #ifdef MEMPOOLASSERT
 	bool	used;
 	uint64	magic;
-	#define NODE_MAGIC 0xBEEF00EAEACAFE07 
+	#define NODE_MAGIC 0xBEEF00EAEACAFE07ll
 #endif
 };
 

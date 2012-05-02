@@ -312,6 +312,28 @@ if test "$enable_64bit" = "no" ; then
 fi
 
 
+AC_MSG_CHECKING([whether $CC produces 32bit code])
+AC_RUN_IFELSE(
+	[
+		int main(int argc, char **argv){
+			if(sizeof(void*) == 4) return 0;
+			else return 1;
+		}
+	],
+	[
+		AC_MSG_RESULT([yes])
+		CFLAGS="$CFLAGS -march=i686"
+		LDFLAGS="$LDFLAGS -march=i686"
+	],
+	[
+		AC_MSG_RESULT([no])
+	],
+	[
+		AC_MSG_RESULT([guessing no])
+	]
+)
+
+
 AC_MSG_CHECKING([whether $CC supports -Wno-unused-parameter])
 OLD_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS -Wno-unused-parameter"
@@ -649,7 +671,6 @@ if test "$ac_cv_search_clock_gettime" != "no" ; then
 		]
 	)
 fi
-
 
 
 
