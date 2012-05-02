@@ -7,7 +7,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <sched.h> // sched_yield()
 
 // 
 // Simple test for the spinlock implementation to see if it works properly..  
@@ -71,7 +70,7 @@ int do_init(int argc, char **argv){
 			if(InterlockedCompareExchange(&done_threads, THRC, THRC) == THRC) 
 				break;
 			
-			sched_yield();
+			rathread_yield();
 		}
 		
 		FinalizeSpinLock(&lock);

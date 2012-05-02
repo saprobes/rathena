@@ -16,9 +16,6 @@
  
 #ifdef WIN32
 #include "../common/oswin_headers.h"
-#define sched_yield SwitchToThread
-#else
-#include <sched.h> // for yield() 
 #endif
 
 #include "../common/cbasetypes.h"
@@ -54,7 +51,7 @@ forceinline void FinalizeSpinLock(PSPIN_LOCK lck){
 }
 
 
-#define getsynclock(l) { while(1){ if(InterlockedCompareExchange64(l, 1, 0) == 0) break; sched_yield(); } }
+#define getsynclock(l) { while(1){ if(InterlockedCompareExchange64(l, 1, 0) == 0) break; rathread_yield(); } }
 #define dropsynclock(l) { InterlockedExchange64(l, 0); }
 
 forceinline void EnterSpinLock(PSPIN_LOCK lck){
@@ -81,7 +78,7 @@ forceinline void EnterSpinLock(PSPIN_LOCK lck){
 						return; // Got Lock
 				}
 				
-				sched_yield(); // Force ctxswitch to another thread.
+				rathread_yield(); // Force ctxswitch to another thread.
 		}
 
 }

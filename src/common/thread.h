@@ -97,6 +97,15 @@ void rathread_prio_set( rAthread handle, RATHREAD_PRIO prio );
 RATHREAD_PRIO rathread_prio_get( rAthread handle);
 
 
+/**
+ * Tells the OS scheduler to yield the execution of the calling thread
+ * 
+ * @note: this will not "pause" the thread,
+ *			it just allows the OS to spent the remaining time 
+ *			of the slice to another thread.
+ */
+void rathread_yield();
+
 
 
 void rathread_init();
