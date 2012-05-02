@@ -28,7 +28,6 @@
 #include <io.h>
 #include <Windows.h>
 #include <WinSock2.h>
-#include <MSTcpIP.h>
 #include <In6addr.h>
 #include <Ws2tcpip.h>
 #include <Mswsock.h>
