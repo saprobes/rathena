@@ -69,7 +69,7 @@ void rathread_final(){
 	//
 	for(i = 1; i < RA_THREADS_MAX; i++){
 		if(l_threads[i].proc != NULL){
-			ShowWarning("rAthread_final: unterminated Thread (tid %u entryPoint %p) - forcing to terminat (kill)\n", i, l_threads[i].proc);
+			ShowWarning("rAthread_final: unterminated Thread (tid %u entryPoint %p) - forcing to terminate (kill)\n", i, l_threads[i].proc);
 			rathread_destroy(&l_threads[i]);
 		}
 	}
