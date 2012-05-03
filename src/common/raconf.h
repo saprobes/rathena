@@ -41,7 +41,15 @@ float		raconf_getfloat(raconf rc,const char *section, const char *key, float _de
 int64		raconf_getint(raconf rc,  const char *section, const char *key, int64 _default);  
 const char*	raconf_getstr(raconf rc,  const char *section, const char *key, const char *_default);
 
-
+/**
+ * Gets the value for Section / Key pair, but has fallback section option if not found in section, 
+ * if not found in both - default gets returned.
+ *
+ */
+bool        raconf_getboolEx(raconf rc, const char *section, const char *fallback_section, const char *key, bool _default);
+float       raconf_getfloatEx(raconf rc,const char *section, const char *fallback_section, const char *key, float _default);
+int64       raconf_getintEx(raconf rc,  const char *section, const char *fallback_section, const char *key, int64 _default);
+const char* raconf_getstrEx(raconf rc,  const char *section, const char *fallback_section, const char *key, const char *_default);
 
 
 

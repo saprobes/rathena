@@ -492,3 +492,94 @@ const char* raconf_getstr(raconf rc,  const char *section, const char *key, cons
 	else
 		return v->strval;
 }//end: raconf_getstr()
+
+
+bool raconf_getboolEx(raconf rc, const char *section, const char *fallback_section, const char *key, bool _default){
+	char keystr[SECTION_LEN + VARNAME_LEN + 1 + 1];
+	struct conf_value *v;
+	
+	MAKEKEY(keystr, section, key);
+	v = strdb_get(rc->db, keystr);
+	if(v == NULL){
+		
+		MAKEKEY(keystr, fallback_section, key);
+		v = strdb_get(rc->db, keystr);
+		if(v == NULL){
+			return _default;
+		}else{
+			return v->bval;
+		}
+		
+	}else{
+		return v->bval;
+	}
+}//end: raconf_getboolEx()
+
+
+float raconf_getfloatEx(raconf rc,const char *section, const char *fallback_section, const char *key, float _default){
+	char keystr[SECTION_LEN + VARNAME_LEN + 1 + 1];
+	struct conf_value *v;
+	
+	MAKEKEY(keystr, section, key);
+	v = strdb_get(rc->db, keystr);
+	if(v == NULL){
+		
+		MAKEKEY(keystr, fallback_section, key);
+		v = strdb_get(rc->db, keystr);
+		if(v == NULL){
+			return _default;
+		}else{
+			return v->floatval;
+		}
+		
+	}else{
+		return v->floatval;
+	}
+	
+}//end: raconf_getfloatEx()
+
+
+int64 raconf_getintEx(raconf rc,  const char *section, const char *fallback_section, const char *key, int64 _default){
+	char keystr[SECTION_LEN + VARNAME_LEN + 1 + 1];
+	struct conf_value *v;
+	
+	MAKEKEY(keystr, section, key);
+	v = strdb_get(rc->db, keystr);
+	if(v == NULL){
+		
+		MAKEKEY(keystr, fallback_section, key);
+		v = strdb_get(rc->db, keystr);
+		if(v == NULL){
+			return _default;
+		}else{
+			return v->intval;
+		}
+		
+	}else{
+		return v->intval;
+	}
+
+}//end: raconf_getintEx()
+
+
+const char* raconf_getstrEx(raconf rc,  const char *section, const char *fallback_section, const char *key, const char *_default){
+	char keystr[SECTION_LEN + VARNAME_LEN + 1 + 1];
+	struct conf_value *v;
+	
+	MAKEKEY(keystr, section, key);
+	v = strdb_get(rc->db, keystr);
+	if(v == NULL){
+		
+		MAKEKEY(keystr, fallback_section, key);
+		v = strdb_get(rc->db, keystr);
+		if(v == NULL){
+			return _default;
+		}else{
+			return v->strval;
+		}
+		
+	}else{
+		return v->strval;
+	}
+
+}//end: raconf_getstrEx()
