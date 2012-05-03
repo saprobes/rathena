@@ -87,6 +87,9 @@ struct mempool{
 	volatile int64	num_segments;
 	volatile int64	num_bytes_total;
 	
+	volatile int64	peak_nodes_used;		// Peak Node Usage 
+	volatile int64	num_realloc_events; 	// Number of reallocations done. (allocate additional nodes)
+
 	// list (used for global management such as allocator..)
 	struct mempool *next;
 } ra_align(8); // Dont touch the alignment, otherwise interlocked functions are broken ..
@@ -119,6 +122,8 @@ static void *mempool_async_allocator(void *x){
 				if(p->num_nodes_free < p->elem_realloc_thresh){
 					// add new segment.
 					segment_allocate_add(p, p->elem_realloc_step);
+					// increase stats counter
+					InterlockedIncrement64(&p->num_realloc_events);
 				}
 				
 			}
@@ -337,7 +342,9 @@ mempool mempool_create(const char *name,
 	pool->num_nodes_free = 0;
 	pool->num_segments = 0;
 	pool->num_bytes_total = 0;
-	
+	pool->peak_nodes_used = 0;
+	pool->num_realloc_events = 0;
+		
 	//
 #ifdef MEMPOOL_DEBUG
 	ShowDebug("Mempool [%s] Init (ElemSize: %u,  Initial Count: %u,  Realloc Count: %u)\n", pool->name,  pool->elem_size,  initial_count,  pool->elem_realloc_step);
@@ -463,6 +470,7 @@ void mempool_destroy(mempool p){
 
 void *mempool_node_get(mempool p){
 	struct node *node;
+	int64 num_used;
 	
 	if(p->num_nodes_free < p->elem_realloc_thresh)
 		racond_signal(l_async_cond);
@@ -484,6 +492,12 @@ void *mempool_node_get(mempool p){
 	}
 
 	InterlockedDecrement64(&p->num_nodes_free);
+	
+	// Update peak value
+	num_used = (p->num_nodes_total - p->num_nodes_free);
+	if(num_used > p->peak_nodes_used){
+		InterlockedExchange64(&p->peak_nodes_used, num_used);
+	}
 	
 #ifdef MEMPOOLASSERT
 	node->used = true;
@@ -524,4 +538,25 @@ void mempool_node_put(mempool p, void *data){
 	InterlockedIncrement64(&p->num_nodes_free);
 
 }//end: mempool_node_put()
+
+
+mempool_stats mempool_get_stats(mempool pool){
+	mempool_stats stats;
+	
+	// initialize all with zeros
+	memset(&stats, 0x00, sizeof(mempool_stats));
+	
+	stats.num_nodes_total	= pool->num_nodes_total;
+	stats.num_nodes_free	= pool->num_nodes_free;
+	stats.num_nodes_used	= (stats.num_nodes_total - stats.num_nodes_free);
+	stats.num_segments		= pool->num_segments;
+	stats.num_realloc_events= pool->num_realloc_events;
+	stats.peak_nodes_used	= pool->peak_nodes_used;
+	stats.num_bytes_total	= pool->num_bytes_total;
+
+	// Pushing such a large block over the stack as return value isnt nice
+	// but lazy :) and should be okay in this case (Stats / Debug..)
+	// if you dont like it - feel free and refactor it.	
+	return stats;
+}//end: mempool_get_stats()
 
