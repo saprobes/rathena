@@ -20,7 +20,10 @@ Temporarily Changelog
 	+ Added Warning when running 32BIT Build on Program start that notifies the user
 		that the tick will overflow after pow(2,31) ticks (ms) ~ 24,8 Days 
 		(The server should be restarted within this time to prevent unpredictable behavior!)
-	
+	+ Added Generic (threadsafe) Memory Pool implementation, with asyncronous reallocator.
+	+ Added Generic Configuration parser (raconf) which supports athena and ini style configurations (you can mix it within one file)
+		easy to use interface. (Example: conf/network.conf)
+	+ Added Netbuffer subsystem (also threadsafe..) for the new networking subsystem. 
 
  = Build / Release Related:
 	+ Autoconf: Enabled 64BIT Build default (you can disable by passing --disable-64bit)
