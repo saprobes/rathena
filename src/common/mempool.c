@@ -34,7 +34,7 @@
 #define ALIGN_TO(x, a) (x + ( a - ( x % a) ) )
 #define ALIGN_TO_16(x)	ALIGN_TO(x, 16)
 
-
+#undef MEMPOOL_DEBUG
 #define MEMPOOLASSERT
 
 
@@ -161,7 +161,7 @@ void mempool_init(){
 
 
 void mempool_final(){
-	mempool p;
+	mempool p, pn;
 	
 	ShowStatus("Mempool: Terminating async. allocation worker and remaining pools.\n");
 
@@ -179,9 +179,17 @@ void mempool_final(){
 	//		be freed by the subsystem that has allocated it.)
 	//
 	EnterSpinLock(&l_mempoolListLock);
-	for(p = l_mempoolList; p != NULL; p = p->next){
+	p = l_mempoolList;
+	while(1){
+		if(p == NULL)
+			break;
+			
+		pn = p->next;
+
 		ShowWarning("Mempool [%s] was not properly destroyed - forcing destroy.\n", p->name);
 		mempool_destroy(p);
+
+		p = pn;
 	}
 	LeaveSpinLock(&l_mempoolListLock);
 	
@@ -207,8 +215,10 @@ static void segment_allocate_add(mempool p,  uint64 count){
 	
 	total_sz = ALIGN_TO_16( sizeof(struct pool_segment) ) 
 				+ ( count * (sizeof(struct node) + p->elem_size) ) ;
-	
+
+#ifdef MEMPOOL_DEBUG
 	ShowDebug("Mempool [%s] Segment AllocateAdd (num: %u, total size: %0.2fMiB)\n", p->name, count, (float)total_sz/1024.f/1024.f);
+#endif
 
 	// allocate! (spin forever until weve got the memory.)
 	i=0;
@@ -329,8 +339,9 @@ mempool mempool_create(const char *name,
 	pool->num_bytes_total = 0;
 	
 	//
+#ifdef MEMPOOL_DEBUG
 	ShowDebug("Mempool [%s] Init (ElemSize: %u,  Initial Count: %u,  Realloc Count: %u)\n", pool->name,  pool->elem_size,  initial_count,  pool->elem_realloc_step);
-
+#endif
 
 	// Allocate first segment directly :) 	
 	segment_allocate_add(pool, initial_count);
@@ -354,7 +365,9 @@ void mempool_destroy(mempool p){
 	char *ptr;
 	int64 i;
 
+#ifdef MEMPOOL_DEBUG
     ShowDebug("Mempool [%s] Destroy\n", p->name);
+#endif
     
 	// Unlink from global list.
 	EnterSpinLock(&l_mempoolListLock);
