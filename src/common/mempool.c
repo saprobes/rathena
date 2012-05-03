@@ -1,4 +1,15 @@
 
+//
+// Memory Pool Implementation (Threadsafe)
+//
+//
+// Author: Florian Wilemeyer <fw@f-ws.de>
+//
+// Copyright (c) RAthena Project (www.rathena.org) - Licensed under GNU GPL
+// For more information, see LICENCE in the main folder
+//
+//
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
