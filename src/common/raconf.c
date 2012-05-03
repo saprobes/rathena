@@ -4,7 +4,7 @@
 // (would be better to have "one" implementation instead of .. 4 :) 
 // 
 //
-// Author: Florian Wilemeyer <fw@f-ws.de>
+// Author: Florian Wilkemeyer <fw@f-ws.de>
 //
 // Copyright (c) RAthena Project (www.rathena.org) - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
@@ -33,6 +33,7 @@ struct raconf {
 struct conf_value{
 	int64 intval;
 	bool bval;
+	double floatval;
 	size_t strval_len; // not includung \0 
 	char strval[16];
 };
@@ -41,6 +42,7 @@ struct conf_value{
 
 static struct conf_value *makeValue(const char *key, char *val, size_t val_len){
 	struct conf_value *v;
+	char *p;
 	size_t sz;
 		
 	sz = sizeof(struct conf_value);
@@ -103,12 +105,32 @@ static struct conf_value *makeValue(const char *key, char *val, size_t val_len){
 		v->intval = strtoull(val, NULL, 2);
 		val[val_len] = 'b';
 	}else if( *val >='0' && *val <= '9'){	// begins with normal digit, so assume its dec.
-		v->intval = strtoull(val, NULL, 10);
+		// is it float?
+		bool is_float = false;
+		
+		for(p = val; *p != '\0'; p++){
+			if(*p == '.'){
+				v->floatval = strtod(val, NULL);
+				v->intval = (int64) v->floatval;
+				is_float = true;
+				break;
+			}
+		}
+		
+		if(is_float == false){
+			v->intval = strtoull(val, NULL, 10);
+			v->floatval = (double) v->intval;
+		}
+	}else{
+		// Everything else: lets use boolean for fallback
+		if(v->bval == true)
+			v->intval = 1;
+		else
+			v->intval = 0;
 	}
 	
 	return v;	
-}
-
+}//end: makeValue()
 
 
 static bool configParse(raconf inst,  const char *fileName){
@@ -427,6 +449,20 @@ bool raconf_getbool(raconf rc, const char *section, const char *key,  bool _defa
 	else
 		return v->bval;
 }//end: raconf_getbool()
+
+
+float raconf_getfloat(raconf rc,const char *section, const char *key, float _default){
+	char keystr[SECTION_LEN + VARNAME_LEN + 1 + 1];
+	struct conf_value *v;
+	
+	MAKEKEY(keystr, section, key);
+
+	v = strdb_get(rc->db, keystr);
+	if(v == NULL)
+		return _default;
+	else
+		return v->floatval;
+}//end: raconf_getfloat()
 
 
 int64 raconf_getint(raconf rc,  const char *section, const char *key, int64 _default){
