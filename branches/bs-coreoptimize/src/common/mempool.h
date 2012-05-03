@@ -8,9 +8,23 @@ typedef struct mempool *mempool;
 typedef void (*memPoolOnNodeAllocationProc)(void *ptr);
 typedef void (*memPoolOnNodeDeallocationProc)(void *ptr);
 
+typedef struct mempool_stats{
+	int64	num_nodes_total;
+	int64	num_nodes_free;
+	int64	num_nodes_used;
+	
+	int64	num_segments;
+	int64	num_realloc_events;
+	
+	int64	peak_nodes_used;
+	
+	int64	num_bytes_total;
+} mempool_stats;
+
+
+// 
 void mempool_init();
 void mempool_final();
-
 
 
 /** 
@@ -71,7 +85,16 @@ void *mempool_node_get(mempool pool);
 void mempool_node_put(mempool pool, void *node);
 
 
-
+/** 
+ * Returns Statistics for the given mempool
+ *
+ * @param pool - the pool to get thats for
+ *
+ * @note: i dont like pushing masses of values over the stack, too  - but its lazy and okay for stats. (blacksirius)
+ *
+ * @return stats struct
+ */
+mempool_stats mempool_get_stats(mempool pool);
 
 
 #endif
