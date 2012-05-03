@@ -77,6 +77,12 @@
     <ClCompile Include="..\src\common\mempool.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\common\netbuffer.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\common\raconf.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\common\atomic.h">
@@ -161,6 +167,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\common\mempool.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\common\netbuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\common\raconf.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
