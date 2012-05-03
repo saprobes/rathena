@@ -8,6 +8,7 @@
 #ifndef MINICORE
 #include "../common/db.h"
 #include "../common/socket.h"
+#include "../common/netbuffer.h"
 #include "../common/tick.h"
 #include "../common/timer.h"
 #include "../common/plugins.h"
@@ -294,6 +295,7 @@ int main (int argc, char **argv)
 
 	tick_init();	
 	timer_init();
+	netbuffer_init();
 	socket_init();
 	plugins_init();
 
@@ -314,6 +316,7 @@ int main (int argc, char **argv)
 	timer_final();
 	plugins_final();
 	socket_final();
+	netbuffer_final();
 	
 	tick_final();
 	
