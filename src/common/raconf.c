@@ -461,7 +461,7 @@ float raconf_getfloat(raconf rc,const char *section, const char *key, float _def
 	if(v == NULL)
 		return _default;
 	else
-		return v->floatval;
+		return (float)v->floatval;
 }//end: raconf_getfloat()
 
 
@@ -529,11 +529,11 @@ float raconf_getfloatEx(raconf rc,const char *section, const char *fallback_sect
 		if(v == NULL){
 			return _default;
 		}else{
-			return v->floatval;
+			return (float)v->floatval;
 		}
 		
 	}else{
-		return v->floatval;
+		return (float)v->floatval;
 	}
 	
 }//end: raconf_getfloatEx()

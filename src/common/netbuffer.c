@@ -67,7 +67,7 @@ void netbuffer_init(){
 	}
 	
 	// Get Values from config file
-	l_nPools = raconf_getintEx(conf,  localsection,  "netbuffer", "num", 0);
+	l_nPools = (sysint)raconf_getintEx(conf,  localsection,  "netbuffer", "num", 0);
 	if(l_nPools == 0){
 		ShowFatalError("Netbuffer (network.conf) failure - requires at least 1 Pool.\n");		
 		exit(EXIT_FAILURE);
@@ -83,7 +83,7 @@ void netbuffer_init(){
 		char key[32];
 		
 		sprintf(key, "pool_%u_size", (uint32)i+1);
-		l_poolElemSize[i] = raconf_getintEx(conf, localsection, "netbuffer", key, 4096);
+		l_poolElemSize[i] = (sysint)raconf_getintEx(conf, localsection, "netbuffer", key, 4096);
 		if(l_poolElemSize[i] < 32){
 			ShowWarning("Netbuffer (network.conf) failure - minimum allowed buffer size is 32 byte) - fixed.\n");
 			l_poolElemSize[i] = 32;

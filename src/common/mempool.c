@@ -219,7 +219,7 @@ static void segment_allocate_add(mempool p,  uint64 count){
 	uint64 i;
 	
 	total_sz = ALIGN_TO_16( sizeof(struct pool_segment) ) 
-				+ ( count * (sizeof(struct node) + p->elem_size) ) ;
+				+ ( (size_t)count * (sizeof(struct node) + (size_t)p->elem_size) ) ;
 
 #ifdef MEMPOOL_DEBUG
 	ShowDebug("Mempool [%s] Segment AllocateAdd (num: %u, total size: %0.2fMiB)\n", p->name, count, (float)total_sz/1024.f/1024.f);
