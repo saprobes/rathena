@@ -33,10 +33,11 @@ void	raconf_destroy(raconf rc);
 
 
 /** 
- * Gets the valeu for Section / Key pair, if key not exists returns _default! 
+ * Gets the value for Section / Key pair, if key not exists returns _default! 
  *
  */
 bool 		raconf_getbool(raconf rc, const char *section, const char *key,	bool _default);
+float		raconf_getfloat(raconf rc,const char *section, const char *key, float _default);
 int64		raconf_getint(raconf rc,  const char *section, const char *key, int64 _default);  
 const char*	raconf_getstr(raconf rc,  const char *section, const char *key, const char *_default);
 

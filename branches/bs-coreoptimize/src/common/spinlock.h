@@ -8,7 +8,7 @@
 // CamelCase names are choosen to be consistent with microsofts winapi
 // which implements CriticalSection by this naming...
 //
-// Author: Florian Wilemeyer <fw@f-ws.de>
+// Author: Florian Wilkemeyer <fw@f-ws.de>
 //
 // Copyright (c) rAthena Project (www.rathena.org) - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
