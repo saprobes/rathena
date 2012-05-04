@@ -37,6 +37,7 @@ Temporarily Changelog
 		depending all .h files in the common/ folder.
 	+ Windows-VC10: Cleaned up / rebuild the Solution,  added 64BIT Build support 
 	- Autoconf/Makefiles: Dropped support for i586 and below for 32bit builds (Intel: Pentium PRO, Amd: K6-III should work fine)
+	+ New Required predefined value: MAXCONN - specifies the upper limit of simultaneous connections
 
  = Generic / Other:
 	+ Replaced Zlib distribution (for windows builds) with source to be able to compile 64bit releases.
