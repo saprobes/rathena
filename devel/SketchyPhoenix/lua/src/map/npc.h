@@ -64,6 +64,11 @@ struct npc_data {
 			short x,y; // destination coords
 			unsigned short mapindex; // destination map
 		} warp;
+		struct {
+			struct mob_data *md;
+			time_t kill_time;
+			char killer_name[NAME_LENGTH];
+		} tomb;
 	} u;
 };
 
@@ -141,6 +146,7 @@ void npc_addsrcfile(const char* name);
 void npc_delsrcfile(const char* name);
 void npc_parsesrcfile_txt(const char* filepath);
 void npc_parsesrcfile_sub(const char* filepath);
+void do_clear_npc(void);
 int do_final_npc(void);
 int do_init_npc(void);
 void npc_event_do_oninit(void);
@@ -158,7 +164,7 @@ int npc_gettimerevent_tick(struct npc_data* nd);
 int npc_settimerevent_tick(struct npc_data* nd, int newtimer);
 int npc_remove_map(struct npc_data* nd);
 void npc_unload_duplicates (struct npc_data* nd);
-int npc_unload(struct npc_data* nd);
+int npc_unload(struct npc_data* nd, bool single);
 int npc_reload(void);
 void npc_read_event_script(void);
 int npc_script_event(struct map_session_data* sd, enum npce_event type);

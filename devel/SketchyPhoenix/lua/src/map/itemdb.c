@@ -259,7 +259,16 @@ static void itemdb_jobid2mapid(unsigned int *bclass, unsigned int jobmask)
 	if (jobmask & 1<<JOB_GUNSLINGER)
 		bclass[0] |= 1<<MAPID_GUNSLINGER;
 	if (jobmask & 1<<JOB_NINJA)
-		bclass[0] |= 1<<MAPID_NINJA;
+		{bclass[0] |= 1<<MAPID_NINJA;
+		bclass[1] |= 1<<MAPID_NINJA;}//Kagerou/Oboro jobs can equip Ninja equips. [Rytech]
+	if (jobmask & 1<<26) //Bongun/Munak
+		bclass[0] |= 1<<MAPID_GANGSI;
+	if (jobmask & 1<<27) //Death Knight
+		bclass[1] |= 1<<MAPID_GANGSI;
+	if (jobmask & 1<<28) //Dark Collector
+		bclass[2] |= 1<<MAPID_GANGSI;
+	if (jobmask & 1<<29) //Kagerou / Oboro
+		bclass[1] |= 1<<MAPID_NINJA;
 }
 
 static void create_dummy_data(void)
@@ -762,7 +771,7 @@ static bool itemdb_parse_dbrow(char** str, const char* source, int line, int scr
 
 	id->type = atoi(str[3]);
 
-	if( id->type < 0 || id->type == IT_UNKNOWN || id->type == IT_UNKNOWN2 || ( id->type > IT_DELAYCONSUME && id->type < IT_THROWWEAPON ) || id->type >= IT_MAX )
+	if( id->type < 0 || id->type == IT_UNKNOWN || id->type == IT_UNKNOWN2 || ( id->type > IT_DELAYCONSUME && id->type < IT_CASH ) || id->type >= IT_MAX )
 	{// catch invalid item types
 		ShowWarning("itemdb_parse_dbrow: Invalid item type %d for item %d. IT_ETC will be used.\n", id->type, nameid);
 		id->type = IT_ETC;
@@ -799,7 +808,7 @@ static bool itemdb_parse_dbrow(char** str, const char* source, int line, int scr
 			id->value_buy, id->value_sell, nameid, id->jname);
 
 	id->weight = atoi(str[6]);
-#if REMODE
+#ifdef RENEWAL
 	itemdb_re_split_atoi(str[7],&id->atk,&id->matk);
 #else
 	id->atk = atoi(str[7]);
@@ -959,6 +968,12 @@ static int itemdb_readdb(void)
 			}
 			str[21] = p;
 
+			p = strstr(p+1,"}");
+			if ( strchr(p,',') != NULL )
+			{
+				ShowError("itemdb_readdb: Extra columns in line %d of \"%s\" (item with id %d), skipping.\n", lines, path, atoi(str[0]));
+				continue;
+			}
 
 			if (!itemdb_parse_dbrow(str, path, lines, 0))
 				continue;
@@ -979,7 +994,7 @@ static int itemdb_readdb(void)
  *======================================*/
 static int itemdb_read_sqldb(void)
 {
-#if REMODE
+#ifdef RENEWAL
 	const char* item_db_name[] = { item_db_db, item_db_re_db, item_db2_db };
 #else
 	const char* item_db_name[] = { item_db_db, item_db2_db };
@@ -1038,7 +1053,7 @@ static void itemdb_read(void)
 	sv_readdb(db_path, "item_avail.txt",   ',', 2, 2, -1,             &itemdb_read_itemavail);
 	sv_readdb(db_path, "item_noequip.txt", ',', 2, 2, -1,             &itemdb_read_noequip);
 	sv_readdb(db_path, DBPATH"item_trade.txt",   ',', 3, 3, -1,       &itemdb_read_itemtrade);
-	sv_readdb(db_path, "item_delay.txt",   ',', 2, 2, MAX_ITEMDELAYS, &itemdb_read_itemdelay);
+	sv_readdb(db_path, "item_delay.txt",   ',', 2, 2, -1, &itemdb_read_itemdelay);
 	sv_readdb(db_path, "item_buyingstore.txt", ',', 1, 1, -1,         &itemdb_read_buyingstore);
 }
 

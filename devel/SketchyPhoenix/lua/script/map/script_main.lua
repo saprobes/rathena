@@ -1,10 +1,9 @@
---------------------------------------------------------------
------------------ Core Scripts Functions ---------------------
-dofile "script/core/core.lua"
+--[[
+	Required Core Functions
+--]]
+dofile "script/map/core/core.lua"
 
---------------------------------------------------------------
--------------------- Custom Scripts --------------------------
-dofile "script/sample/script_sample.lua"
-
---------------------------------------------------------------
---------------------- Official Scripts -----------------------
+--[[
+	Sample Scripts
+--]]
+dofile "script/map/sample/script_sample.lua"

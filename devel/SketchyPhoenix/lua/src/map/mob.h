@@ -63,6 +63,12 @@ enum MobDamageLogFlag
 	MDLF_PET,
 };
 
+enum size {
+	SZ_SMALL = 0,
+	SZ_MEDIUM,
+	SZ_BIG,
+};
+
 struct mob_skill {
 	enum MobSkillState state;
 	short skill_id,skill_lv;
@@ -151,7 +157,7 @@ struct mob_data {
 	int areanpc_id; //Required in OnTouchNPC (to avoid multiple area touchs)
 	unsigned int bg_id; // BattleGround System
 
-	unsigned int next_walktime,last_thinktime,last_linktime,last_pcneartime;
+	unsigned int next_walktime,last_thinktime,last_linktime,last_pcneartime,dmgtick;
 	short move_fail_count;
 	short lootitem_count;
 	short min_chase;
@@ -168,6 +174,8 @@ struct mob_data {
 	 * Used to flag summon deletions, saves a worth amount of memory
 	 **/
 	bool can_summon : 1;
+
+	int tomb_nid;
 };
 
 
@@ -285,5 +293,9 @@ int mob_clone_spawn(struct map_session_data *sd, int m, int x, int y, const char
 int mob_clone_delete(struct mob_data *md);
 
 void mob_reload(void);
+
+// MvP Tomb System
+void mvptomb_create(struct mob_data *md, char *killer, time_t time);
+void mvptomb_destroy(struct mob_data *md);
 
 #endif /* _MOB_H_ */

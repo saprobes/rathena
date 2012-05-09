@@ -1,22 +1,27 @@
 // Copyright (c) Athena Dev Teams - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
+#include "../common/showmsg.h"
+
 #include "luaengine.h"
 
 #include <stdio.h>
+#include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
 
 /*
 	Create our Lua environment. Each server has its own global Lua state.
 */
-int do_init_luaengine()
+void do_init_luaengine()
 {
-	L = lua_open();
+	L = luaL_newstate();
 	luaL_openlibs(L);
-	lua_rawset(L,LUA_GLOBALSINDEX);
 	load_script_commands();
-	return 0;
+	
+	if ( luaL_dofile(L,"script/map/script_main.lua") )
+		ShowError("%s\n", lua_tostring(L,-1));
+	
 }
 
 /*

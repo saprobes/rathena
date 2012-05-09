@@ -16,7 +16,7 @@ struct LuaCommandInfo {
 #define LUA_FUNC(x) static int buildin_ ## x (lua_State *NL)
 #define LUA_DEF(x) {#x, buildin_ ##x}
 
-int do_init_luaengine( void );
+void do_init_luaengine( void );
 void do_final_luaengine( void );
 void load_script_commands( void );
 

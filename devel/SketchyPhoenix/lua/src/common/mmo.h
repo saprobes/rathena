@@ -46,18 +46,9 @@
 // 20120307 - 2012-03-07aRagexeRE+ - 0x970
 
 #ifndef PACKETVER
-	#define PACKETVER 20111116
+	//#define PACKETVER 20111116
 	//#define PACKETVER	20100730
-#endif
-
-// backward compatible PACKETVER 8 and 9
-#if PACKETVER == 8
-#undef PACKETVER
-#define PACKETVER 20070521
-#endif
-#if PACKETVER == 9
-#undef PACKETVER
-#define PACKETVER 20071106
+	#define PACKETVER 20100707
 #endif
 
 //Remove/Comment this line to disable sc_data saving. [Skotlex]
@@ -66,16 +57,15 @@
 //Note that newer clients no longer save hotkeys in the registry!
 #define HOTKEY_SAVING
 
-//The number is the max number of hotkeys to save
 #if PACKETVER < 20090603
-	// (27 = 9 skills x 3 bars)               (0x02b9,191)
-	#define MAX_HOTKEYS 27
+        // (27 = 9 skills x 3 bars)               (0x02b9,191)
+        #define MAX_HOTKEYS 27
 #elif PACKETVER < 20090617
-	// (36 = 9 skills x 4 bars)               (0x07d9,254)
-	#define MAX_HOTKEYS 36
+        // (36 = 9 skills x 4 bars)               (0x07d9,254)
+        #define MAX_HOTKEYS 36
 #else
-	// (38 = 9 skills x 4 bars & 2 Quickslots)(0x07d9,268)
-	#define MAX_HOTKEYS 38
+        // (38 = 9 skills x 4 bars & 2 Quickslots)(0x07d9,268)
+        #define MAX_HOTKEYS 38
 #endif
 
 #define MAX_MAP_PER_SERVER 1500 // Increased to allow creation of Instance Maps
@@ -90,7 +80,7 @@
 #define MAX_ZENY 1000000000
 #define MAX_FAME 1000000000
 #define MAX_CART 100
-#define MAX_SKILL 2540
+#define MAX_SKILL 3040
 #define GLOBAL_REG_NUM 256
 #define ACCOUNT_REG_NUM 64
 #define ACCOUNT_REG2_NUM 16
@@ -165,6 +155,14 @@
 #define MAX_MERCSKILL 40
 #define MAX_MERCENARY_CLASS 44
 
+//Elemental System
+#define MAX_ELEMENTALSKILL 42
+#define EL_SKILLBASE 8401
+#define MAX_ELESKILLTREE 3
+#define MAX_ELEMENTAL_CLASS 12
+#define EL_CLASS_BASE 2114
+#define EL_CLASS_MAX (EL_CLASS_BASE+MAX_ELEMENTAL_CLASS-1)
+
 enum item_types {
 	IT_HEALING = 0,
 	IT_UNKNOWN, //1
@@ -178,7 +176,6 @@ enum item_types {
 	IT_UNKNOWN2,//9
 	IT_AMMO,    //10
 	IT_DELAYCONSUME,//11
-	IT_THROWWEAPON= 17,//17
 	IT_CASH = 18,
 	IT_MAX 
 };
@@ -303,6 +300,15 @@ struct s_mercenary {
 	unsigned int life_time;
 };
 
+struct s_elemental {
+	int elemental_id;
+	int char_id;
+	short class_;
+	int mode;
+	int hp, sp, max_hp, max_sp, str, agi, vit, int_, dex, luk;
+	int life_time;
+};
+
 struct s_friend {
 	int account_id;
 	int char_id;
@@ -335,7 +341,7 @@ struct mmo_charstatus {
 	short manner;
 	unsigned char karma;
 	short hair,hair_color,clothes_color;
-	int party_id,guild_id,pet_id,hom_id,mer_id;
+	int party_id,guild_id,pet_id,hom_id,mer_id,ele_id;
 	int fame;
 
 	// Mercenary Guilds Rank
@@ -650,27 +656,25 @@ enum {
 	JOB_STAR_GLADIATOR,
 	JOB_STAR_GLADIATOR2,
 	JOB_SOUL_LINKER,
-	/**
-	 * 3.1 (2.1)
-	 **/
+
+	JOB_GANGSI,
+	JOB_DEATH_KNIGHT,
+	JOB_DARK_COLLECTOR,
+
 	JOB_RUNE_KNIGHT = 4054,
 	JOB_WARLOCK,
 	JOB_RANGER,
 	JOB_ARCH_BISHOP,
 	JOB_MECHANIC,
 	JOB_GUILLOTINE_CROSS,
-	/**
-	 * 3.1 (2.1 Trans)
-	 **/
+
 	JOB_RUNE_KNIGHT_T,
 	JOB_WARLOCK_T,
 	JOB_RANGER_T,
 	JOB_ARCH_BISHOP_T,
 	JOB_MECHANIC_T,
 	JOB_GUILLOTINE_CROSS_T,
-	/**
-	 * 3.2 (2.2)
-	 **/
+
 	JOB_ROYAL_GUARD,
 	JOB_SORCERER,
 	JOB_MINSTREL,
@@ -678,9 +682,7 @@ enum {
 	JOB_SURA,
 	JOB_GENETIC,
 	JOB_SHADOW_CHASER,
-	/**
-	 * 3.2 (2.2 Trans)
-	 **/
+
 	JOB_ROYAL_GUARD_T,
 	JOB_SORCERER_T,
 	JOB_MINSTREL_T,
@@ -688,9 +690,7 @@ enum {
 	JOB_SURA_T,
 	JOB_GENETIC_T,
 	JOB_SHADOW_CHASER_T,
-	/**
-	 * 3.x Mounts / Vehicles
-	 **/
+
 	JOB_RUNE_KNIGHT2,
 	JOB_RUNE_KNIGHT_T2,
 	JOB_ROYAL_GUARD2,
@@ -699,6 +699,32 @@ enum {
 	JOB_RANGER_T2,
 	JOB_MECHANIC2,
 	JOB_MECHANIC_T2,
+
+	JOB_BABY_RUNE = 4096,
+	JOB_BABY_WARLOCK,
+	JOB_BABY_RANGER,
+	JOB_BABY_BISHOP,
+	JOB_BABY_MECHANIC,
+	JOB_BABY_CROSS,
+
+	JOB_BABY_GUARD,
+	JOB_BABY_SORCERER,
+	JOB_BABY_MINSTREL,
+	JOB_BABY_WANDERER,
+	JOB_BABY_SURA,
+	JOB_BABY_GENETIC,
+	JOB_BABY_CHASER,
+
+	JOB_BABY_RUNE2,
+	JOB_BABY_GUARD2,
+	JOB_BABY_RANGER2,
+	JOB_BABY_MECHANIC2,
+
+	JOB_SUPER_NOVICE_E = 4190,
+	JOB_SUPER_BABY_E,
+
+	JOB_KAGEROU = 4211,
+	JOB_OBORO,
 
 	JOB_MAX,
 };

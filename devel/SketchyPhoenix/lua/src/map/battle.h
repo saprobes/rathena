@@ -312,10 +312,7 @@ extern struct Battle_Config
 
 	int manner_system; // end additions [Valaris]
 	int show_mob_info; 
-
-	int agi_penalty_count_lv;
-	int vit_penalty_count_lv;
-
+	
 	int gx_allhit;
 	int gx_disptype;
 	int devotion_level_difference;
@@ -467,9 +464,15 @@ extern struct Battle_Config
 	int bg_magic_damage_rate;
 	int bg_misc_damage_rate;
 	int bg_flee_penalty;
+
 	// rAthena
 	int max_third_parameter;
+	int max_baby_third_parameter;
 	int atcommand_max_stat_bypass;
+
+	int mvp_tomb_enabled;
+	
+	int atcommand_suggestions_enabled;
 } battle_config;
 
 void do_init_battle(void);

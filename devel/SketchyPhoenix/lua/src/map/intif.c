@@ -13,6 +13,7 @@
 #include "clif.h"
 #include "pc.h"
 #include "intif.h"
+#include "log.h"
 #include "storage.h"
 #include "party.h"
 #include "guild.h"
@@ -20,6 +21,7 @@
 #include "atcommand.h"
 #include "mercenary.h"
 #include "homunculus.h"
+#include "elemental.h"
 #include "mail.h"
 #include "quest.h"
 
@@ -32,14 +34,14 @@
 
 
 static const int packet_len_table[]={
-	-1,-1,27,-1, -1, 0,37, 0,  0, 0, 0, 0,  0, 0,  0, 0, //0x3800-0x380f
+	-1,-1,27,-1, -1, 0,37, 522,  0, 0, 0, 0,  0, 0,  0, 0, //0x3800-0x380f
 	 0, 0, 0, 0,  0, 0, 0, 0, -1,11, 0, 0,  0, 0,  0, 0, //0x3810
 	39,-1,15,15, 14,19, 7,-1,  0, 0, 0, 0,  0, 0,  0, 0, //0x3820
 	10,-1,15, 0, 79,19, 7,-1,  0,-1,-1,-1, 14,67,186,-1, //0x3830
 	-1, 0, 0,14,  0, 0, 0, 0, -1,74,-1,11, 11,-1,  0, 0, //0x3840
 	-1,-1, 7, 7,  7,11, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0, //0x3850  Auctions [Zephyrus]
 	-1, 7, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0, //0x3860  Quests [Kevin] [Inkfish]
-	-1, 3, 3, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0, //0x3870  Mercenaries [Zephyrus]
+	-1, 3, 3, 0,  0, 0, 0, 0,  0, 0, 0, 0, -1, 3,  3, 0, //0x3870  Mercenaries [Zephyrus] / Elemental [pakpil]
 	11,-1, 7, 3,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0, //0x3880
 	-1,-1, 7, 3,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0, //0x3890  Homunculus [albator]
 };
@@ -189,6 +191,27 @@ int intif_broadcast2(const char* mes, int len, unsigned long fontColor, short fo
 	WFIFOW(inter_fd,14) = fontY;
 	memcpy(WFIFOP(inter_fd,16), mes, len);
 	WFIFOSET(inter_fd, WFIFOW(inter_fd,2));
+	return 0;
+}
+
+/// send a message using the main chat system
+/// <sd>         the source of message
+/// <message>    the message that was sent
+int intif_main_message(struct map_session_data* sd, const char* message)
+{
+	char output[256];
+
+	nullpo_ret(sd);
+
+	// format the message for main broadcasting
+	snprintf( output, sizeof(output), msg_txt(386), sd->status.name, message );
+
+	// send the message using the inter-server broadcast service
+	intif_broadcast2( output, strlen(output) + 1, 0xFE000000, 0, 0, 0, 0 );
+
+	// log the chat message
+	log_chat( LOG_CHAT_MAINCHAT, 0, sd->status.char_id, sd->status.account_id, mapindex_id2name(sd->mapindex), sd->bl.x, sd->bl.y, NULL, message );
+
 	return 0;
 }
 
@@ -1753,9 +1776,13 @@ static void intif_parse_Auction_register(int fd)
 	}
 	else
 	{
+		int zeny = auction.hours*battle_config.auction_feeperhour;
+
 		clif_Auction_message(sd->fd, 4);
 		pc_additem(sd, &auction.item, auction.item.amount, LOG_TYPE_AUCTION);
-		pc_getzeny(sd, auction.hours * battle_config.auction_feeperhour);
+
+		log_zeny(sd, LOG_TYPE_AUCTION, sd, zeny);
+		pc_getzeny(sd, zeny);
 	}
 }
 
@@ -1815,6 +1842,7 @@ static void intif_parse_Auction_close(int fd)
 	clif_Auction_close(sd->fd, result);
 	if( result == 0 )
 	{
+		// FIXME: Leeching off a parse function
 		clif_parse_Auction_cancelreg(fd, sd);
 		intif_Auction_requestlist(sd->status.char_id, 6, 0, "", 1);
 	}
@@ -1850,7 +1878,10 @@ static void intif_parse_Auction_bid(int fd)
 
 	clif_Auction_message(sd->fd, result);
 	if( bid > 0 )
+	{
+		log_zeny(sd, LOG_TYPE_AUCTION, sd, bid);
 		pc_getzeny(sd, bid);
+	}
 	if( result == 1 )
 	{ // To update the list, display your buy list
 		clif_parse_Auction_cancelreg(fd, sd);
@@ -1958,6 +1989,128 @@ int intif_parse_mercenary_saved(int fd)
 	return 0;
 }
 
+/*==========================================
+ * Elemental's System
+ *------------------------------------------*/
+int intif_elemental_create(struct s_elemental *ele)
+{
+	int size = sizeof(struct s_elemental) + 4;
+	
+	if( CheckForCharServer() )
+		return 0;
+	
+	WFIFOHEAD(inter_fd,size);
+	WFIFOW(inter_fd,0) = 0x307c;
+	WFIFOW(inter_fd,2) = size;
+	memcpy(WFIFOP(inter_fd,4), ele, sizeof(struct s_elemental));
+	WFIFOSET(inter_fd,size);
+	return 0;
+}
+
+int intif_parse_elemental_received(int fd)
+{
+	int len = RFIFOW(fd,2) - 5;
+	if( sizeof(struct s_elemental) != len )
+	{
+		if( battle_config.etc_log )
+			ShowError("intif: create elemental data size error %d != %d\n", sizeof(struct s_elemental), len);
+		return 0;
+	}
+	
+	elemental_data_received((struct s_elemental*)RFIFOP(fd,5), RFIFOB(fd,4));
+	return 0;
+}
+
+int intif_elemental_request(int ele_id, int char_id)
+{
+	if (CheckForCharServer())
+		return 0;
+	
+	WFIFOHEAD(inter_fd,10);
+	WFIFOW(inter_fd,0) = 0x307d;
+	WFIFOL(inter_fd,2) = ele_id;
+	WFIFOL(inter_fd,6) = char_id;
+	WFIFOSET(inter_fd,10);
+	return 0;
+}
+
+int intif_elemental_delete(int ele_id)
+{
+	if (CheckForCharServer())
+		return 0;
+	
+	WFIFOHEAD(inter_fd,6);
+	WFIFOW(inter_fd,0) = 0x307e;
+	WFIFOL(inter_fd,2) = ele_id;
+	WFIFOSET(inter_fd,6);
+	return 0;
+}
+
+int intif_parse_elemental_deleted(int fd)
+{
+	if( RFIFOB(fd,2) != 1 )
+		ShowError("Elemental data delete failure\n");
+	
+	return 0;
+}
+
+int intif_elemental_save(struct s_elemental *ele)
+{
+	int size = sizeof(struct s_elemental) + 4;
+	
+	if( CheckForCharServer() )
+		return 0;
+	
+	WFIFOHEAD(inter_fd,size);
+	WFIFOW(inter_fd,0) = 0x307f;
+	WFIFOW(inter_fd,2) = size;
+	memcpy(WFIFOP(inter_fd,4), ele, sizeof(struct s_elemental));
+	WFIFOSET(inter_fd,size);
+	return 0;
+}
+
+int intif_parse_elemental_saved(int fd)
+{
+	if( RFIFOB(fd,2) != 1 )
+		ShowError("Elemental data save failure\n");
+	
+	return 0;
+}
+
+void intif_request_accinfo( int u_fd, int aid, int group_id, char* query ) {
+
+
+	WFIFOHEAD(inter_fd,2 + 4 + 4 + 4 + NAME_LENGTH);
+	
+	WFIFOW(inter_fd,0) = 0x3007;
+	WFIFOL(inter_fd,2) = u_fd;
+	WFIFOL(inter_fd,6) = aid;
+	WFIFOL(inter_fd,10) = group_id;
+	safestrncpy(WFIFOP(inter_fd,14), query, NAME_LENGTH);
+	
+	WFIFOSET(inter_fd,2 + 4 + 4 + 4 + NAME_LENGTH);
+	
+	return;
+}
+	
+void intif_parse_MessageToFD(int fd) {
+	int u_fd = RFIFOL(fd,2);	
+
+	if( session[u_fd] && session[u_fd]->session_data ) {
+		int aid = RFIFOL(fd,6);
+		struct map_session_data * sd = session[u_fd]->session_data;
+		/* matching e.g. previous fd owner didn't dc during request or is still the same */
+		if( sd->bl.id == aid ) {
+			char msg[512];
+			safestrncpy(msg, (char*)RFIFOP(fd,10), 512);
+			clif_displaymessage(u_fd,msg);
+		}
+	
+	}
+	
+	return;
+}
+
 //-----------------------------------------------------------------
 // inter serverÇ©ÇÁÇÃí êM
 // ÉGÉâÅ[Ç™Ç†ÇÍÇŒ0(false)Çï‘Ç∑Ç±Ç∆
@@ -1996,6 +2149,7 @@ int intif_parse(int fd)
 	case 0x3803:	mapif_parse_WisToGM(fd); break;
 	case 0x3804:	intif_parse_Registers(fd); break;
 	case 0x3806:	intif_parse_ChangeNameOk(fd); break;
+	case 0x3807:	intif_parse_MessageToFD(fd); break;
 	case 0x3818:	intif_parse_LoadGuildStorage(fd); break;
 	case 0x3819:	intif_parse_SaveGuildStorage(fd); break;
 	case 0x3820:	intif_parse_PartyCreated(fd); break;
@@ -2046,7 +2200,11 @@ int intif_parse(int fd)
 	case 0x3870:	intif_parse_mercenary_received(fd); break;
 	case 0x3871:	intif_parse_mercenary_deleted(fd); break;
 	case 0x3872:	intif_parse_mercenary_saved(fd); break;
-
+// Elemental System
+	case 0x387c:	intif_parse_elemental_received(fd); break;
+	case 0x387d:	intif_parse_elemental_deleted(fd); break;
+	case 0x387e:	intif_parse_elemental_saved(fd); break;
+			
 	case 0x3880:	intif_parse_CreatePet(fd); break;
 	case 0x3881:	intif_parse_RecvPetData(fd); break;
 	case 0x3882:	intif_parse_SavePetOk(fd); break;

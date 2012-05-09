@@ -651,6 +651,40 @@ notable exception is Zeny, which you can and often will address directly -
 setting it will make the character own this number of zeny.
 If you try to set Zeny to a negative number, the script will be terminated with an error.
 
+Assigning variables
+--------- ---------
+
+As of rAthena revision 15982, variables can be accessed and assigned values directly
+without the use of the built-in 'set' function. This means that variables can be
+accessed and modified much like other programming languages.
+
+    @x = 100;
+    @x = @y = 100;
+
+Support for modifying variable values using 'set' is still supported (and required
+to exist for this new method to work) so previous scripts will continue to work.
+
+When assigning values, all operator methods are supported which exist in the below
+'Operators' section. For instance:
+
+    @x += 100;
+    @x -= 100;
+    @x *= 2;
+    @x /= 2;
+    @x %= 5;
+    @x >>= 2;
+    @x <<= 2;
+
+Will all work. For more information on available operators, see the Operators section
+described below. All operators listed there may be placed in-front of the '=' sign
+when modifying variables to perform the action as required.
+
+Note:
+
+ !! Currently the scripting engine does not support directly copying array variables.
+ !! In order to copy arrays between variables the use of 'copyarray' function is still
+ !! required.
+
 Strings
 -------
 
@@ -1471,6 +1505,26 @@ generally cleaner:
 		return 1;// it's odd
 	}
 
+Alternately, as of rAthena revision 15979 and 15981, user-defined functions
+may be called directly without the use of the 'callfunc' script command.
+
+	function<tab>script<tab>SayHello<tab>{
+		mes "Hello " + getarg(0);
+		return 0;
+	}
+
+	place,50,50,6<tab>script<tab>Man<tab>115,{
+		mes "[Man]";
+		SayHello strcharinfo(0);
+		close;
+	}
+
+Note:
+
+ !! A user-defined function must be declared /before/ a script attempts to
+ !! call it. That is to say, any functions should be placed above scripts or NPCs
+ !! (or loaded in a seperate file first) before attempting to call them directly.
+
 ---------------------------------------
 
 *callsub <label>{,<argument>,...<argument>};
@@ -2136,6 +2190,19 @@ print "player not attached!" error messages, so it is preferred to use
 "playerattached" to check for the character attached to the script.
 
 if( getcharid(2) == 0 ) mes "Only members of a guild are allowed here!";
+
+---------------------------------------
+
+*getnpcid(<type>{,"<npc name>"});
+
+Retrieves IDs of the currently invoked NPC. If a unique npc name is
+given, IDs of that NPC are retrieved instead. Type specifies what ID
+to retrieve and can be one of the following:
+
+    0 - Unit ID (GID)
+
+If an invalid type is given or the NPC does not exist, return value
+is 0.
 
 ---------------------------------------
 
@@ -3050,17 +3117,29 @@ It will return -1 if there is no such monster (or the type value is invalid),
 or "null" if you requested the monster's name.
 
 Valid types are listed in const.txt:
-	MOB_NAME	0		MOB_LV	1
-	MOB_MAXHP	2		MOB_BASEEXP	3
-	MOB_JOBEXP	4		MOB_ATK1	5
-	MOB_ATK2	6		MOB_DEF	7
-	MOB_MDEF	8		MOB_STR	9
-	MOB_AGI		10		MOB_VIT		11
-	MOB_INT		12		JOB_DEX		13
-	MOB_LUK		14		MOB_RANGE	15
-	MOB_RANGE2	16		MOB_RANGE3	17
-	MOB_SIZE	18		MOB_RACE	19
-	MOB_ELEMENT	20		MOB_MODE	21
+	MOB_NAME	0
+	MOB_LV	1
+	MOB_MAXHP	2
+	MOB_BASEEXP	3
+	MOB_JOBEXP	4
+	MOB_ATK1	5
+	MOB_ATK2	6
+	MOB_DEF	7
+	MOB_MDEF	8
+	MOB_STR	9
+	MOB_AGI	10
+	MOB_VIT	11
+	MOB_INT	12
+	MOB_DEX	13
+	MOB_LUK	14
+	MOB_RANGE	15
+	MOB_RANGE2	16
+	MOB_RANGE3	17
+	MOB_SIZE	18
+	MOB_RACE	19
+	MOB_ELEMENT	20
+	MOB_MODE	21
+	MOB_MVPEXP	22
 
 Check sample in nps\sample\getmonsterinfo.txt
 
@@ -3354,22 +3433,29 @@ bird and 0 if they don't.
 
 ---------------------------------------
 
-*checkvending ({"<player name>"})
-*checkchatting ({"<Player Name>"})
+*checkvending({"<player name>"})
+*checkchatting({"<Player Name>"})
 
-If the player's name is given, this command checks for that player
-to be online and wether he/she is chatting or vending.
-When no name is given, the attached player is used for checking.
-Returns true or false (1 or 0) when the player is chatting/vending or not.
+Checks if the player is vending or in a chatroom.
+Name is optional, and defaults to the attached player if omitted.
+
+Return values for 'checkvending' are
+  0 = not vending
+  1 = normal vending
+  2 = vending using @autotrade
+
+'checkchatting' returns 1 if they are in a chat room, 0 if they are not.
 
 Example(s):
-if (checkVending("Aaron")) mes "Aaron is currently vending!";	
 	//This will check if Aaron is vending, and if so, put a message in front
 	//of the attached player saying Aaron is vending.
+	if (checkvending("Aaron"))
+		mes "Aaron is currently vending!";
 
-if (checkChatting()) mes "You are currently chatting!";
-	//This will check if you're in a chat room or not
-	
+	//This will check if the attached player in a chat room or not.
+	if (checkchatting())
+		mes "You are currently in a chat room!";
+
 ---------------------------------------
 
 *agitcheck()
@@ -6244,10 +6330,10 @@ to query the server log tables.
 
 ---------------------------------------
 
-*escape_sql("<string>")
+*escape_sql(<value>)
 
-Escapes special characters in the string, so that it is safe to use in query_sql(), 
-and returns the escaped form of the given string.
+Converts the value to a string and escapes special characters so that it is safe to use in query_sql().
+Returns the escaped form of the given value.
 
 Example 1:
 	set .@str$, "John's Laptop";
@@ -6270,7 +6356,7 @@ Valid types are:
 
 Example:
 
-setiteminfo 7049,6,999; // Stone now weighs 999
+setiteminfo 7049,6,9990; // Stone now weighs 999.0
 
 ---------------------------------------
 
@@ -6327,6 +6413,240 @@ Example(s):
 
 This function will return 1 if the character number Position in the given string 
 is a letter, 0 if it isn't a letter but a digit or a space.
+
+---------------------------------------
+
+*charat(<string>,<index>)
+
+	Returns char at specified index. If index is out of range, 
+	returns empty string.
+	
+	Example:
+	
+	charat("This is a string", 10); //returns "s"
+	
+---------------------------------------
+	
+*setchar(<string>,<char>,<index>)
+
+	Returns the original string with the char at the specified
+	index set to the specified char. If index out of range, the
+	original string will be returned.
+	Only the 1st char in the <char> parameter will be used.
+	
+	Example:
+	
+	setchar("Cat", "B", 0); //returns "Bat"
+	
+---------------------------------------
+
+*insertchar(<string>,<char>,<index>)
+	
+	Returns the original string with the specified char inserted
+	at the specified index. If index is out of range, the char 
+	will be inserted on the end	of the string that it is closest.
+	Only the 1st char in the <char> parameter will be used.
+	
+	Example:
+	
+	setchar("laughter", "s", 0); //returns "slaughter"
+	
+---------------------------------------
+
+*delchar(<string>,<index>)
+
+	Returns the original string with the char at the specified index
+	removed. If index is out of range, original string will be returned.
+	
+	Example:
+	
+	delchar("Diet", 3); //returns "Die"
+	
+---------------------------------------
+
+*strtoupper(<string>)
+*strtolower(<string>)
+
+	Returns the specified string in it's uppercase/lowercase form.
+	All non-alpha characters will be preserved
+	
+	Example:
+	
+	strtoupper("The duck is blue!!"); //returns "THE DUCK IS BLUE!!"
+
+---------------------------------------
+
+*charisupper(<string>,<index>)
+*charislower(<string>,<index>)
+
+	Returns 1 if character at specified index of specified string is
+	uppercase/lowercase. Otherwise, 0. Characters not of the alphabelt
+	will return 0.
+
+	Example:
+	
+	charisupper("rAthena", 1); //returns 1
+	
+---------------------------------------
+
+*substr(<string>,<start_index>,<end_index>)
+	
+	Returns the sub-string of the specified string inclusively between
+	the set indexes.
+	If indexes are out of range, or the start index is after the end
+	index, an empty string will be returned.
+
+	Example:
+	
+	substr("foobar", 3, 5); //returns "bar"
+	
+---------------------------------------
+
+*explode(<dest_array>,<string>,<delimiter>)
+
+	Breaks a string up into substrings based on the specified delimiter.
+	Substrings will be stored within the specified string array.
+	Only the 1st char of the delimiter parameter will be used.
+	If an empty string is passed as a delimiter, the string will be placed
+	in the array in it's original form.
+	
+	Example:
+	
+	explode(.@my_array$, "Explode:Test:1965:red:PIE", ":");
+	//.@my_array$ contents will be...
+	//.@my_array$[0]: "Explode"
+	//.@my_array$[1]: "Test"
+	//.@my_array$[2]: "1965"
+	//.@my_array$[3]: "red"
+	//.@my_array$[4]: "PIE"
+	
+
+---------------------------------------
+
+*implode(<string_array>{,<glue>})
+
+	Combines all substrings within the specified string array into a single string.
+	If the glue parameter is specified, it will be inserted inbetween each substring.
+	
+	Example:
+	setarray .@my_array$[0], "This", "is", "a", "test";
+	implode(.@my_array$, " "); //returns "This is a test"
+
+---------------------------------------
+
+*sprintf(<format>[,param[,param[,...]]]) [Mirei]
+
+	C style sprintf. The resulting string is returned same as in PHP. All C format 
+	specifiers are supported except %n. More info: sprintf @ www.cplusplus.com. 
+	The number of params is only limited by eA's script engine.
+	
+	See thread: http://www.eathena.ws/board/index.php?showtopic=190410
+	
+	Example:
+	.@format$ = 'The %s contains %d monkeys';
+	dispbottom(sprintf(.@format$, "zoo", 5));        //prints "The zoo contains 5 monkeys"
+	dispbottom(sprintf(.@format$, "barrel", 82));    //prints "The barrel contains 82 monkeys"
+	
+---------------------------------------
+
+*sscanf(<string>,<format>[,param[,param[,...]]]) [Mirei]
+	
+	C style sscanf. All C format specifiers are supported. 
+	More info: sscanf @ www.cplusplus.com. The number of params is only limited 
+	by eA's script engine.
+	
+	See thread: http://www.eathena.ws/board/index.php?showtopic=191157
+	
+	Example:
+	sscanf("This is a test: 42 foobar", "This is a test: %d %s", .@num, .@str$);
+	dispbottom(.@num + " " + .@str$); //prints "42 foobar"
+	
+---------------------------------------
+
+*strpos(<haystack>,<needle>{,<offset>})
+
+	PHP style strpos. Finds a substring (needle) within a string (haystack).
+	The offset parameter indicates the index of the string to start searching.
+	Returns index of substring on successful search, else -1.
+	Comparison is case sensitive.
+	
+	Example:
+	strpos("foobar", "bar", 0); //returns 3
+	strpos("foobarfoo", "foo", 0); //returns 0
+	strpos("foobarfoo", "foo", 1); //returns 6
+	
+---------------------------------------
+
+*replacestr(<input>, <search>, <replace>{, <usecase>{, <count>}})
+
+	Replaces all instances of a search string in the input with the specified
+	replacement string. By default is case sensitive unless <usecase> is set
+	to 0. If specified it will only replace as many instances as specified
+	in the count parameter.
+	
+	Example:
+	replacestr("testing tester", "test", "dash"); //returns "dashing dasher"
+	replacestr("Donkey", "don", "mon", 0);	//returns "monkey"
+	replacestr("test test test test test", "yay", 0, 3); //returns "yay yay yay test test"
+	
+---------------------------------------
+
+*countstr(<input>, <search>{, <usecase>})
+	
+	Counts all instances of a search string in the input. By default is case
+	sensitive unless <usecase> is set to 0.
+	
+	Example:
+	countstr("test test test Test", "test"); //returns 3
+	countstr("cake Cake", "Cake", 0); //returns 2
+
+
+---------------------------------------
+
+*setfont <font>;
+
+This command sets the current RO client interface font to one of the
+fonts stored in data\*.eot by using an ID of the font. When the ID
+of the currently used font is used, default interface font is used
+again.
+
+    0 - Default
+    1 - RixLoveangel
+    2 - RixSquirrel
+    3 - NHCgogo
+    4 - RixDiary
+    5 - RixMiniHeart
+    6 - RixFreshman
+    7 - RixKid
+    8 - RixMagic
+    9 - RixJJangu
+
+---------------------------------------
+
+*showdigit <value>{,<type>};
+
+Displays given numeric 'value' in large digital clock font on top of
+the screen. The optional parameter 'type' specifies visual aspects
+of the "clock" and can be one of the following values:
+
+    0 - Displays the value for 5 seconds (default).
+    1 - Incremental counter (1 tick/second).
+    2 - Decremental counter (1 tick/second). Does not stop at zero,
+        but overflows.
+    3 - Decremental counter (1 tick/second). Two digits only, stops
+        at zero.
+
+For type 1 and 2 the start value is set by using negative number of
+the one intended to set (ex. -10 starts the counter at 10 seconds).
+Except for type 3 the value is interpreted as seconds and formatted
+as time in days, hours, minutes and seconds. Note, that the official
+script command does not have the optional parameter.
+
+    // displays 23:59:59 for 5 seconds
+    showdigit 86399;
+
+    // counter that starts at 60 and runs for 60 seconds
+    showdigit 60,3;
 
 ---------------------------------------
 

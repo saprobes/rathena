@@ -140,9 +140,9 @@ typedef enum emotion_type
 	E_FLASH,        // /fsh
 	E_SPIN,         // /spin
 	E_SIGH,
-	E_PROUD,        // /dum
+	E_DUM,          // /dum
 	E_LOUD,         // /crwd
-	E_OHNOES,       // /desp, /otl
+	E_OTL,          // /otl, /desp
 	E_DICE1,
 	E_DICE2,
 	E_DICE3,        // --- 60
@@ -150,15 +150,15 @@ typedef enum emotion_type
 	E_DICE5,
 	E_DICE6,
 	E_INDIA,
-	E_LOOSER,
+	E_LUV,          // /love
 	E_RUSSIA,
 	E_VIRGIN,
-	E_PHONE,
+	E_MOBILE,
 	E_MAIL,
 	E_CHINESE,      // --- 70
-	E_SIGNAL,
-	E_SIGNAL2,
-	E_SIGNAL3,
+	E_ANTENNA1,
+	E_ANTENNA2,
+	E_ANTENNA3,
 	E_HUM,
 	E_ABS,
 	E_OOPS,
@@ -429,7 +429,7 @@ void clif_skill_warppoint(struct map_session_data* sd, short skill_num, short sk
 void clif_skill_memomessage(struct map_session_data* sd, int type);
 void clif_skill_teleportmessage(struct map_session_data *sd, int type);
 void clif_skill_produce_mix_list(struct map_session_data *sd, int skillid, int trigger);
-void clif_cooking_list(struct map_session_data *sd, int trigger);
+void clif_cooking_list(struct map_session_data *sd, int trigger, int skill_id, int qty, int list_type);
 
 void clif_produceeffect(struct map_session_data* sd,int flag,int nameid);
 
@@ -714,33 +714,38 @@ void clif_search_store_info_click_ack(struct map_session_data* sd, short x, shor
  **/
 void clif_msgtable(int fd, int line);
 void clif_msgtable_num(int fd, int line, int num);
-/**
- * Elemental Converter List
- **/
+
 int clif_elementalconverter_list(struct map_session_data *sd);
-/**
- * Rune Knight
- **/
+
 void clif_millenniumshield(struct map_session_data *sd, short shields );
-/**
- * Warlock
- **/
+
 int clif_spellbook_list(struct map_session_data *sd);
-/**
- * Mechanic
- **/
+
 int clif_magicdecoy_list(struct map_session_data *sd, int skill_lv, short x, short y);
-/**
- * Guilotine Cross
- **/
+
 int clif_poison_list(struct map_session_data *sd, int skill_lv);
-/**
- * Shadow Chaser
- **/
+
 int clif_autoshadowspell_list(struct map_session_data *sd);
-/**
- * [RRInd] for the new mounts
- **/
+
 int clif_status_load_notick(struct block_list *bl,int type,int flag,int val1, int val2, int val3);
 int clif_status_load_single(int fd, int id,int type,int flag,int val1, int val2, int val3);
+
+
+int clif_skill_itemlistwindow( struct map_session_data *sd, int skill_id, int skill_lv );
+void clif_elemental_info(struct map_session_data *sd);
+void clif_elemental_updatestatus(struct map_session_data *sd, int type);
+
+/**
+ * Color Table
+ **/
+enum clif_colors {
+	COLOR_RED,
+
+	COLOR_MAX
+};
+unsigned long color_table[COLOR_MAX];
+int clif_colormes(struct map_session_data * sd, enum clif_colors color, const char* msg);
+
+#define clif_menuskill_clear(sd) (sd)->menuskill_id = (sd)->menuskill_val = (sd)->menuskill_val2 = 0;
+
 #endif /* _CLIF_H_ */

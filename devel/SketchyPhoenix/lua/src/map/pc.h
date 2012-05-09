@@ -117,7 +117,7 @@ struct map_session_data {
 		unsigned int rest : 1;
 		unsigned int storage_flag : 2; //0: closed, 1: Normal Storage open, 2: guild storage open [Skotlex]
 		unsigned int snovice_dead_flag : 1; //Explosion spirits on death: 0 off, 1 used.
-		unsigned int abra_flag : 1; // Abracadabra bugfix by Aru
+		unsigned int abra_flag : 2; // Abracadabra bugfix by Aru
 		unsigned int autocast : 1; // Autospell flag [Inkfish]
 		unsigned int autotrade : 1;	//By Fantik
 		unsigned int reg_dirty : 3; //By Skotlex (marks whether registry variables have been saved or not yet)
@@ -178,7 +178,7 @@ struct map_session_data {
 	struct item_data* inventory_data[MAX_INVENTORY]; // direct pointers to itemdb entries (faster than doing item_id lookups)
 	short equip_index[14];
 	unsigned int weight,max_weight;
-	int cart_weight,cart_num;
+	int cart_weight,cart_num,cart_weight_max;
 	int fd;
 	unsigned short mapindex;
 	unsigned char head_dir; //0: Look forward. 1: Look right, 2: Look left.
@@ -223,7 +223,7 @@ struct map_session_data {
 	short cook_mastery; // range: [0,1999] [Inkfish]
 	unsigned char blockskill[MAX_SKILL];
 	int cloneskill_id, reproduceskill_id;
-	int menuskill_id, menuskill_val;
+	int menuskill_id, menuskill_val, menuskill_val2;
 
 	int invincible_timer;
 	unsigned int canlog_tick;
@@ -236,7 +236,7 @@ struct map_session_data {
 	unsigned int ks_floodprotect_tick; // [Kill Steal Protection]
 	
 	struct {
-		int nameid;
+		short nameid;
 		unsigned int tick;
 	} item_delay[MAX_ITEMDELAYS]; // [Paradox924X]
 
@@ -395,6 +395,7 @@ struct map_session_data {
 	struct pet_data *pd;
 	struct homun_data *hd;	// [blackhole89]
 	struct mercenary_data *md;
+	struct elemental_data *ed;
 
 	struct{
 		int  m; //-1 - none, other: map index corresponding to map name.
@@ -492,8 +493,8 @@ struct map_session_data {
 };
 
 //Update this max as necessary. 55 is the value needed for Super Baby currently
-//Raised to 75 due to 3rds
-#define MAX_SKILL_TREE 75
+//Raised to 84 since Expanded Super Novice needs it.
+#define MAX_SKILL_TREE 84
 //Total number of classes (for data storage)
 #define CLASS_COUNT (JOB_MAX - JOB_NOVICE_HIGH + JOB_MAX_BASIC)
 
@@ -539,7 +540,9 @@ enum ammo_type {
 	A_SHELL,    //4
 	A_GRENADE,  //5
 	A_SHURIKEN, //6
-	A_KUNAI     //7
+	A_KUNAI,     //7
+	A_CANNONBALL,	//8
+	A_THROWWEAPON	//9
 };
 
 //Equip position constants
@@ -632,7 +635,7 @@ enum e_pc_permission {
 #define pc_isinvisible(sd)    ( (sd)->sc.option&OPTION_INVISIBLE )
 #define pc_is50overweight(sd) ( (sd)->weight*100 >= (sd)->max_weight*battle_config.natural_heal_weight_rate )
 #define pc_is90overweight(sd) ( (sd)->weight*10 >= (sd)->max_weight*9 )
-#define pc_maxparameter(sd)   ( (sd)->class_&JOBL_THIRD ? battle_config.max_third_parameter : (sd)->class_&JOBL_BABY ? battle_config.max_baby_parameter : battle_config.max_parameter )
+#define pc_maxparameter(sd)   ( ((((sd)->class_&MAPID_UPPERMASK) == MAPID_KAGEROUOBORO) || (sd)->class_&JOBL_THIRD ? ((sd)->class_&JOBL_BABY ? battle_config.max_baby_third_parameter : battle_config.max_third_parameter) : ((sd)->class_&JOBL_BABY ? battle_config.max_baby_parameter : battle_config.max_parameter)) )
 /** 
  * Ranger
  **/
@@ -648,18 +651,29 @@ enum e_pc_permission {
 //Checks if the given class value corresponds to a player class. [Skotlex]
 #define pcdb_checkid(class_) \
 ( \
-	( (class_) >= JOB_NOVICE      && (class_) <  JOB_MAX_BASIC   ) \
-||	( (class_) >= JOB_NOVICE_HIGH && (class_) <= JOB_SOUL_LINKER ) \
-||	( (class_) >= JOB_RUNE_KNIGHT && (class_) <  JOB_MAX         ) \
+	( (class_) >= JOB_NOVICE         && (class_) <  JOB_MAX_BASIC      ) \
+||	( (class_) >= JOB_NOVICE_HIGH    && (class_) <= JOB_DARK_COLLECTOR ) \
+||	( (class_) >= JOB_RUNE_KNIGHT    && (class_) <= JOB_MECHANIC_T2    ) \
+||	( (class_) >= JOB_BABY_RUNE      && (class_) <= JOB_BABY_MECHANIC2 ) \
+||	( (class_) >= JOB_SUPER_NOVICE_E && (class_) <= JOB_SUPER_BABY_E   ) \
+||	( (class_) >= JOB_KAGEROU        && (class_) <  JOB_MAX            ) \
 )
 
-// clientside atk display macros (values to the left/right of the "+")
-#if REMODE
-#define pc_leftside_atk(sd) ((sd)->battle_status.batk)
-#define pc_rightside_atk(sd) ((sd)->battle_status.rhw.atk + (sd)->battle_status.lhw.atk + (sd)->battle_status.rhw.atk2 + (sd)->battle_status.lhw.atk2)
+// clientside display macros (values to the left/right of the "+")
+#ifdef RENEWAL
+	#define pc_leftside_atk(sd) ((sd)->battle_status.batk)
+	#define pc_rightside_atk(sd) ((sd)->battle_status.rhw.atk + (sd)->battle_status.lhw.atk + (sd)->battle_status.rhw.atk2 + (sd)->battle_status.lhw.atk2)
+	#define pc_leftside_def(sd) ((sd)->battle_status.def2)
+	#define pc_rightside_def(sd) ((sd)->battle_status.def)
+	#define pc_leftside_mdef(sd) ( (sd)->battle_status.mdef2 - ((sd)->battle_status.vit>>1) )
+	#define pc_rightside_mdef(sd) ((sd)->battle_status.mdef)
 #else
-#define pc_leftside_atk(sd) ((sd)->battle_status.batk + (sd)->battle_status.rhw.atk + (sd)->battle_status.lhw.atk)
-#define pc_rightside_atk(sd) ((sd)->battle_status.rhw.atk2 + (sd)->battle_status.lhw.atk2)
+	#define pc_leftside_atk(sd) ((sd)->battle_status.batk + (sd)->battle_status.rhw.atk + (sd)->battle_status.lhw.atk)
+	#define pc_rightside_atk(sd) ((sd)->battle_status.rhw.atk2 + (sd)->battle_status.lhw.atk2)
+	#define pc_leftside_def(sd) ((sd)->battle_status.def)
+	#define pc_rightside_def(sd) ((sd)->battle_status.def2)	
+	#define pc_leftside_mdef(sd) ((sd)->battle_status.mdef)
+	#define pc_rightside_mdef(sd) ( (sd)->battle_status.mdef2 - ((sd)->battle_status.vit>>1) )
 #endif
 
 int pc_class2idx(int class_);
@@ -906,4 +920,8 @@ void pc_overheat(struct map_session_data *sd, int val);
  * Royal Guard
  **/
 int pc_banding(struct map_session_data *sd, short skill_lv);
+/**
+ * Item Cooldown persistency
+ **/
+void pc_itemcd_do(struct map_session_data *sd, bool load);
 #endif /* _PC_H_ */

@@ -42,6 +42,7 @@
 #include "homunculus.h"
 #include "instance.h"
 #include "mercenary.h"
+#include "elemental.h"
 #include "atcommand.h"
 #include "log.h"
 #include "luascript.h"
@@ -393,12 +394,17 @@ int map_moveblock(struct block_list *bl, int x1, int y1, unsigned int tick)
 
 	//TODO: Perhaps some outs of bounds checking should be placed here?
 	if (bl->type&BL_CHAR) {
+		sc = status_get_sc(bl);
+		
 		skill_unit_move(bl,tick,2);
 		status_change_end(bl, SC_CLOSECONFINE, INVALID_TIMER);
 		status_change_end(bl, SC_CLOSECONFINE2, INVALID_TIMER);
 //		status_change_end(bl, SC_BLADESTOP, INVALID_TIMER); //Won't stop when you are knocked away, go figure...
 		status_change_end(bl, SC_TATAMIGAESHI, INVALID_TIMER);
 		status_change_end(bl, SC_MAGICROD, INVALID_TIMER);
+		if (sc->data[SC_PROPERTYWALK] &&
+			sc->data[SC_PROPERTYWALK]->val3 >= skill_get_maxcount(sc->data[SC_PROPERTYWALK]->val1,sc->data[SC_PROPERTYWALK]->val2) )
+			status_change_end(bl,SC_PROPERTYWALK,INVALID_TIMER);
 	} else
 	if (bl->type == BL_NPC)
 		npc_unsetcells((TBL_NPC*)bl);
@@ -415,17 +421,50 @@ int map_moveblock(struct block_list *bl, int x1, int y1, unsigned int tick)
 #endif
 
 	if (bl->type&BL_CHAR) {
+
 		skill_unit_move(bl,tick,3);
-		sc = status_get_sc(bl);
+
+		if( bl->type == BL_PC && ((TBL_PC*)bl)->shadowform_id ) {//Shadow Form Target Moving
+			struct block_list *d_bl;
+			if( (d_bl = map_id2bl(((TBL_PC*)bl)->shadowform_id)) == NULL || bl->m != d_bl->m || !check_distance_bl(bl,d_bl,skill_get_range(SC_SHADOWFORM,1)) ) {
+				if( d_bl )
+					status_change_end(d_bl,SC__SHADOWFORM,INVALID_TIMER);
+				((TBL_PC*)bl)->shadowform_id = 0;
+			}
+		}
+
 		if (sc && sc->count) {
-			if (sc->data[SC_CLOAKING])
-				skill_check_cloaking(bl, sc->data[SC_CLOAKING]);
 			if (sc->data[SC_DANCING])
 				skill_unit_move_unit_group(skill_id2group(sc->data[SC_DANCING]->val2), bl->m, x1-x0, y1-y0);
-			if (sc->data[SC_WARM])
-				skill_unit_move_unit_group(skill_id2group(sc->data[SC_WARM]->val4), bl->m, x1-x0, y1-y0);
-			if (sc->data[SC_BANDING])
-				skill_unit_move_unit_group(skill_id2group(sc->data[SC_BANDING]->val4), bl->m, x1-x0, y1-y0);
+			else {
+				if (sc->data[SC_CLOAKING])
+					skill_check_cloaking(bl, sc->data[SC_CLOAKING]);
+				if (sc->data[SC_WARM])
+					skill_unit_move_unit_group(skill_id2group(sc->data[SC_WARM]->val4), bl->m, x1-x0, y1-y0);
+				if (sc->data[SC_BANDING])
+					skill_unit_move_unit_group(skill_id2group(sc->data[SC_BANDING]->val4), bl->m, x1-x0, y1-y0);
+				
+				if (sc->data[SC_NEUTRALBARRIER_MASTER])
+					skill_unit_move_unit_group(skill_id2group(sc->data[SC_NEUTRALBARRIER_MASTER]->val2), bl->m, x1-x0, y1-y0);
+				else if (sc->data[SC_STEALTHFIELD_MASTER])
+					skill_unit_move_unit_group(skill_id2group(sc->data[SC_STEALTHFIELD_MASTER]->val2), bl->m, x1-x0, y1-y0);
+				
+				if( sc->data[SC__SHADOWFORM] ) {//Shadow Form Caster Moving
+					struct block_list *d_bl;
+					if( (d_bl = map_id2bl(sc->data[SC__SHADOWFORM]->val2)) == NULL || bl->m != d_bl->m || !check_distance_bl(bl,d_bl,skill_get_range(SC_SHADOWFORM,1)) )
+						status_change_end(bl,SC__SHADOWFORM,INVALID_TIMER);	
+				}
+				
+				if (sc->data[SC_PROPERTYWALK]
+					&& sc->data[SC_PROPERTYWALK]->val3 < skill_get_maxcount(sc->data[SC_PROPERTYWALK]->val1,sc->data[SC_PROPERTYWALK]->val2)
+					&& map_find_skill_unit_oncell(bl,bl->x,bl->y,SO_ELECTRICWALK,NULL,0) == NULL
+					&& map_find_skill_unit_oncell(bl,bl->x,bl->y,SO_FIREWALK,NULL,0) == NULL
+					&& skill_unitsetting(bl,sc->data[SC_PROPERTYWALK]->val1,sc->data[SC_PROPERTYWALK]->val2,x0, y0,0)) {
+						sc->data[SC_PROPERTYWALK]->val3++;
+				}
+				
+				
+			}
 			/* Guild Aura Moving */
 			if( bl->type == BL_PC && ((TBL_PC*)bl)->state.gmaster_flag ) {
 				if (sc->data[SC_LEADERSHIP])
@@ -473,10 +512,10 @@ int map_count_oncell(int m, int x, int y, int type)
 	return count;
 }
 /*
- * ｫｻｫ・ｾｪﾎｪﾋﾌｸｪﾄｪｱｪｿｫｹｫｭｫ・讚ﾋｫﾃｫﾈｪ?
+ * Looks for a skill unit on a given cell
+ * flag&1: runs battle_check_target check based on unit->group->target_flag
  */
-struct skill_unit* map_find_skill_unit_oncell(struct block_list* target,int x,int y,int skill_id,struct skill_unit* out_unit)
-{
+struct skill_unit* map_find_skill_unit_oncell(struct block_list* target,int x,int y,int skill_id,struct skill_unit* out_unit, int flag) {
 	int m,bx,by;
 	struct block_list *bl;
 	struct skill_unit *unit;
@@ -496,7 +535,7 @@ struct skill_unit* map_find_skill_unit_oncell(struct block_list* target,int x,in
 		unit = (struct skill_unit *) bl;
 		if( unit == out_unit || !unit->alive || !unit->group || unit->group->skill_id != skill_id )
 			continue;
-		if( battle_check_target(&unit->bl,target,unit->group->target_flag) > 0 )
+		if( !(flag&1) || battle_check_target(&unit->bl,target,unit->group->target_flag) > 0 )
 			return unit;
 	}
 	return NULL;
@@ -1265,19 +1304,17 @@ int map_get_new_object_id(void)
 
 	// find a free id
 	i = last_object_id + 1;
-	while( i != last_object_id )
-	{
+	while( i != last_object_id ) {
 		if( i == MAX_FLOORITEM )
 			i = MIN_FLOORITEM;
 
-		if( idb_get(id_db, i) == NULL )
+		if( !idb_exists(id_db, i) )
 			break;
 
 		++i;
 	}
 
-	if( i == last_object_id )
-	{
+	if( i == last_object_id ) {
 		ShowError("map_addobject: no free object id!\n");
 		return 0;
 	}
@@ -1324,8 +1361,7 @@ int map_clearflooritem_timer(int tid, unsigned int tick, int id, intptr_t data)
  * to place an BL_ITEM object. Scan area is 9x9, returns 1 on success.
  * x and y are modified with the target cell when successful.
  *------------------------------------------*/
-int map_searchrandfreecell(int m,int *x,int *y,int stack)
-{
+int map_searchrandfreecell(int m,int *x,int *y,int stack) {
 	int free_cell,i,j;
 	int free_cells[9][2];
 
@@ -1335,7 +1371,7 @@ int map_searchrandfreecell(int m,int *x,int *y,int stack)
 		for(j=-1;j<=1;j++){
 			if(j+*x<0 || j+*x>=map[m].xs)
 				continue;
-			if(map_getcell(m,j+*x,i+*y,CELL_CHKNOPASS))
+			if(map_getcell(m,j+*x,i+*y,CELL_CHKNOPASS) && !map_getcell(m,j+*x,i+*y,CELL_CHKICEWALL))
 				continue;
 			//Avoid item stacking to prevent against exploits. [Skotlex]
 			if(stack && map_count_oncell(m,j+*x,i+*y, BL_ITEM) > stack)
@@ -1649,6 +1685,9 @@ int map_quit(struct map_session_data *sd)
 
 	if( sd->bg_id )
 		bg_team_leave(sd,1);
+
+	pc_itemcd_do(sd,false);
+
 	npc_script_event(sd, NPCE_LOGOUT);
 
 	//Unit_free handles clearing the player related data, 
@@ -1698,8 +1737,14 @@ int map_quit(struct map_session_data *sd)
 	
 	// Return loot to owner
 	if( sd->pd ) pet_lootitem_drop(sd->pd, sd);
+
 	if( sd->state.storage_flag == 1 ) sd->state.storage_flag = 0; // No need to Double Save Storage on Quit.
 
+	if( sd->ed ) {
+		elemental_clean_effect(sd->ed);
+		unit_remove_map(&sd->ed->bl,CLR_TELEPORT);
+	}
+	
 	unit_remove_map_pc(sd,CLR_TELEPORT);
 	
 	if( map[sd->bl.m].instance_id )
@@ -1847,12 +1892,17 @@ struct map_session_data * map_nick2sd(const char *nick)
 }
 
 /*==========================================
- * id番?の物を探す
- * 一三bjectの場合は配列を引くのみ
+ * Looksup id_db DBMap and returns BL pointer of 'id' or NULL if not found
  *------------------------------------------*/
-struct block_list * map_id2bl(int id)
-{
+struct block_list * map_id2bl(int id) {
 	return (struct block_list*)idb_get(id_db,id);
+}
+
+/**
+ * Same as map_id2bl except it only checks for its existence
+ **/
+bool map_blid_exists( int id ) {
+	return (idb_exists(id_db,id));
 }
 
 /*==========================================
@@ -2498,13 +2548,13 @@ int map_getcellp(struct map_data* m,int x,int y,cell_chk cellchk)
 		// base gat type checks
 		case CELL_CHKWALL:
 			return (!cell.walkable && !cell.shootable);
-			//return (map_cell2gat(cell) == 1);
+
 		case CELL_CHKWATER:
 			return (cell.water);
-			//return (map_cell2gat(cell) == 3);
+
 		case CELL_CHKCLIFF:
 			return (!cell.walkable && cell.shootable);
-			//return (map_cell2gat(cell) == 5);
+
 
 		// base cell type checks
 		case CELL_CHKNPC:
@@ -2521,6 +2571,8 @@ int map_getcellp(struct map_data* m,int x,int y,cell_chk cellchk)
 			return (cell.nochat);
 		case CELL_CHKMAELSTROM:
 			return (cell.maelstrom);
+		case CELL_CHKICEWALL:
+			return (cell.icewall);
 
 		// special checks
 		case CELL_CHKPASS:
@@ -2575,6 +2627,7 @@ void map_setcell(int m, int x, int y, cell_t cell, bool flag)
 		case CELL_NOVENDING:     map[m].cell[j].novending = flag;     break;
 		case CELL_NOCHAT:        map[m].cell[j].nochat = flag;        break;
 		case CELL_MAELSTROM:	 map[m].cell[j].maelstrom = flag;	  break;
+		case CELL_ICEWALL:		 map[m].cell[j].icewall = flag;		  break;
 		default:
 			ShowWarning("map_setcell: invalid cell type '%d'\n", (int)cell);
 			break;
@@ -3329,11 +3382,11 @@ int map_config_read(char *cfgName)
 		if (strcmpi(w1, "use_grf") == 0)
 			enable_grf = config_switch(w2);
 		else
-		if (strcmpi(w1, "import") == 0)
-			map_config_read(w2);
-		else
 		if (strcmpi(w1, "console_msg_log") == 0)
 			console_msg_log = atoi(w2);//[Ind]
+		else
+		if (strcmpi(w1, "import") == 0)
+			map_config_read(w2);
 		else
 			ShowWarning("Unknown setting '%s' in file %s\n", w1, cfgName);
 	}
@@ -3349,7 +3402,7 @@ int inter_config_read(char *cfgName)
 
 	fp=fopen(cfgName,"r");
 	if(fp==NULL){
-		ShowError("File not found: '%s'.\n",cfgName);
+		ShowError("File not found: %s\n",cfgName);
 		return 1;
 	}
 	while(fgets(line, sizeof(line), fp))
@@ -3520,7 +3573,7 @@ int cleanup_sub(struct block_list *bl, va_list ap)
 			map_quit((struct map_session_data *) bl);
 			break;
 		case BL_NPC:
-			npc_unload((struct npc_data *)bl);
+			npc_unload((struct npc_data *)bl,false);
 			break;
 		case BL_AREASCRIPT:
 			npc_areascript_unload((struct areascript_data *)bl);
@@ -3561,20 +3614,22 @@ void do_final(void)
 
 	ShowStatus("Terminating...\n");
 
+	//Ladies and babies first.
+	iter = mapit_getallusers();
+	for( sd = (TBL_PC*)mapit_first(iter); mapit_exists(iter); sd = (TBL_PC*)mapit_next(iter) )
+		map_quit(sd);
+	mapit_free(iter);
+	
+	/* prepares npcs for a faster shutdown process */
+	do_clear_npc();
+	
 	// remove all objects on maps
-	for (i = 0; i < map_num; i++)
-	{
+	for (i = 0; i < map_num; i++) {
 		ShowStatus("Cleaning up maps [%d/%d]: %s..."CL_CLL"\r", i+1, map_num, map[i].name);
 		if (map[i].m >= 0)
 			map_foreachinmap(cleanup_sub, i, BL_ALL);
 	}
 	ShowStatus("Cleaned up %d maps."CL_CLL"\n", map_num);
-
-	//Scan any remaining players (between maps?) to kick them out. [Skotlex]
-	iter = mapit_getallusers();
-	for( sd = (TBL_PC*)mapit_first(iter); mapit_exists(iter); sd = (TBL_PC*)mapit_next(iter) )
-		map_quit(sd);
-	mapit_free(iter);
 
 	id_db->foreach(id_db,cleanup_db_sub);
 	chrif_char_reset_offline();
@@ -3585,6 +3640,7 @@ void do_final(void)
 	do_final_chrif();
 	do_final_npc();
 	do_final_script();
+	do_final_luaengine();
 	do_final_instance();
 	do_final_itemdb();
 	do_final_storage();
@@ -3599,7 +3655,7 @@ void do_final(void)
 	do_final_unit();
 	do_final_battleground();
 	do_final_duel();
-	do_final_luaengine();
+	do_final_elemental();
 	
 	map_db->destroy(map_db, map_db_final);
 	
@@ -3845,7 +3901,7 @@ int do_init(int argc, char *argv[])
 	}
 
 	map_config_read(MAP_CONF_NAME);
-#if REMODE
+#ifdef RENEWAL
 	/**
 	 * to make pre-re conflict safe
 	 **/
@@ -3910,7 +3966,6 @@ int do_init(int argc, char *argv[])
 	do_init_chrif();
 	do_init_clif();
 	do_init_script();
-	do_init_luaengine();
 	do_init_itemdb();
 	do_init_skill();
 	do_init_mob();
@@ -3922,12 +3977,14 @@ int do_init(int argc, char *argv[])
 	do_init_pet();
 	do_init_merc();
 	do_init_mercenary();
+	do_init_elemental();
 	do_init_quest();
 	do_init_npc();
+	do_init_luaengine();
 	do_init_unit();
 	do_init_battleground();
 	do_init_duel();
-
+	
 	npc_event_do_oninit();	// npcのOnInitイベント?行
 
 	if( console )

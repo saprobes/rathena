@@ -11,7 +11,7 @@
 #include "../common/timer.h"
 #include "../common/utils.h"
 #include "../common/mmo.h"
-#include "../common/luaengine.h"
+#include "../common/luaengine.h"	
 
 #include "map.h"
 #include "path.h"
@@ -2088,7 +2088,7 @@ LUA_FUNC(cooking)
 	int trigger;
 	lua_get_target(2);
 	trigger=luaL_checkint(NL,1);
-	clif_cooking_list(sd, trigger);
+	clif_cooking_list(sd, trigger , AM_PHARMACY , 1 , 1 );
 	return 0;
 }
 
@@ -6661,6 +6661,38 @@ LUA_FUNC(scmd_flag)
 	return 0;
 }
 
+/*
+	Table containing a user registry is converted
+	into a struct to be sent to char-server for saving.
+*/
+LUA_FUNC(saveregistry)
+{
+	int i = 1;
+	
+	struct reg
+	{
+		char *key[MAX_REG_NUM];
+		char *value[MAX_REG_NUM];
+	} table;
+	
+	lua_pushnil( NL );
+	while( lua_next( NL , -3 ) != 0 )
+	{
+		table.key[i] = malloc( strlen( lua_tostring( NL , -2 ) ) + 1 );
+		table.value[i] = malloc( strlen( lua_tostring( NL , -1 ) ) + 1 );
+		lua_pop( NL , 1 );
+		i++;
+	}
+	lua_pop( NL , 1 );
+	
+	//intif_saveregistry( sd , table );
+	
+	free( table.key );
+	free( table.value );
+	
+	return 0;
+}
+
 //TODO: PCRE
 
 // List of commands to build into Lua, format : {"function_name_in_lua", C_function_name}
@@ -6958,6 +6990,7 @@ static struct LuaCommandInfo commands[] = {
 	LUA_DEF(progressbar),
 	LUA_DEF(callfunc),
 	LUA_DEF(scmd_flag),
+	LUA_DEF(saveregistry),
 	// End of build-in functions list
 	{"-End of list-", NULL},
 };

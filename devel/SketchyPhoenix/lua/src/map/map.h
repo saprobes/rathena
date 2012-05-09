@@ -13,7 +13,7 @@
 /**
  * [rAthena.org]
  **/
-#include "./config/Core.h"
+#include "./config/core.h"
 
 #include <stdarg.h>
 
@@ -65,13 +65,14 @@ enum E_MAPSERVER_ST
 #define JOBL_THIRD 0x4000 //16384
 
 //for filtering and quick checking.
-#define MAPID_UPPERMASK 0x0fff
 #define MAPID_BASEMASK 0x00ff
+#define MAPID_UPPERMASK 0x0fff
 #define MAPID_THIRDMASK (JOBL_THIRD|MAPID_UPPERMASK)
 //First Jobs
 //Note the oddity of the novice:
 //Super Novices are considered the 2-1 version of the novice! Novices are considered a first class type, too...
 enum {
+//Novice And 1-1 Jobs
 	MAPID_NOVICE = 0x0,
 	MAPID_SWORDMAN,
 	MAPID_MAGE,
@@ -85,7 +86,8 @@ enum {
 	MAPID_NINJA,
 	MAPID_XMAS,
 	MAPID_SUMMER,
-//2_1 classes
+	MAPID_GANGSI,
+//2-1 Jobs
 	MAPID_SUPER_NOVICE = JOBL_2_1|0x0,
 	MAPID_KNIGHT,
 	MAPID_WIZARD,
@@ -94,7 +96,9 @@ enum {
 	MAPID_BLACKSMITH,
 	MAPID_ASSASSIN,
 	MAPID_STAR_GLADIATOR,
-//2_2 classes
+	MAPID_KAGEROUOBORO = JOBL_2_1|0x0A,
+	MAPID_DEATH_KNIGHT = JOBL_2_1|0x0D,
+//2-2 Jobs
 	MAPID_CRUSADER = JOBL_2_2|0x1,
 	MAPID_SAGE,
 	MAPID_BARDDANCER,
@@ -102,7 +106,8 @@ enum {
 	MAPID_ALCHEMIST,
 	MAPID_ROGUE,
 	MAPID_SOUL_LINKER,
-//1-1, advanced
+	MAPID_DARK_COLLECTOR = JOBL_2_2|0x0D,
+//Trans Novice And Trans 1-1 Jobs
 	MAPID_NOVICE_HIGH = JOBL_UPPER|0x0,
 	MAPID_SWORDMAN_HIGH,
 	MAPID_MAGE_HIGH,
@@ -110,21 +115,21 @@ enum {
 	MAPID_ACOLYTE_HIGH,
 	MAPID_MERCHANT_HIGH,
 	MAPID_THIEF_HIGH,
-//2_1 advanced
+//Trans 2-1 Jobs
 	MAPID_LORD_KNIGHT = JOBL_UPPER|JOBL_2_1|0x1,
 	MAPID_HIGH_WIZARD,
 	MAPID_SNIPER,
 	MAPID_HIGH_PRIEST,
 	MAPID_WHITESMITH,
 	MAPID_ASSASSIN_CROSS,
-//2_2 advanced
+//Trans 2-2 Jobs
 	MAPID_PALADIN = JOBL_UPPER|JOBL_2_2|0x1,
 	MAPID_PROFESSOR,
 	MAPID_CLOWNGYPSY,
 	MAPID_CHAMPION,
 	MAPID_CREATOR,
 	MAPID_STALKER,
-//1-1 baby
+//Baby Novice And Baby 1-1 Jobs
 	MAPID_BABY = JOBL_BABY|0x0,
 	MAPID_BABY_SWORDMAN,
 	MAPID_BABY_MAGE,
@@ -132,8 +137,7 @@ enum {
 	MAPID_BABY_ACOLYTE,
 	MAPID_BABY_MERCHANT,
 	MAPID_BABY_THIEF,
-	MAPID_BABY_TAEKWON,
-//2_1 baby
+//Baby 2-1 Jobs
 	MAPID_SUPER_BABY = JOBL_BABY|JOBL_2_1|0x0,
 	MAPID_BABY_KNIGHT,
 	MAPID_BABY_WIZARD,
@@ -141,40 +145,57 @@ enum {
 	MAPID_BABY_PRIEST,
 	MAPID_BABY_BLACKSMITH,
 	MAPID_BABY_ASSASSIN,
-	MAPID_BABY_STAR_GLADIATOR,
-//2_2 baby
+//Baby 2-2 Jobs
 	MAPID_BABY_CRUSADER = JOBL_BABY|JOBL_2_2|0x1,
 	MAPID_BABY_SAGE,
 	MAPID_BABY_BARDDANCER,
 	MAPID_BABY_MONK,
 	MAPID_BABY_ALCHEMIST,
 	MAPID_BABY_ROGUE,
-	MAPID_BABY_SOUL_LINKER,
-	MAPID_RUNE_KNIGHT = JOBL_THIRD|JOBL_2_1|0x1,
+//3-1 Jobs
+	MAPID_SUPER_NOVICE_E = JOBL_THIRD|JOBL_2_1|0x0,
+	MAPID_RUNE_KNIGHT,
 	MAPID_WARLOCK,
 	MAPID_RANGER,
 	MAPID_ARCH_BISHOP,
 	MAPID_MECHANIC,
 	MAPID_GUILLOTINE_CROSS,
+//3-2 Jobs
 	MAPID_ROYAL_GUARD = JOBL_THIRD|JOBL_2_2|0x1,
 	MAPID_SORCERER,
 	MAPID_MINSTRELWANDERER,
 	MAPID_SURA,
 	MAPID_GENETIC,
 	MAPID_SHADOW_CHASER,
+//Trans 3-1 Jobs
 	MAPID_RUNE_KNIGHT_T = JOBL_THIRD|JOBL_UPPER|JOBL_2_1|0x1,
 	MAPID_WARLOCK_T,
 	MAPID_RANGER_T,
 	MAPID_ARCH_BISHOP_T,
 	MAPID_MECHANIC_T,
 	MAPID_GUILLOTINE_CROSS_T,
+//Trans 3-2 Jobs
 	MAPID_ROYAL_GUARD_T = JOBL_THIRD|JOBL_UPPER|JOBL_2_2|0x1,
 	MAPID_SORCERER_T,
 	MAPID_MINSTRELWANDERER_T,
 	MAPID_SURA_T,
 	MAPID_GENETIC_T,
 	MAPID_SHADOW_CHASER_T,
-
+//Baby 3-1 Jobs
+	MAPID_SUPER_BABY_E = JOBL_THIRD|JOBL_BABY|JOBL_2_1|0x0,
+	MAPID_BABY_RUNE,
+	MAPID_BABY_WARLOCK,
+	MAPID_BABY_RANGER,
+	MAPID_BABY_BISHOP,
+	MAPID_BABY_MECHANIC,
+	MAPID_BABY_CROSS,
+//Baby 3-2 Jobs
+	MAPID_BABY_GUARD = JOBL_THIRD|JOBL_BABY|JOBL_2_2|0x1,
+	MAPID_BABY_SORCERER,
+	MAPID_BABY_MINSTRELWANDERER,
+	MAPID_BABY_SURA,
+	MAPID_BABY_GENETIC,
+	MAPID_BABY_CHASER,
 };
 
 //Max size for inputs to Graffiti, Talkie Box and Vending text prompts
@@ -213,15 +234,17 @@ enum bl_type {
 	BL_SKILL = 0x040,
 	BL_NPC   = 0x080,
 	BL_CHAT  = 0x100,
-	BL_AREASCRIPT = 0x200,
+	BL_ELEM  = 0x200,
+	
+	BL_AREASCRIPT = 0x400,
 
 	BL_ALL   = 0xFFF,
 };
 
 //For common mapforeach calls. Since pets cannot be affected, they aren't included here yet.
-#define BL_CHAR (BL_PC|BL_MOB|BL_HOM|BL_MER)
+#define BL_CHAR (BL_PC|BL_MOB|BL_HOM|BL_MER|BL_ELEM)
 
-enum npc_subtype { WARP, SHOP, SCRIPT, CASHSHOP, LUA };
+enum npc_subtype { WARP, SHOP, SCRIPT, CASHSHOP, TOMB, LUA };
 
 enum {
 	RC_FORMLESS=0,
@@ -407,6 +430,7 @@ typedef enum {
 	CELL_NOVENDING,
 	CELL_NOCHAT,
 	CELL_MAELSTROM,
+	CELL_ICEWALL,
 
 } cell_t;
 
@@ -431,6 +455,7 @@ typedef enum {
 	CELL_CHKNOVENDING,
 	CELL_CHKNOCHAT,
 	CELL_CHKMAELSTROM,
+	CELL_CHKICEWALL,
 
 } cell_chk;
 
@@ -450,6 +475,7 @@ struct mapcell
 		novending : 1,
 		nochat : 1,
 		maelstrom : 1,
+		icewall : 1,
 		script : 1; //lua areascript npcs
 
 #ifdef CELL_NOSTACK
@@ -547,6 +573,13 @@ struct map_data {
 	int jexp;	// map experience multiplicator
 	int bexp;	// map experience multiplicator
 	int nocommand; //Blocks @/# commands for non-gms. [Skotlex]
+	/**
+	 * Ice wall reference counter for bugreport:3574
+	 * - since there are a thounsand mobs out there in a lot of maps checking on,
+	 * - every targetting for icewall on attack path would just be a waste, so,
+	 * - this counter allows icewall checking be only run when there is a actual ice wall on the map
+	 **/
+	int icewall_num;
 	// Instance Variables
 	int instance_id;
 	int instance_src_map;
@@ -609,7 +642,7 @@ int map_foreachinpath(int (*func)(struct block_list*,va_list), int m, int x0, in
 int map_foreachinmap(int (*func)(struct block_list*,va_list), int m, int type, ...);
 //blockŠÖ˜A‚É’Ç‰Á
 int map_count_oncell(int m,int x,int y,int type);
-struct skill_unit *map_find_skill_unit_oncell(struct block_list *,int x,int y,int skill_id,struct skill_unit *);
+struct skill_unit *map_find_skill_unit_oncell(struct block_list *,int x,int y,int skill_id,struct skill_unit *, int flag);
 // ˆêŽž“IobjectŠÖ˜A
 int map_get_new_object_id(void);
 int map_search_freecell(struct block_list *src, int m, short *x, short *y, int rx, int ry, int flag);
@@ -639,6 +672,7 @@ struct homun_data* map_id2hd(int id);
 struct mercenary_data* map_id2mc(int id);
 struct chat_data* map_id2cd(int id);
 struct block_list * map_id2bl(int id);
+bool map_blid_exists( int id );
 
 #define map_id2index(id) map[(id)].index
 int map_mapindex2mapid(unsigned short mapindex);
@@ -718,6 +752,7 @@ typedef struct skill_unit       TBL_SKILL;
 typedef struct pet_data         TBL_PET;
 typedef struct homun_data       TBL_HOM;
 typedef struct mercenary_data   TBL_MER;
+typedef struct elemental_data	TBL_ELEM;
 
 #define BL_CAST(type_, bl) \
 	( ((bl) == (struct block_list*)NULL || (bl)->type != (type_)) ? (T ## type_ *)NULL : (T ## type_ *)(bl) )

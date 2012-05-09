@@ -23,6 +23,7 @@
 #include "mob.h"
 #include "homunculus.h"
 #include "mercenary.h"
+#include "elemental.h"
 #include "guild.h"
 #include "itemdb.h"
 #include "skill.h"
@@ -125,6 +126,55 @@ static int mobdb_searchname_array_sub(struct mob_db* mob, const char *str)
 }
 
 /*==========================================
+ *              MvP Tomb [GreenBox]
+ *------------------------------------------*/
+void mvptomb_create(struct mob_data *md, char *killer, time_t time)
+{
+	struct npc_data *nd;
+
+	CREATE(nd, struct npc_data, 1);
+
+	nd->bl.id = md->tomb_nid = npc_get_new_npc_id();
+	
+    nd->ud.dir = md->ud.dir;
+	nd->bl.m = md->bl.m;
+	nd->bl.x = md->bl.x;
+	nd->bl.y = md->bl.y;
+	nd->bl.type = BL_NPC;
+	
+	safestrncpy(nd->name, msg_txt(656), sizeof(nd->name));
+
+	nd->class_ = 565;
+	nd->speed = 200;
+	nd->subtype = TOMB;
+
+	nd->u.tomb.md = md;
+	nd->u.tomb.kill_time = time;
+	
+	if (killer)
+		safestrncpy(nd->u.tomb.killer_name, killer, NAME_LENGTH);
+	else
+		nd->u.tomb.killer_name[0] = '\0';
+
+	map_addnpc(nd->bl.m, nd);
+	map_addblock(&nd->bl);
+	status_set_viewdata(&nd->bl, nd->class_);
+    status_change_init(&nd->bl);
+    unit_dataset(&nd->bl);
+    clif_spawn(&nd->bl);
+}
+
+void mvptomb_destroy(struct mob_data *md)
+{
+	struct npc_data *nd = (struct npc_data *)map_id2bl(md->tomb_nid);
+
+	if (nd)
+		npc_unload(nd,true);
+
+	md->tomb_nid = 0;
+}
+
+/*==========================================
  * Founds up to N matches. Returns number of matches [Skotlex]
  *------------------------------------------*/
 int mobdb_searchname_array(struct mob_db** data, int size, const char *str)
@@ -174,10 +224,10 @@ int mob_parse_dataset(struct spawn_data *data)
 
 	//FIXME: This implementation is not stable, npc scripts will stop working once MAX_MOB_DB changes value! [Skotlex]
 	if(data->class_ > 2*MAX_MOB_DB){ // large/tiny mobs [Valaris]
-		data->state.size=2;
+		data->state.size=SZ_BIG;
 		data->class_ -= 2*MAX_MOB_DB;
 	} else if (data->class_ > MAX_MOB_DB) {
-		data->state.size=1;
+		data->state.size=SZ_MEDIUM;
 		data->class_ -= MAX_MOB_DB;
 	}
 	
@@ -194,9 +244,9 @@ int mob_parse_dataset(struct spawn_data *data)
 		if( i )
 		{
 			if( i&2 )
-				data->state.size = 1;
+				data->state.size = SZ_MEDIUM;
 			else if( i&4 )
-				data->state.size = 2;
+				data->state.size = SZ_BIG;
 			if( i&8 )
 				data->state.ai = 1;
 		}
@@ -910,6 +960,7 @@ int mob_spawn (struct mob_data *md)
 	md->state.skillstate = MSS_IDLE;
 	md->next_walktime = tick+rnd()%5000+1000;
 	md->last_linktime = tick;
+	md->dmgtick = tick - 5000;
 	md->last_pcneartime = 0;
 
 	for (i = 0, c = tick-MOB_MAX_DELAY; i < MAX_MOBSKILL; i++)
@@ -925,8 +976,13 @@ int mob_spawn (struct mob_data *md)
 		// Added for carts, falcons and pecos for cloned monsters. [Valaris]
 		md->sc.option = md->db->option;
 
+	// MvP tomb [GreenBox]
+	if (md->tomb_nid)
+		mvptomb_destroy(md);
+
 	map_addblock(&md->bl);
-	clif_spawn(&md->bl);
+	if( map[md->bl.m].users )
+		clif_spawn(&md->bl);
 	skill_unit_move(&md->bl,tick,1);
 	mobskill_use(md, tick, MSC_SPAWN);
 	return 0;
@@ -1029,6 +1085,12 @@ static int mob_ai_sub_hard_activesearch(struct block_list *bl,va_list ap)
 			((*target) == NULL || !check_distance_bl(&md->bl, *target, dist)) &&
 			battle_check_range(&md->bl,bl,md->db->range2)
 		) { //Pick closest target?
+			if( map[bl->m].icewall_num &&
+				!path_search_long(NULL,bl->m,md->bl.x,md->bl.y,bl->x,bl->y,CELL_CHKICEWALL) ) {
+
+				if( !check_distance_bl(&md->bl, bl, status_get_range(&md->bl) ) )
+					return 0;
+			}
 			(*target) = bl;
 			md->target_id=bl->id;
 			md->min_chase= dist + md->db->range3;
@@ -1242,7 +1304,7 @@ int mob_unlocktarget(struct mob_data *md, unsigned int tick)
 	}
 	if (md->target_id) {
 		md->target_id=0;
-		md->ud.target = 0;
+		unit_set_target(&md->ud, 0);
 	}
 	return 0;
 }
@@ -1346,8 +1408,8 @@ static bool mob_ai_sub_hard(struct mob_data *md, unsigned int tick)
 		return false;
 
 	// Abnormalities
-	if(( md->sc.opt1 > 0 && md->sc.opt1 != OPT1_STONEWAIT && md->sc.opt1 != OPT1_BURNING ) || md->sc.data[SC_BLADESTOP])
-  	{	//Should reset targets.
+	if(( md->sc.opt1 > 0 && md->sc.opt1 != OPT1_STONEWAIT && md->sc.opt1 != OPT1_BURNING )
+	   || md->sc.data[SC_BLADESTOP] || md->sc.data[SC__MANHOLE] || md->sc.data[SC_CURSEDCIRCLE_TARGET]) {//Should reset targets.
 		md->target_id = md->attacked_id = 0;
 		return false;
 	}
@@ -1384,10 +1446,12 @@ static bool mob_ai_sub_hard(struct mob_data *md, unsigned int tick)
 		if( md->attacked_id == md->target_id )
 		{	//Rude attacked check.
 			if( !battle_check_range(&md->bl, tbl, md->status.rhw.range)
-			&&  ( //Can't attack back and can't reach back.
-			      (!can_move && DIFF_TICK(tick, md->ud.canmove_tick) > 0 && (battle_config.mob_ai&0x2 || (md->sc.data[SC_SPIDERWEB] && md->sc.data[SC_SPIDERWEB]->val1)))
-			      || !mob_can_reach(md, tbl, md->min_chase, MSS_RUSH)
-			    )
+			   &&  ( //Can't attack back and can't reach back.
+					(!can_move && DIFF_TICK(tick, md->ud.canmove_tick) > 0 && (battle_config.mob_ai&0x2 || (md->sc.data[SC_SPIDERWEB] && md->sc.data[SC_SPIDERWEB]->val1)
+					|| md->sc.data[SC_BITE] || md->sc.data[SC_VACUUM_EXTREME] || md->sc.data[SC_CRYSTALIZE] || md->sc.data[SC_THORNSTRAP]
+					|| md->sc.data[SC__MANHOLE])) // Not yet confirmed if boss will teleport once it can't reach target.
+					|| !mob_can_reach(md, tbl, md->min_chase, MSS_RUSH)
+					)
 			&&  md->state.attacked_count++ >= RUDE_ATTACKED_COUNT
 			&&  !mobskill_use(md, tick, MSC_RUDEATTACKED) // If can't rude Attack
 			&&  can_move && unit_escape(&md->bl, tbl, rnd()%10 +1)) // Attempt escape
@@ -1405,9 +1469,11 @@ static bool mob_ai_sub_hard(struct mob_data *md, unsigned int tick)
 				|| (battle_config.mob_ai&0x2 && !status_check_skilluse(&md->bl, abl, 0, 0)) // Cannot normal attack back to Attacker
 				|| (!battle_check_range(&md->bl, abl, md->status.rhw.range) // Not on Melee Range and ...
 				&& ( // Reach check
-					(!can_move && DIFF_TICK(tick, md->ud.canmove_tick) > 0 && (battle_config.mob_ai&0x2 || (md->sc.data[SC_SPIDERWEB] && md->sc.data[SC_SPIDERWEB]->val1)))
+					(!can_move && DIFF_TICK(tick, md->ud.canmove_tick) > 0 && (battle_config.mob_ai&0x2 || (md->sc.data[SC_SPIDERWEB] && md->sc.data[SC_SPIDERWEB]->val1)
+					|| md->sc.data[SC_BITE] || md->sc.data[SC_VACUUM_EXTREME] || md->sc.data[SC_CRYSTALIZE] || md->sc.data[SC_THORNSTRAP]
+					|| md->sc.data[SC__MANHOLE])) // Not yet confirmed if boss will teleport once it can't reach target.
 					|| !mob_can_reach(md, abl, dist+md->db->range3, MSS_RUSH)
-				)
+					)
 				) )
 			{ // Rude attacked
 				if (md->state.attacked_count++ >= RUDE_ATTACKED_COUNT
@@ -1899,6 +1965,15 @@ void mob_log_damage(struct mob_data *md, struct block_list *src, int damage)
 				md->attacked_id = src->id;
 			break;
 		}
+		case BL_ELEM:
+		{
+			struct elemental_data *ele = (TBL_ELEM*)src;
+			if( ele->master )
+				char_id = ele->master->status.char_id;
+			if( damage )
+				md->attacked_id = src->id;
+			break;
+		}			
 		default: //For all unhandled types.
 			md->attacked_id = src->id;
 	}
@@ -1954,12 +2029,14 @@ void mob_damage(struct mob_data *md, struct block_list *src, int damage)
 				md->state.skillstate = MSS_RUSH;
 		}
 		//Log damage
-		if (src) mob_log_damage(md, src, damage);
+		if (src)
+			mob_log_damage(md, src, damage);
+		md->dmgtick = gettick();
 	}
 
 	if (battle_config.show_mob_info&3)
 		clif_charnameack (0, &md->bl);
-	
+
 	if (!src)
 		return;
 	
@@ -2131,9 +2208,9 @@ int mob_dead(struct mob_data *md, struct block_list *src, int type)
 		}
 
 		// change experience for different sized monsters [Valaris]
-		if(md->special_state.size==1)
+		if(md->special_state.size==SZ_MEDIUM)
 			per /=2.;
-		else if(md->special_state.size==2)
+		else if(md->special_state.size==SZ_BIG)
 			per *=2.;
 
 		if( md->dmglog[i].flag == MDLF_PET )
@@ -2193,7 +2270,7 @@ int mob_dead(struct mob_data *md, struct block_list *src, int type)
 			if(base_exp || job_exp)
 			{
 				if( md->dmglog[i].flag != MDLF_PET || battle_config.pet_attack_exp_to_master ) {
-#if REMODE
+#ifdef RENEWAL_EXP
 				if(!md->db->mexp)
 					party_renewal_exp_mod(&base_exp,&job_exp,tmpsd[i]->status.base_level,md->level);
 #endif
@@ -2220,7 +2297,7 @@ int mob_dead(struct mob_data *md, struct block_list *src, int type)
 		struct item_drop *ditem;
 		struct item_data* it = NULL;
 		int drop_rate;
-#if RE_DROP_MOD
+#ifdef RENEWAL_DROP
 		int drop_modifier = mvp_sd ? party_renewal_drop_mod(mvp_sd->status.base_level - md->level) :
 							second_sd ? party_renewal_drop_mod(second_sd->status.base_level - md->level) :
 							third_sd ? party_renewal_drop_mod(third_sd->status.base_level - md->level) : 100;
@@ -2247,9 +2324,9 @@ int mob_dead(struct mob_data *md, struct block_list *src, int type)
 			}
 
 			// change drops depending on monsters size [Valaris]
-			if(md->special_state.size==1 && drop_rate >= 2)
+			if(md->special_state.size==SZ_MEDIUM && drop_rate >= 2)
 				drop_rate/=2;
-			else if(md->special_state.size==2)
+			else if(md->special_state.size==SZ_BIG)
 				drop_rate*=2;
 			if (src) {
 				//Drops affected by luk as a fixed increase [Valaris]
@@ -2266,7 +2343,7 @@ int mob_dead(struct mob_data *md, struct block_list *src, int type)
 			// Increase drop rate if user has SC_ITEMBOOST
 			if (sd && sd->sc.data[SC_ITEMBOOST]) // now rig the drop rate to never be over 90% unless it is originally >90%.
 				drop_rate = max(drop_rate,cap_value((int)(0.5+drop_rate*(sd->sc.data[SC_ITEMBOOST]->val1)/100.),0,9000));
-#if RE_DROP_MOD
+#ifdef RENEWAL_DROP
 			if(drop_modifier != 100 && !md->db->mexp)
 				drop_rate = drop_rate * drop_modifier / 100;
 #endif
@@ -2496,6 +2573,10 @@ int mob_dead(struct mob_data *md, struct block_list *src, int type)
 
 	if(!md->spawn) //Tell status_damage to remove it from memory.
 		return 5; // Note: Actually, it's 4. Oh well...
+
+	// MvP tomb [GreenBox]
+	if (battle_config.mvp_tomb_enabled && md->spawn->state.boss)
+		mvptomb_create(md, mvp_sd ? mvp_sd->status.name : NULL, time(NULL));
 
 	if( !rebirth )
 		mob_setdelayspawn(md); //Set respawning.
@@ -3013,11 +3094,11 @@ int mobskill_use(struct mob_data *md, unsigned int tick, int event)
 				case MSC_SLAVELT:		// slave < num
 					flag = (mob_countslave(&md->bl) < c2 ); break;
 				case MSC_ATTACKPCGT:	// attack pc > num
-					flag = (unit_counttargeted(&md->bl, 0) > c2); break;
+					flag = (unit_counttargeted(&md->bl) > c2); break;
 				case MSC_SLAVELE:		// slave <= num
 					flag = (mob_countslave(&md->bl) <= c2 ); break;
 				case MSC_ATTACKPCGE:	// attack pc >= num
-					flag = (unit_counttargeted(&md->bl, 0) >= c2); break;
+					flag = (unit_counttargeted(&md->bl) >= c2); break;
 				case MSC_AFTERSKILL:
 					flag = (md->ud.skillid == c2); break;
 				case MSC_RUDEATTACKED:
@@ -3027,7 +3108,7 @@ int mobskill_use(struct mob_data *md, unsigned int tick, int event)
 				case MSC_MASTERHPLTMAXRATE:
 					flag = ((fbl = mob_getmasterhpltmaxrate(md, ms[i].cond2)) != NULL); break;
 				case MSC_MASTERATTACKED:
-					flag = (md->master_id > 0 && (fbl=map_id2bl(md->master_id)) && unit_counttargeted(fbl, 0) > 0); break;
+					flag = (md->master_id > 0 && (fbl=map_id2bl(md->master_id)) && unit_counttargeted(fbl) > 0); break;
 				case MSC_ALCHEMIST:
 					flag = (md->state.alchemist);
 					break;
@@ -3759,7 +3840,7 @@ static void mob_readdb(void)
 			}
 		}
 
-		sv_readdb(db_path, filename[fi], ',', 31+2*MAX_MVP_DROP+2*MAX_MOB_DROP, 38+2*MAX_MVP_DROP+2*MAX_MOB_DROP, -1, &mob_readdb_sub);
+		sv_readdb(db_path, filename[fi], ',', 31+2*MAX_MVP_DROP+2*MAX_MOB_DROP, 31+2*MAX_MVP_DROP+2*MAX_MOB_DROP, -1, &mob_readdb_sub);
 	}
 }
 

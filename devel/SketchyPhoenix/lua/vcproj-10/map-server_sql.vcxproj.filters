@@ -170,6 +170,9 @@
     <ClCompile Include="..\src\map\luascript.c">
       <Filter>map_sql</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\map\elemental.c">
+      <Filter>map_sql</Filter>
+    </ClCompile>
     <ClCompile Include="..\src\common\luaengine.c">
       <Filter>common</Filter>
     </ClCompile>
@@ -360,6 +363,9 @@
     <ClInclude Include="..\src\map\config\Skills\Mage_Classes.h" />
     <ClInclude Include="..\src\map\config\Skills\Swordsman_Classes.h" />
     <ClInclude Include="..\src\map\luascript.h">
+      <Filter>map_sql</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\map\elemental.h">
       <Filter>map_sql</Filter>
     </ClInclude>
     <ClInclude Include="..\src\common\luaengine.h">

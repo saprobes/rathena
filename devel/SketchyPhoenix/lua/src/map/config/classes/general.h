@@ -1,5 +1,8 @@
-#ifndef _RRCONFIGS_SKILLS_GENERAL_
-#define _RRCONFIGS_SKILLS_GENERAL_
+// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
+// For more information, see LICENCE in the main folder
+#ifndef _CONFIG_GENERAL_H_
+#define _CONFIG_GENERAL_H_
+
 /**
  * rAthena configuration file (http://rathena.org)
  * For detailed guidance on these check http://rathena.org/wiki/SRC/map/config/
@@ -11,11 +14,11 @@
  * - When disabled damage depends on gears target is wearing, not caster.
  * @values 1 (enabled) or 0 (disabled)
  **/
-#define RR_MAGIC_REFLECTION 1
+#define MAGIC_REFLECTION_TYPE 1
 
 /**
  * No settings past this point
  **/
-#include "Mage_Classes.h"
-#include "Swordsman_Classes.h"
-#endif
+#include "swordsman.h"
+
+#endif // _CONFIG_GENERAL_H_

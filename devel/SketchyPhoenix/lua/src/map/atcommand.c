@@ -34,6 +34,7 @@
 #include "homunculus.h"
 #include "mail.h"
 #include "mercenary.h"
+#include "elemental.h"
 #include "party.h"
 #include "guild.h"
 #include "script.h"
@@ -50,6 +51,7 @@
 #define ATCOMMAND_LENGTH 50
 #define ACMD_FUNC(x) static int atcommand_ ## x (const int fd, struct map_session_data* sd, const char* command, const char* message)
 #define MAX_MSG 1000
+
 
 typedef struct AtCommandInfo AtCommandInfo;
 typedef struct AliasInfo AliasInfo;
@@ -78,6 +80,7 @@ static char atcmd_player_name[NAME_LENGTH];
 
 static AtCommandInfo* get_atcommandinfo_byname(const char *name); // @help
 static const char* atcommand_checkalias(const char *aliasname); // @help
+static void atcommand_get_suggestions(struct map_session_data* sd, const char *name, bool atcommand); // @help
 
 //-----------------------------------------------------------
 // Return the message string of the specified number by [Yor]
@@ -144,6 +147,39 @@ void do_final_msg(void)
 	int i;
 	for (i = 0; i < MAX_MSG; i++)
 		aFree(msg_table[i]);
+}
+
+/**
+ * retrieves the help string associated with a given command.
+ *
+ * @param name the name of the command to retrieve help information for
+ * @return the string associated with the command, or NULL
+ */
+static const char* atcommand_help_string(const char* name)
+{
+	const char* str = NULL;
+	config_setting_t* info;
+
+	if( *name == atcommand_symbol || *name == charcommand_symbol )
+	{// remove the prefix symbol for the raw name of the command
+		name ++;
+	}
+
+	// attept to find the first default help command
+	info = config_lookup(&atcommand_config, "help");
+
+	if( info == NULL )
+	{// failed to find the help property in the configuration file
+		return NULL;
+	}
+	
+	if( !config_setting_lookup_string( info, name, &str ) )
+	{// failed to find the matching help string
+		return NULL;
+	}
+
+	// push the result from the method
+	return str;
 }
 
 
@@ -868,8 +904,21 @@ ACMD_FUNC(option)
 	int param1 = 0, param2 = 0, param3 = 0;
 	nullpo_retr(-1, sd);
 
-	if (!message || !*message || sscanf(message, "%d %d %d", &param1, &param2, &param3) < 1 || param1 < 0 || param2 < 0 || param3 < 0) {
-		clif_displaymessage(fd, "Please, enter at least a option (usage: @option <param1:0+> <param2:0+> <param3:0+>).");
+	if (!message || !*message || sscanf(message, "%d %d %d", &param1, &param2, &param3) < 1 || param1 < 0 || param2 < 0 || param3 < 0)
+	{// failed to match the parameters so inform the user of the options
+		const char* text = NULL;
+
+		// attempt to find the setting information for this command
+		text = atcommand_help_string( command );
+
+		// notify the user of the requirement to enter an option
+		clif_displaymessage(fd, "Please, enter at least one option..");
+
+		if( text )
+		{// send the help text associated with this command
+			clif_displaymessage( fd, text );
+		}
+
 		return -1;
 	}
 
@@ -938,7 +987,9 @@ ACMD_FUNC(jobchange)
 		int i, found = 0;
 		const struct { char name[24]; int id; } jobs[] = {
 			{ "novice",		0 },
+			{ "swordman",	1 },
 			{ "swordsman",	1 },
+			{ "magician",	2 },
 			{ "mage",		2 },
 			{ "archer",		3 },
 			{ "acolyte",	4 },
@@ -963,8 +1014,11 @@ ACMD_FUNC(jobchange)
 			{ "gunslinger",	24 },
 			{ "gunner",	24 },
 			{ "ninja",	25 },
+			{ "novice high",	4001 },
 			{ "high novice",	4001 },
+			{ "swordman high",	4002 },
 			{ "swordsman high",	4002 },
+			{ "magician high",	4003 },
 			{ "mage high",		4003 },
 			{ "archer high",	4004 },
 			{ "acolyte high",	4005 },
@@ -985,7 +1039,9 @@ ACMD_FUNC(jobchange)
 			{ "clown",		4020 },
 			{ "gypsy",		4021 },
 			{ "baby novice",	4023 },
+			{ "baby swordman",	4024 },
 			{ "baby swordsman",	4024 },
+			{ "baby magician",	4025 },
 			{ "baby mage",		4025 },
 			{ "baby archer",	4026 },
 			{ "baby acolyte",	4027 },
@@ -1011,32 +1067,54 @@ ACMD_FUNC(jobchange)
 			{ "taekwon girl",	4046 },
 			{ "star gladiator",	4047 },
 			{ "soul linker",	4049 },
+			{ "gangsi",		4050 },
+			{ "bongun",		4050 },
+			{ "munak",		4050 },
+			{ "death knight",	4051 },
+			{ "dark collector",	4052 },
 			{ "rune knight",	4054 },
 			{ "warlock",		4055 },
-			{ "ranger",			4056 },
+			{ "ranger",		4056 },
 			{ "arch bishop",	4057 },
 			{ "mechanic",		4058 },
 			{ "guillotine",		4059 },
-			{ "rune knight (Trans)",	4060 },
-			{ "warlock (Trans)",		4061 },
-			{ "ranger (Trans)",		4062 },
-			{ "arch bishop (Trans)",	4063 },
-			{ "mechanic (Trans)",		4064 },
-			{ "guillotine (Trans)",	4065 },
+			{ "rune knight2",	4060 },
+			{ "warlock2",		4061 },
+			{ "ranger2",		4062 },
+			{ "arch bishop2",	4063 },
+			{ "mechanic2",		4064 },
+			{ "guillotine2",	4065 },
 			{ "royal guard",	4066 },
 			{ "sorcerer",		4067 },
 			{ "minstrel",		4068 },
 			{ "wanderer",		4069 },
-			{ "sura",			4070 },
+			{ "sura",		4070 },
 			{ "genetic",		4071 },
 			{ "shadow chaser",	4072 },
-			{ "royal guard (Trans)",	4073 },
-			{ "sorcerer (Trans)",		4074 },
-			{ "minstrel (Trans)",		4075 },
-			{ "wanderer (Trans)",		4076 },
-			{ "sura (Trans)",			4077 },
-			{ "genetic (Trans)",		4078 },
-			{ "shadow chaser (Trans)",	4079 },
+			{ "royal guard2",	4073 },
+			{ "sorcerer2",		4074 },
+			{ "minstrel2",		4075 },
+			{ "wanderer2",		4076 },
+			{ "sura2",		4077 },
+			{ "genetic2",		4078 },
+			{ "shadow chaser2",	4079 },
+			{ "baby rune",		4096 },
+			{ "baby warlock",	4097 },
+			{ "baby ranger",	4098 },
+			{ "baby bishop",	4099 },
+			{ "baby mechanic",	4100 },
+			{ "baby cross",		4101 },
+			{ "baby guard",		4102 },
+			{ "baby sorcerer",	4103 },
+			{ "baby minstrel",	4104 },
+			{ "baby wanderer",	4105 },
+			{ "baby sura",		4106 },
+			{ "baby genetic",	4107 },
+			{ "baby chaser",	4108 },
+			{ "super novice e",	4190 },
+			{ "super baby e",	4191 },
+			{ "kagerou",		4211 },
+			{ "oboro",		4212 },
 		};
 
 		for (i=0; i < ARRAYLENGTH(jobs); i++) {
@@ -1048,66 +1126,64 @@ ACMD_FUNC(jobchange)
 			}
 		}
 
+		// TODO: convert this to use atcommand_help_string()
 		if (!found) {
-			clif_displaymessage(fd, "Please, enter job ID (usage: @job/@jobchange <job name/ID>).");
+			clif_displaymessage(fd, "Please, enter a job ID (usage: @job/@jobchange <job name/ID>).");
 			clif_displaymessage(fd, "----- Novice / 1st Class -----");
-			clif_displaymessage(fd, "   0 Novice            1 Swordman          2 Mage              3 Archer");
-			clif_displaymessage(fd, "   4 Acolyte           5 Merchant          6 Thief");
+			clif_displaymessage(fd, "   0 Novice              1 Swordman            2 Magician            3 Archer");
+			clif_displaymessage(fd, "   4 Acolyte             5 Merchant            6 Thief");
 			clif_displaymessage(fd, "----- 2nd Class -----");
-			clif_displaymessage(fd, "   7 Knight            8 Priest            9 Wizard           10 Blacksmith");
-			clif_displaymessage(fd, "  11 Hunter           12 Assassin         14 Crusader         15 Monk");
-			clif_displaymessage(fd, "  16 Sage             17 Rogue            18 Alchemist        19 Bard");
+			clif_displaymessage(fd, "   7 Knight              8 Priest              9 Wizard             10 Blacksmith");
+			clif_displaymessage(fd, "  11 Hunter             12 Assassin           14 Crusader           15 Monk");
+			clif_displaymessage(fd, "  16 Sage               17 Rogue              18 Alchemist          19 Bard");
 			clif_displaymessage(fd, "  20 Dancer");
 			clif_displaymessage(fd, "----- High Novice / High 1st Class -----");
-			clif_displaymessage(fd, "4001 Novice High    4002 Swordman High  4003 Mage High      4004 Archer High");
-			clif_displaymessage(fd, "4005 Acolyte High   4006 Merchant High  4007 Thief High");
+			clif_displaymessage(fd, "4001 Novice High      4002 Swordman High    4003 Magician High    4004 Archer High");
+			clif_displaymessage(fd, "4005 Acolyte High     4006 Merchant High    4007 Thief High");
 			clif_displaymessage(fd, "----- Transcendent 2nd Class -----");
-			clif_displaymessage(fd, "4008 Lord Knight    4009 High Priest    4010 High Wizard    4011 Whitesmith");
-			clif_displaymessage(fd, "4012 Sniper         4013 Assassin Cross 4015 Paladin        4016 Champion");
-			clif_displaymessage(fd, "4017 Professor      4018 Stalker        4019 Creator        4020 Clown");
+			clif_displaymessage(fd, "4008 Lord Knight      4009 High Priest      4010 High Wizard      4011 Whitesmith");
+			clif_displaymessage(fd, "4012 Sniper           4013 Assassin Cross   4015 Paladin          4016 Champion");
+			clif_displaymessage(fd, "4017 Professor        4018 Stalker          4019 Creator          4020 Clown");
 			clif_displaymessage(fd, "4021 Gypsy");
-			clif_displaymessage(fd, "----- 3rd Class (Regular to 3rd) -----");
-			clif_displaymessage(fd, "4054 Rune Knight    4055 Warlock        4056 Ranger         4057 Arch Bishop");
-			clif_displaymessage(fd, "4058 Mechanic       4059 Guillotine Cross 4066 Royal Guard  4067 Sorcerer");
-			clif_displaymessage(fd, "4068 Minstrel       4069 Wanderer       4070 Sura           4071 Genetic");
+			clif_displaymessage(fd, "----- 3rd Class (Regular) -----");
+			clif_displaymessage(fd, "4054 Rune Knight      4055 Warlock          4056 Ranger           4057 Arch Bishop");
+			clif_displaymessage(fd, "4058 Mechanic         4059 Guillotine Cross 4066 Royal Guard      4067 Sorcerer");
+			clif_displaymessage(fd, "4068 Minstrel         4069 Wanderer         4070 Sura             4071 Genetic");
 			clif_displaymessage(fd, "4072 Shadow Chaser");
-			clif_displaymessage(fd, "----- 3rd Class (Transcendent to 3rd) -----");
-			clif_displaymessage(fd, "4060 Rune Knight    4061 Warlock        4062 Ranger         4063 Arch Bishop");
-			clif_displaymessage(fd, "4064 Mechanic       4065 Guillotine Cross 4073 Royal Guard  4074 Sorcerer");
-			clif_displaymessage(fd, "4075 Minstrel       4076 Wanderer       4077 Sura           4078 Genetic");
+			clif_displaymessage(fd, "----- 3rd Class (Transcendent) -----");
+			clif_displaymessage(fd, "4060 Rune Knight      4061 Warlock          4062 Ranger           4063 Arch Bishop");
+			clif_displaymessage(fd, "4064 Mechanic         4065 Guillotine Cross 4073 Royal Guard      4074 Sorcerer");
+			clif_displaymessage(fd, "4075 Minstrel         4076 Wanderer         4077 Sura             4078 Genetic");
 			clif_displaymessage(fd, "4079 Shadow Chaser");
 			clif_displaymessage(fd, "----- Expanded Class -----");
-			clif_displaymessage(fd, "  23 Super Novice     24 Gunslinger       25 Ninja            26 Xmas");
-			clif_displaymessage(fd, "  27 Summer         4046 Taekwon        4047 Star Gladiator 4049 Soul Linker");
-			//clif_displaymessage(fd, "4050 Gangsi         4051 Death Knight   4052 Dark Collector");
-			clif_displaymessage(fd, "---- 1st And 2nd Baby Class ----");
-			clif_displaymessage(fd, "4023 Baby Novice    4024 Baby Swordsman 4025 Baby Mage      4026 Baby Archer");
-			clif_displaymessage(fd, "4027 Baby Acolyte   4028 Baby Merchant  4029 Baby Thief     4030 Baby Knight");
-			clif_displaymessage(fd, "4031 Baby Priest    4032 Baby Wizard    4033 Baby Blacksmith 4034 Baby Hunter");
-			clif_displaymessage(fd, "4035 Baby Assassin  4037 Baby Crusader  4038 Baby Monk      4039 Baby Sage");
-			clif_displaymessage(fd, "4040 Baby Rogue     4041 Baby Alchemist 4042 Baby Bard      4043 Baby Dancer");
-			clif_displaymessage(fd, "4045 Super Baby");
-			//clif_displaymessage(fd, "---- 3rd Baby Class ----");
-			//clif_displaymessage(fd, "4096 Baby Rune Knight    4097 Baby Warlock        4098 Baby Ranger");
-			//clif_displaymessage(fd, "4099 Baby Arch Bishop    4100 Baby Mechanic       4101 Baby Guillotine Cross");
-			//clif_displaymessage(fd, "4102 Baby Royal Guard    4103 Baby Sorcerer       4104 Baby Minstrel");
-			//clif_displaymessage(fd, "4105 Baby Wanderer       4106 Baby Sura           4107 Baby Genetic");
-			//clif_displaymessage(fd, "4108 Baby Shadow Chaser");
-			//clif_displaymessage(fd, "---- Mounts, Modes, And Others ----");
-			//clif_displaymessage(fd, "  13 Knight (Peco)    21 Crusader (Peco)  22 Wedding          26 Christmas");
-			//clif_displaymessage(fd, "  27 Summer 4014 Lord Knight (Peco) 4022 Paladin (Peco)  4036 Baby Knight (Peco)");
-			//clif_displaymessage(fd, "4044 Baby Crusader (Peco) 4048 Star Gladiator (Union) 4080 Rune Knight (Dragon)");
-			//clif_displaymessage(fd, "4081 Rune Knight Trans (Dragon) 4082 Royal Guard (Gryphon)");
-			//clif_displaymessage(fd, "4083 Royal Guard Trans (Gryphon) 4084 Ranger (Warg) 4085 Ranger Trans (Warg)");
-			//clif_displaymessage(fd, "4086 Mechanic (Mado) 4087 Mechanic Trans (Mado)");
+			clif_displaymessage(fd, "  23 Super Novice       24 Gunslinger         25 Ninja            4045 Super Baby");
+			clif_displaymessage(fd, "4046 Taekwon          4047 Star Gladiator   4049 Soul Linker      4050 Gangsi");
+			clif_displaymessage(fd, "4051 Death Knight     4052 Dark Collector   4190 Ex. Super Novice 4191 Ex. Super Baby");
+			clif_displaymessage(fd, "4211 Kagerou          4212 Oboro");
+			clif_displaymessage(fd, "----- Baby Novice And Baby 1st Class -----");
+			clif_displaymessage(fd, "4023 Baby Novice      4024 Baby Swordman    4025 Baby Magician    4026 Baby Archer");
+			clif_displaymessage(fd, "4027 Baby Acolyte     4028 Baby Merchant    4029 Baby Thief");
+			clif_displaymessage(fd, "---- Baby 2nd Class ----");
+			clif_displaymessage(fd, "4030 Baby Knight      4031 Baby Priest      4032 Baby Wizard      4033 Baby Blacksmith");
+			clif_displaymessage(fd, "4034 Baby Hunter      4035 Baby Assassin    4037 Baby Crusader    4038 Baby Monk");
+			clif_displaymessage(fd, "4039 Baby Sage        4040 Baby Rogue       4041 Baby Alchemist   4042 Baby Bard");
+			clif_displaymessage(fd, "4043 Baby Dancer");
+			clif_displaymessage(fd, "---- Baby 3rd Class ----");
+			clif_displaymessage(fd, "4096 Baby Rune Knight 4097 Baby Warlock     4098 Baby Ranger      4099 Baby Arch Bishop");
+			clif_displaymessage(fd, "4100 Baby Mechanic    4101 Baby Glt. Cross  4102 Baby Royal Guard 4103 Baby Sorcerer");
+			clif_displaymessage(fd, "4104 Baby Minstrel    4105 Baby Wanderer    4106 Baby Sura        4107 Baby Genetic");
+			clif_displaymessage(fd, "4108 Baby Shadow Chaser");
+			//clif_displaymessage(fd, "---- Modes And Others ----");
+			//clif_displaymessage(fd, "  22 Wedding            26 Christmas          27 Summer           4048 Star Gladiator (Union)");
 			return -1;
 		}
 	}
 
-	if (job == 13 || job == 21 || job == 22 || job == 26 || job == 27
-		|| job == 4014 || job == 4022 || job == 4036 || job == 4044 || job == 4048
+	if (job == 13 || job == 21 || job == 22 || job == 26 || job == 27 || job == 4014 || job == 4022 || job == 4036 || job == 4044 || job == 4048
+		 || (job >= JOB_RUNE_KNIGHT2 && job <= JOB_MECHANIC_T2) || (job >= JOB_BABY_RUNE2 && job <= JOB_BABY_MECHANIC2)
 	) // Deny direct transformation into dummy jobs
-		return 0;
+		{clif_displaymessage(fd, "You can not change to this job by command.");
+		return 0;}
 
 	if (pcdb_checkid(job))
 	{
@@ -1118,57 +1194,54 @@ ACMD_FUNC(jobchange)
 			return -1;
 		}
 	} else {
-		clif_displaymessage(fd, "Please, enter job ID (usage: @job/@jobchange <job name/ID>).");
+			// TODO: convert this to use atcommand_help_string()
+			clif_displaymessage(fd, "Please enter a valid job ID (usage: @job/@jobchange <job name/ID>).");
 			clif_displaymessage(fd, "----- Novice / 1st Class -----");
-			clif_displaymessage(fd, "   0 Novice            1 Swordman          2 Mage              3 Archer");
-			clif_displaymessage(fd, "   4 Acolyte           5 Merchant          6 Thief");
+			clif_displaymessage(fd, "   0 Novice              1 Swordman            2 Magician            3 Archer");
+			clif_displaymessage(fd, "   4 Acolyte             5 Merchant            6 Thief");
 			clif_displaymessage(fd, "----- 2nd Class -----");
-			clif_displaymessage(fd, "   7 Knight            8 Priest            9 Wizard           10 Blacksmith");
-			clif_displaymessage(fd, "  11 Hunter           12 Assassin         14 Crusader         15 Monk");
-			clif_displaymessage(fd, "  16 Sage             17 Rogue            18 Alchemist        19 Bard");
+			clif_displaymessage(fd, "   7 Knight              8 Priest              9 Wizard             10 Blacksmith");
+			clif_displaymessage(fd, "  11 Hunter             12 Assassin           14 Crusader           15 Monk");
+			clif_displaymessage(fd, "  16 Sage               17 Rogue              18 Alchemist          19 Bard");
 			clif_displaymessage(fd, "  20 Dancer");
 			clif_displaymessage(fd, "----- High Novice / High 1st Class -----");
-			clif_displaymessage(fd, "4001 Novice High    4002 Swordman High  4003 Mage High      4004 Archer High");
-			clif_displaymessage(fd, "4005 Acolyte High   4006 Merchant High  4007 Thief High");
+			clif_displaymessage(fd, "4001 Novice High      4002 Swordman High    4003 Magician High    4004 Archer High");
+			clif_displaymessage(fd, "4005 Acolyte High     4006 Merchant High    4007 Thief High");
 			clif_displaymessage(fd, "----- Transcendent 2nd Class -----");
-			clif_displaymessage(fd, "4008 Lord Knight    4009 High Priest    4010 High Wizard    4011 Whitesmith");
-			clif_displaymessage(fd, "4012 Sniper         4013 Assassin Cross 4015 Paladin        4016 Champion");
-			clif_displaymessage(fd, "4017 Professor      4018 Stalker        4019 Creator        4020 Clown");
+			clif_displaymessage(fd, "4008 Lord Knight      4009 High Priest      4010 High Wizard      4011 Whitesmith");
+			clif_displaymessage(fd, "4012 Sniper           4013 Assassin Cross   4015 Paladin          4016 Champion");
+			clif_displaymessage(fd, "4017 Professor        4018 Stalker          4019 Creator          4020 Clown");
 			clif_displaymessage(fd, "4021 Gypsy");
-			clif_displaymessage(fd, "----- 3rd Class (Regular to 3rd) -----");
-			clif_displaymessage(fd, "4054 Rune Knight    4055 Warlock        4056 Ranger         4057 Arch Bishop");
-			clif_displaymessage(fd, "4058 Mechanic       4059 Guillotine Cross 4066 Royal Guard  4067 Sorcerer");
-			clif_displaymessage(fd, "4068 Minstrel       4069 Wanderer       4070 Sura           4071 Genetic");
+			clif_displaymessage(fd, "----- 3rd Class (Regular) -----");
+			clif_displaymessage(fd, "4054 Rune Knight      4055 Warlock          4056 Ranger           4057 Arch Bishop");
+			clif_displaymessage(fd, "4058 Mechanic         4059 Guillotine Cross 4066 Royal Guard      4067 Sorcerer");
+			clif_displaymessage(fd, "4068 Minstrel         4069 Wanderer         4070 Sura             4071 Genetic");
 			clif_displaymessage(fd, "4072 Shadow Chaser");
-			clif_displaymessage(fd, "----- 3rd Class (Transcendent to 3rd) -----");
-			clif_displaymessage(fd, "4060 Rune Knight    4061 Warlock        4062 Ranger         4063 Arch Bishop");
-			clif_displaymessage(fd, "4064 Mechanic       4065 Guillotine Cross 4073 Royal Guard  4074 Sorcerer");
-			clif_displaymessage(fd, "4075 Minstrel       4076 Wanderer       4077 Sura           4078 Genetic");
+			clif_displaymessage(fd, "----- 3rd Class (Transcendent) -----");
+			clif_displaymessage(fd, "4060 Rune Knight      4061 Warlock          4062 Ranger           4063 Arch Bishop");
+			clif_displaymessage(fd, "4064 Mechanic         4065 Guillotine Cross 4073 Royal Guard      4074 Sorcerer");
+			clif_displaymessage(fd, "4075 Minstrel         4076 Wanderer         4077 Sura             4078 Genetic");
 			clif_displaymessage(fd, "4079 Shadow Chaser");
 			clif_displaymessage(fd, "----- Expanded Class -----");
-			clif_displaymessage(fd, "  23 Super Novice     24 Gunslinger       25 Ninja            26 Xmas");
-			clif_displaymessage(fd, "  27 Summer         4046 Taekwon        4047 Star Gladiator 4049 Soul Linker");
-			//clif_displaymessage(fd, "4050 Gangsi         4051 Death Knight   4052 Dark Collector");
-			clif_displaymessage(fd, "---- 1st And 2nd Baby Class ----");
-			clif_displaymessage(fd, "4023 Baby Novice    4024 Baby Swordsman 4025 Baby Mage      4026 Baby Archer");
-			clif_displaymessage(fd, "4027 Baby Acolyte   4028 Baby Merchant  4029 Baby Thief     4030 Baby Knight");
-			clif_displaymessage(fd, "4031 Baby Priest    4032 Baby Wizard    4033 Baby Blacksmith 4034 Baby Hunter");
-			clif_displaymessage(fd, "4035 Baby Assassin  4037 Baby Crusader  4038 Baby Monk      4039 Baby Sage");
-			clif_displaymessage(fd, "4040 Baby Rogue     4041 Baby Alchemist 4042 Baby Bard      4043 Baby Dancer");
-			clif_displaymessage(fd, "4045 Super Baby");
-			//clif_displaymessage(fd, "---- 3rd Baby Class ----");
-			//clif_displaymessage(fd, "4096 Baby Rune Knight    4097 Baby Warlock        4098 Baby Ranger");
-			//clif_displaymessage(fd, "4099 Baby Arch Bishop    4100 Baby Mechanic       4101 Baby Guillotine Cross");
-			//clif_displaymessage(fd, "4102 Baby Royal Guard    4103 Baby Sorcerer       4104 Baby Minstrel");
-			//clif_displaymessage(fd, "4105 Baby Wanderer       4106 Baby Sura           4107 Baby Genetic");
-			//clif_displaymessage(fd, "4108 Baby Shadow Chaser");
-			//clif_displaymessage(fd, "---- Mounts, Modes, And Others ----");
-			//clif_displaymessage(fd, "  13 Knight (Peco)    21 Crusader (Peco)  22 Wedding          26 Christmas");
-			//clif_displaymessage(fd, "  27 Summer 4014 Lord Knight (Peco) 4022 Paladin (Peco)  4036 Baby Knight (Peco)");
-			//clif_displaymessage(fd, "4044 Baby Crusader (Peco) 4048 Star Gladiator (Union) 4080 Rune Knight (Dragon)");
-			//clif_displaymessage(fd, "4081 Rune Knight Trans (Dragon) 4082 Royal Guard (Gryphon)");
-			//clif_displaymessage(fd, "4083 Royal Guard Trans (Gryphon) 4084 Ranger (Warg) 4085 Ranger Trans (Warg)");
-			//clif_displaymessage(fd, "4086 Mechanic (Mado) 4087 Mechanic Trans (Mado)");
+			clif_displaymessage(fd, "  23 Super Novice       24 Gunslinger         25 Ninja            4045 Super Baby");
+			clif_displaymessage(fd, "4046 Taekwon          4047 Star Gladiator   4049 Soul Linker      4050 Gangsi");
+			clif_displaymessage(fd, "4051 Death Knight     4052 Dark Collector   4190 Ex. Super Novice 4191 Ex. Super Baby");
+			clif_displaymessage(fd, "4211 Kagerou          4212 Oboro");
+			clif_displaymessage(fd, "----- Baby Novice And Baby 1st Class -----");
+			clif_displaymessage(fd, "4023 Baby Novice      4024 Baby Swordman    4025 Baby Magician    4026 Baby Archer");
+			clif_displaymessage(fd, "4027 Baby Acolyte     4028 Baby Merchant    4029 Baby Thief");
+			clif_displaymessage(fd, "---- Baby 2nd Class ----");
+			clif_displaymessage(fd, "4030 Baby Knight      4031 Baby Priest      4032 Baby Wizard      4033 Baby Blacksmith");
+			clif_displaymessage(fd, "4034 Baby Hunter      4035 Baby Assassin    4037 Baby Crusader    4038 Baby Monk");
+			clif_displaymessage(fd, "4039 Baby Sage        4040 Baby Rogue       4041 Baby Alchemist   4042 Baby Bard");
+			clif_displaymessage(fd, "4043 Baby Dancer");
+			clif_displaymessage(fd, "---- Baby 3rd Class ----");
+			clif_displaymessage(fd, "4096 Baby Rune Knight 4097 Baby Warlock     4098 Baby Ranger      4099 Baby Arch Bishop");
+			clif_displaymessage(fd, "4100 Baby Mechanic    4101 Baby Glt. Cross  4102 Baby Royal Guard 4103 Baby Sorcerer");
+			clif_displaymessage(fd, "4104 Baby Minstrel    4105 Baby Wanderer    4106 Baby Sura        4107 Baby Genetic");
+			clif_displaymessage(fd, "4108 Baby Shadow Chaser");
+			//clif_displaymessage(fd, "---- Modes And Others ----");
+			//clif_displaymessage(fd, "  22 Wedding            26 Christmas          27 Summer           4048 Star Gladiator (Union)");
 		return -1;
 	}
 
@@ -1586,11 +1659,13 @@ ACMD_FUNC(help)
 	if (!pc_can_use_command(sd, command_name, COMMAND_ATCOMMAND)) {
 		sprintf(atcmd_output, msg_txt(153), message); // "%s is Unknown Command"
 		clif_displaymessage(fd, atcmd_output);
+		atcommand_get_suggestions(sd, command_name, true);
 		return -1;
 	}
 	
 	if (!config_setting_lookup_string(help, command_name, &text)) {
 		clif_displaymessage(fd, "There is no help for this command_name.");
+		atcommand_get_suggestions(sd, command_name, true);
 		return -1;
 	}
 
@@ -1927,22 +2002,21 @@ ACMD_FUNC(go)
 	// get the number
 	town = atoi(message);
  
-	// if no value, display all value
-	if (!message || !*message || sscanf(message, "%11s", map_name) < 1 || town < 0 || town >= ARRAYLENGTH(data)) {
-		clif_displaymessage(fd, msg_txt(38)); // Invalid location number, or name.
-		clif_displaymessage(fd, msg_txt(82)); // Please provide a name or number from the list provided:
-		clif_displaymessage(fd, " 0=Prontera         1=Morroc       2=Geffen");
-		clif_displaymessage(fd, " 3=Payon            4=Alberta      5=Izlude");
-		clif_displaymessage(fd, " 6=Al De Baran      7=Lutie        8=Comodo");
-		clif_displaymessage(fd, " 9=Yuno             10=Amatsu      11=Gonryun");
-		clif_displaymessage(fd, " 12=Umbala          13=Niflheim    14=Louyang");
-		clif_displaymessage(fd, " 15=Novice Grounds  16=Prison      17=Jawaii");
-		clif_displaymessage(fd, " 18=Ayothaya        19=Einbroch    20=Lighthalzen");
-		clif_displaymessage(fd, " 21=Einbech         22=Hugel       23=Rachel");
-		clif_displaymessage(fd, " 24=Veins        25=Moscovia    26=Midgard Camp");
-		clif_displaymessage(fd, " 27=Manuk        28=Splendide    29=Brasilis");
-		clif_displaymessage(fd, " 30=El Dicastes     31=Mora      32=Dewata");
-		clif_displaymessage(fd, " 33=Malangdo Island  34=Malaya Port  35=Eclage");
+	if (!message || !*message || sscanf(message, "%11s", map_name) < 1 || town < 0 || town >= ARRAYLENGTH(data))
+	{// no value matched so send the list of locations
+		const char* text;
+
+		// attempt to find the text help string
+		text = atcommand_help_string( command );
+
+		// Invalid location number, or name.
+		clif_displaymessage(fd, msg_txt(38));
+
+		if( text )
+		{// send the text to the client
+			clif_displaymessage( fd, text );
+		}
+		
 		return -1;
 	}
 
@@ -3310,8 +3384,21 @@ ACMD_FUNC(questskill)
 	int skill_id;
 	nullpo_retr(-1, sd);
 
-	if (!message || !*message || (skill_id = atoi(message)) < 0) {
-		clif_displaymessage(fd, "Please, enter a quest skill number (usage: @questskill <#:0+>).");
+	if (!message || !*message || (skill_id = atoi(message)) < 0)
+	{// also send a list of skills applicable to this command
+		const char* text;
+
+		// attempt to find the text corresponding to this command
+		text = atcommand_help_string( command );
+
+		// send the error message as always
+		clif_displaymessage(fd, "Please enter a quest skill number.");
+
+		if( text )
+		{// send the skill ID list associated with this command
+			clif_displaymessage( fd, text );
+		}
+
 		return -1;
 	}
 	if (skill_id < 0 && skill_id >= MAX_SKILL_DB) {
@@ -3341,8 +3428,21 @@ ACMD_FUNC(lostskill)
 	int skill_id;
 	nullpo_retr(-1, sd);
 
-	if (!message || !*message || (skill_id = atoi(message)) < 0) {
-		clif_displaymessage(fd, "Please, enter a quest skill number (usage: @lostskill <#:0+>).");
+	if (!message || !*message || (skill_id = atoi(message)) < 0)
+	{// also send a list of skills applicable to this command
+		const char* text;
+
+		// attempt to find the text corresponding to this command
+		text = atcommand_help_string( command );
+		
+		// send the error message as always
+		clif_displaymessage(fd, "Please enter a quest skill number.");
+
+		if( text )
+		{// send the skill ID list associated with this command
+			clif_displaymessage( fd, text );
+		}
+
 		return -1;
 	}
 	if (skill_id < 0 && skill_id >= MAX_SKILL) {
@@ -3742,6 +3842,7 @@ ACMD_FUNC(reloadmobdb)
 	read_petdb();
 	merc_reload();
 	read_mercenarydb();
+	reload_elementaldb();
 	clif_displaymessage(fd, msg_txt(98)); // Monster database has been reloaded.
 
 	return 0;
@@ -3755,6 +3856,7 @@ ACMD_FUNC(reloadskilldb)
 	nullpo_retr(-1, sd);
 	skill_reload();
 	merc_skill_reload();
+	reload_elemental_skilldb();
 	read_mercenary_skilldb();
 	clif_displaymessage(fd, msg_txt(99)); // Skill database has been reloaded.
 
@@ -4128,13 +4230,29 @@ ACMD_FUNC(mapinfo)
 ACMD_FUNC(mount_peco)
 {
 	nullpo_retr(-1, sd);
-	if( pc_checkskill(sd,RK_DRAGONTRAINING) > 0 ) {
+
+	if (sd->disguise) {
+		clif_displaymessage(fd, msg_txt(212)); // Cannot mount while in disguise.
+		return -1;
+	}
+
+	if( (sd->class_&MAPID_THIRDMASK) == MAPID_RUNE_KNIGHT && pc_checkskill(sd,RK_DRAGONTRAINING) > 0 ) {
 		if( !(sd->sc.option&OPTION_DRAGON1) ) {
 			clif_displaymessage(sd->fd,"You have mounted your Dragon");
 			pc_setoption(sd, sd->sc.option|OPTION_DRAGON1);
 		} else {
 			clif_displaymessage(sd->fd,"You have released your Dragon");
 			pc_setoption(sd, sd->sc.option&~OPTION_DRAGON1);
+		}
+		return 0;
+	}
+	if( (sd->class_&MAPID_THIRDMASK) == MAPID_RANGER && pc_checkskill(sd,RA_WUGRIDER) > 0 ) {
+		if( !pc_isridingwug(sd) ) {
+			clif_displaymessage(sd->fd,"You have mounted your Wug");
+			pc_setoption(sd, sd->sc.option|OPTION_WUGRIDER);
+		} else {
+			clif_displaymessage(sd->fd,"You have released your Wug");
+			pc_setoption(sd, sd->sc.option&~OPTION_WUGRIDER);
 		}
 		return 0;
 	}
@@ -4149,21 +4267,15 @@ ACMD_FUNC(mount_peco)
 		return 0;
 	}
 	if (!pc_isriding(sd)) { // if actually no peco
-		if (!pc_checkskill(sd, KN_RIDING))
-		{
-			clif_displaymessage(fd, msg_txt(213)); // You can not mount a Peco Peco with your current job.
-			return -1;
-		}
 
-		if (sd->disguise)
-		{
-			clif_displaymessage(fd, msg_txt(212)); // Cannot mount a Peco Peco while in disguise.
+		if (!pc_checkskill(sd, KN_RIDING)) {
+			clif_displaymessage(fd, msg_txt(213)); // You can not mount a Peco Peco with your current job.
 			return -1;
 		}
 
 		pc_setoption(sd, sd->sc.option | OPTION_RIDING);
 		clif_displaymessage(fd, msg_txt(102)); // You have mounted a Peco Peco.
-	} else {	//Dismount
+	} else {//Dismount
 		pc_setoption(sd, sd->sc.option & ~OPTION_RIDING);
 		clif_displaymessage(fd, msg_txt(214)); // You have released your Peco Peco.
 	}
@@ -4440,7 +4552,7 @@ ACMD_FUNC(unloadnpc)
 	}
 
 	npc_unload_duplicates(nd);
-	npc_unload(nd);
+	npc_unload(nd,true);
 	npc_read_event_script();
 	clif_displaymessage(fd, msg_txt(112)); // Npc Disabled.
 	return 0;
@@ -6134,14 +6246,24 @@ ACMD_FUNC(pettalk)
 			"/!", "/?", "/ho", "/lv", "/swt", "/ic", "/an", "/ag", "/$", "/...",
 			"/scissors", "/rock", "/paper", "/korea", "/lv2", "/thx", "/wah", "/sry", "/heh", "/swt2",
 			"/hmm", "/no1", "/??", "/omg", "/O", "/X", "/hlp", "/go", "/sob", "/gg",
-			"/kis", "/kis2", "/pif", "/ok", "-?-", "-?-", "/bzz", "/rice", "/awsm", "/meh",
-			"/shy", "/pat", "/mp", "/slur", "/com", "/yawn", "/grat", "/hp", "/philippines", "/usa",
-			"/indonesia", "/brazil", "/fsh", "/spin", "/sigh", "/dum", "/crwd", "/desp", "/dice"
+			"/kis", "/kis2", "/pif", "/ok", "-?-", "/indonesia", "/bzz", "/rice", "/awsm", "/meh",
+			"/shy", "/pat", "/mp", "/slur", "/com", "/yawn", "/grat", "/hp", "/philippines", "/malaysia",
+			"/singapore", "/brazil", "/fsh", "/spin", "/sigh", "/dum", "/crwd", "/desp", "/dice", "-dice2",
+			"-dice3", "-dice4", "-dice5", "-dice6", "/india", "/love", "/russia", "-?-", "/mobile", "/mail",
+			"/chinese", "/antenna1", "/antenna2", "/antenna3", "/hum", "/abs", "/oops", "/spit", "/ene", "/panic",
+			"/whisp"
 		};
 		int i;
 		ARR_FIND( 0, ARRAYLENGTH(emo), i, stricmp(message, emo[i]) == 0 );
+		if( i == E_DICE1 ) i = rnd()%6 + E_DICE1; // randomize /dice
 		if( i < ARRAYLENGTH(emo) )
 		{
+			if (sd->emotionlasttime + 1 >= time(NULL)) { // not more than 1 per second
+					sd->emotionlasttime = time(NULL);
+					return 0;
+			}
+			sd->emotionlasttime = time(NULL);
+			
 			clif_emotion(&pd->bl, i);
 			return 0;
 		}
@@ -6587,10 +6709,10 @@ ACMD_FUNC(mobinfo)
 		else
 			sprintf(atcmd_output, "Monster: '%s'/'%s'/'%s' (%d)", mob->name, mob->jname, mob->sprite, mob->vd.class_);
 		clif_displaymessage(fd, atcmd_output);
-		sprintf(atcmd_output, " Level:%d  HP:%d  SP:%d  Base EXP:%u  Job EXP:%u", mob->lv, mob->status.max_hp, mob->status.max_sp, mob->base_exp, mob->job_exp);
+		sprintf(atcmd_output, " Lv:%d  HP:%d  Base EXP:%u  Job EXP:%u  HIT:%d  FLEE:%d", mob->lv, mob->status.max_hp, mob->base_exp, mob->job_exp,MOB_HIT(mob), MOB_FLEE(mob));
 		clif_displaymessage(fd, atcmd_output);
 		sprintf(atcmd_output, " DEF:%d  MDEF:%d  STR:%d  AGI:%d  VIT:%d  INT:%d  DEX:%d  LUK:%d",
-			mob->status.def, mob->status.mdef, mob->status.str, mob->status.agi,
+			mob->status.def, mob->status.mdef,mob->status.str, mob->status.agi,
 			mob->status.vit, mob->status.int_, mob->status.dex, mob->status.luk);
 		clif_displaymessage(fd, atcmd_output);
 		
@@ -7195,7 +7317,7 @@ ACMD_FUNC(version)
 	const char * revision;
 
 	if ((revision = get_svn_revision()) != 0) {
-		sprintf(atcmd_output,"eAthena Version SVN r%s",revision);
+		sprintf(atcmd_output,"rAthena Version SVN r%s",revision);
 		clif_displaymessage(fd,atcmd_output);
 	} else 
 		clif_displaymessage(fd,"Cannot determine SVN revision");
@@ -7780,14 +7902,9 @@ ACMD_FUNC(main)
 				clif_displaymessage(fd, msg_txt(387));
 				return -1;
 			}
-			sprintf(atcmd_output, msg_txt(386), sd->status.name, message);
-			// I use 0xFE000000 color for signalizing that this message is
-			// main chat message. 0xFE000000 is invalid color, same using
-			// 0xFF000000 for simple (not colored) GM messages. [LuzZza]
-			intif_broadcast2(atcmd_output, strlen(atcmd_output) + 1, 0xFE000000, 0, 0, 0, 0);
 
-			// Chat logging type 'M' / Main Chat
-			log_chat(LOG_CHAT_MAINCHAT, 0, sd->status.char_id, sd->status.account_id, mapindex_id2name(sd->mapindex), sd->bl.x, sd->bl.y, NULL, message);
+			// send the message using inter-server system
+			intif_main_message( sd, message );
 		}
 		
 	} else {
@@ -8327,6 +8444,7 @@ ACMD_FUNC(charcommands)
 }
 
 ACMD_FUNC(new_mount) {
+
 	clif_displaymessage(sd->fd,"NOTICE: If you crash with mount your LUA is outdated");
 	if( !(sd->sc.option&OPTION_MOUNTING) ) {
 		clif_displaymessage(sd->fd,"You have mounted.");
@@ -8335,6 +8453,23 @@ ACMD_FUNC(new_mount) {
 		clif_displaymessage(sd->fd,"You have released your mount");
 		pc_setoption(sd, sd->sc.option&~OPTION_MOUNTING);
 	}
+	return 0;
+}
+
+ACMD_FUNC(accinfo) {
+	char query[NAME_LENGTH];
+	
+	if (!message || !*message || strlen(message) > NAME_LENGTH ) {
+		clif_displaymessage(fd, "(usage: @accinfo/@accountinfo <account_id/char name>).");
+		clif_displaymessage(fd, "You may search partial name by making use of '%' in the search, \"@accinfo %Mario%\" lists all characters whose name contain \"Mario\"");
+		return -1;
+	}
+	
+	//remove const type
+	safestrncpy(query, message, NAME_LENGTH);
+	
+	intif_request_accinfo( sd->fd, sd->bl.id, sd->group_id, query );
+	
 	return 0;
 }
 
@@ -8581,6 +8716,7 @@ void atcommand_basecommands(void) {
 		ACMD_DEF(delitem),
 		ACMD_DEF(charcommands),
 		ACMD_DEF(font),
+		ACMD_DEF(accinfo),
 		/**
 		 * For Testing Purposes, not going to be here after we're done.
 		 **/
@@ -8623,6 +8759,83 @@ static const char* atcommand_checkalias(const char *aliasname)
 	if ((alias_info = (AliasInfo*)strdb_get(atcommand_alias_db, aliasname)) != NULL)
 		return alias_info->command->command;
 	return aliasname;
+}
+
+/// AtCommand suggestion
+static void atcommand_get_suggestions(struct map_session_data* sd, const char *name, bool atcommand) {
+	DBIterator* atcommand_iter;
+	DBIterator* alias_iter;
+	AtCommandInfo* command_info = NULL;
+	AliasInfo* alias_info = NULL;
+	AtCommandType type;
+	char* suggestions[MAX_SUGGESTIONS];
+	int count = 0;
+	
+	if (!battle_config.atcommand_suggestions_enabled)
+		return;
+
+	atcommand_iter = db_iterator(atcommand_db);
+	alias_iter = db_iterator(atcommand_alias_db);	
+	
+	if (atcommand)
+		type = COMMAND_ATCOMMAND;
+	else
+		type = COMMAND_CHARCOMMAND;
+
+	
+	// First match the beginnings of the commands
+	for (command_info = dbi_first(atcommand_iter); dbi_exists(atcommand_iter) && count < MAX_SUGGESTIONS; command_info = dbi_next(atcommand_iter)) {
+		if ( strstr(command_info->command, name) == command_info->command && pc_can_use_command(sd, command_info->command, type) )
+		{
+			suggestions[count] = command_info->command;
+			++count;
+		}
+	}
+
+	for (alias_info = dbi_first(alias_iter); dbi_exists(alias_iter) && count < MAX_SUGGESTIONS; alias_info = dbi_next(alias_iter)) {
+		if ( strstr(alias_info->alias, name) == alias_info->alias && pc_can_use_command(sd, alias_info->command->command, type) )
+		{
+			suggestions[count] = alias_info->alias;
+			++count;
+		}
+	}
+	
+	// Fill up the space left, with full matches
+	for (command_info = dbi_first(atcommand_iter); dbi_exists(atcommand_iter) && count < MAX_SUGGESTIONS; command_info = dbi_next(atcommand_iter)) {
+		if ( strstr(command_info->command, name) != NULL && pc_can_use_command(sd, command_info->command, type) )
+		{
+			suggestions[count] = command_info->command;
+			++count;
+		}
+	}
+
+	for (alias_info = dbi_first(alias_iter); dbi_exists(alias_iter) && count < MAX_SUGGESTIONS; alias_info = dbi_next(alias_iter)) {
+		if ( strstr(alias_info->alias, name) != NULL && pc_can_use_command(sd, alias_info->command->command, type) )
+		{
+			suggestions[count] = alias_info->alias;
+			++count;
+		}
+	}
+
+	if (count > 0)
+	{
+		char buffer[512];
+		int i;
+
+		strcpy(buffer, msg_txt(205));
+		strcat(buffer,"\n");
+		
+		for(i=0; i < count; ++i)
+		{
+			strcat(buffer,suggestions[i]);
+			strcat(buffer," ");
+		}
+
+		clif_displaymessage(sd->fd, buffer);
+	}
+
+	dbi_destroy(atcommand_iter);
+	dbi_destroy(alias_iter);
 }
 
 /// Executes an at-command.
@@ -8723,6 +8936,7 @@ bool is_atcommand(const int fd, struct map_session_data* sd, const char* message
 		if( pc_get_group_level(sd) ) { // TODO: remove or replace with proper permission
 			sprintf(output, msg_txt(153), command); // "%s is Unknown Command."
 			clif_displaymessage(fd, output);
+			atcommand_get_suggestions(sd, command + 1, *message == atcommand_symbol);
 			return true;
 		} else
 			return false;

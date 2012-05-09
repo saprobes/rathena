@@ -15,10 +15,10 @@ struct status_change;
  * Max Refine available to your server
  * Changing this limit requires edits to refine_db.txt
  **/
-#if REMODE
-#define MAX_REFINE 20
+#ifdef RENEWAL
+#	define MAX_REFINE 20
 #else
-#define MAX_REFINE 10
+#	define MAX_REFINE 10
 #endif
 
 enum refine_type {
@@ -592,6 +592,8 @@ typedef enum sc_type {
 	SC_SOULCOLD, //510
 	SC_HAWKEYES,
 	SC_ODINS_POWER,
+	SC_RAID,
+	
 	SC_MAX, //Automatically updated max, used in for's to check we are within bounds.
 } sc_type;
 
@@ -913,7 +915,6 @@ enum si_type {
 	SI_CASH_PLUSONLYJOBEXP = 312,
 //	SI_PARTYFLEE = 313,
 //	SI_ANGEL_PROTECT = 314,
-
 	SI_ENDURE_MDEF = 315,
 	SI_ENCHANTBLADE = 316,
 	SI_DEATHBOUND = 317,
@@ -980,7 +981,6 @@ enum si_type {
 	SI_NEUTRALBARRIER_MASTER = 378,
 	SI_STEALTHFIELD = 379,
 	SI_STEALTHFIELD_MASTER = 380,
-
 	SI_MANU_ATK = 381, 
 	SI_MANU_DEF = 382, 
 	SI_SPL_ATK = 383, 
@@ -988,7 +988,6 @@ enum si_type {
 	SI_REPRODUCE = 385,
 	SI_MANU_MATK = 386,
 	SI_SPL_MATK = 387,
-
 	SI_STR_SCROLL = 388,
 	SI_INT_SCROLL = 389,
 	SI_LG_REFLECTDAMAGE = 390,
@@ -1041,7 +1040,7 @@ enum si_type {
 	SI_COLD = 437,
 	SI_GLOOMYDAY = 438,
 	SI_SONGOFMANA = 439,
-	SI_CLOUD_KILL = 440,
+	SI_CLOUDKILL = 440,
 	SI_DANCEWITHWUG = 441,
 	SI_RUSHWINDMILL = 442,
 	SI_ECHOSONG = 443,
@@ -1062,10 +1061,10 @@ enum si_type {
 	SI_FREEZE_SP = 458,
 	SI_GN_TRAINING_SWORD = 459,
 	SI_GN_REMODELING_CART = 460,
-	SI_GN_CARTBOOST = 461,
+	SI_CARTSBOOST = 461,
 	SI_FIXEDCASTINGTM_REDUCE = 462,
-	SI_THORNS_TRAP = 463,
-	SI_BLOOD_SUCKER = 464,
+	SI_THORNTRAP = 463,
+	SI_BLOODSUCKER = 464,
 	SI_SPORE_EXPLOSION = 465,
 	SI_DEMONIC_FIRE = 466,
 	SI_FIRE_EXPANSION_SMOKE_POWDER = 467,
@@ -1135,11 +1134,11 @@ enum si_type {
 	SI_STONE_SHIELD = 531,
 	SI_STONE_SHIELD_OPTION = 532,
 	SI_POWER_OF_GAIA = 533,
-	SI_EL_WAIT = 534,
-	SI_EL_PASSIVE = 535,
-	SI_EL_DEFENSIVE = 536,
-	SI_EL_OFFENSIVE = 537,
-	SI_EL_COST = 538,
+	//	SI_EL_WAIT = 534,
+	//	SI_EL_PASSIVE = 535,
+	//	SI_EL_DEFENSIVE = 536,
+	//	SI_EL_OFFENSIVE = 537,
+	//	SI_EL_COST = 538,
 	SI_PYROTECHNIC = 539,
 	SI_PYROTECHNIC_OPTION = 540,
 	SI_HEATER = 541,
@@ -1173,9 +1172,101 @@ enum si_type {
 	SI_WIND_INSIGNIA = 569,
 	SI_EARTH_INSIGNIA = 570,
 	SI_EQUIPED_FLOOR = 571,
+	SI_GUARDIAN_RECALL = 572,
+	SI_MORA_BUFF = 573,
+	SI_REUSE_LIMIT_G = 574,
+	SI_REUSE_LIMIT_H = 575,
+	SI_NEEDLE_OF_PARALYZE = 576,
+	SI_PAIN_KILLER = 577,
+	SI_G_LIFEPOTION = 578,
+	SI_VITALIZE_POTION = 579,
+	SI_LIGHT_OF_REGENE = 580,
+	SI_OVERED_BOOST = 581,
+	SI_SILENT_BREEZE = 582,
 	SI_ODINS_POWER = 583,
-	SI_ALL_RIDING = 613,//awesome 571-613 gap, we're missing quite a few stuff here.
-	SI_SITTING = 622,
+	SI_STYLE_CHANGE = 584,
+	SI_SONIC_CLAW_POSTDELAY = 585,
+	// ID's 586 - 595 Currently Unused
+	SI_SILVERVEIN_RUSH_POSTDELAY = 596,
+	SI_MIDNIGHT_FRENZY_POSTDELAY = 597,
+	SI_GOLDENE_FERSE = 598,
+	SI_ANGRIFFS_MODUS = 599,
+	SI_TINDER_BREAKER = 600,
+	SI_TINDER_BREAKER_POSTDELAY = 601,
+	SI_CBC = 602,
+	SI_CBC_POSTDELAY = 603,
+	SI_EQC = 604,
+	SI_MAGMA_FLOW = 605,
+	SI_GRANITIC_ARMOR = 606,
+	SI_PYROCLASTIC = 607,
+	SI_VOLCANIC_ASH = 608,
+	SI_SPIRITS_SAVEINFO1 = 609,
+	SI_SPIRITS_SAVEINFO2 = 610,
+	SI_MAGIC_CANDY = 611,
+	SI_SEARCH_STORE_INFO = 612,
+	SI_ALL_RIDING = 613,
+	SI_ALL_RIDING_REUSE_LIMIT = 614,
+	SI_MACRO = 615,
+	SI_MACRO_POSTDELAY = 616,
+	SI_BEER_BOTTLE_CAP = 617,
+	SI_OVERLAPEXPUP = 618,
+	SI_PC_IZ_DUN05 = 619,
+	SI_CRUSHSTRIKE = 620,
+	SI_MONSTER_TRANSFORM = 621,
+	SI_SIT = 622,
+	SI_ONAIR = 623,
+	SI_MTF_ASPD = 624,
+	SI_MTF_RANGEATK = 625,
+	SI_MTF_MATK = 626,
+	SI_MTF_MLEATKED = 627,
+	SI_MTF_CRIDAMAGE = 628,
+	SI_REUSE_LIMIT_MTF = 629,
+	SI_MACRO_PERMIT = 630,
+	SI_MACRO_PLAY = 631,
+	SI_SKF_CAST = 632,
+	SI_SKF_ASPD = 633,
+	SI_SKF_ATK = 634,
+	SI_SKF_MATK = 635,
+	SI_REWARD_PLUSONLYJOBEXP = 636,
+	SI_HANDICAPSTATE_NORECOVER = 637,
+	SI_SET_NUM_DEF = 638,
+	SI_SET_NUM_MDEF = 639,
+	SI_SET_PER_DEF = 640,
+	SI_SET_PER_MDEF = 641,
+	SI_PARTYBOOKING_SEARCH_DEALY = 642,
+	SI_PARTYBOOKING_REGISTER_DEALY = 643,
+	SI_PERIOD_TIME_CHECK_DETECT_SKILL = 644,
+	SI_KO_JYUMONJIKIRI = 645,
+	SI_MEIKYOUSISUI = 646,
+	SI_ATTHASTE_CASH = 647,
+	SI_EQUIPPED_DIVINE_ARMOR = 648,
+	SI_EQUIPPED_HOLY_ARMOR = 649,
+	SI_2011RWC = 650,
+	SI_KYOUGAKU = 651,
+	SI_IZAYOI = 652,
+	SI_ZENKAI = 653,
+	SI_KG_KAGEHUMI = 654,
+	SI_KYOMU = 655,
+	SI_KAGEMUSYA = 656,
+	SI_ZANGETSU = 657,
+	SI_PHI_DEMON = 658,
+	SI_GENSOU = 659,
+	SI_AKAITSUKI = 660,
+	SI_TETANY = 661,
+	SI_GM_BATTLE = 662,
+	SI_GM_BATTLE2 = 663,
+	SI_2011RWC_SCROLL = 664,
+	SI_ACTIVE_MONSTER_TRANSFORM = 665,
+	SI_MYSTICPOWDER = 666,
+	SI_ECLAGE_RECALL = 667,
+	SI_ENTRY_QUEUE_APPLY_DELAY = 668,
+	SI_REUSE_LIMIT_ECL = 669,
+	SI_M_LIFEPOTION = 670,
+	SI_ENTRY_QUEUE_NOTIFY_ADMISSION_TIME_OUT = 671,
+	SI_UNKNOWN_NAME = 672,
+	SI_ON_PUSH_CART = 673,
+	SI_HAT_EFFECT = 674,
+	SI_FLOWER_LEAF = 675,
 	SI_MAX,
 };
 
@@ -1384,29 +1475,22 @@ struct status_data {
 	short 
 		hit, flee, cri, flee2,
 		def2, mdef2,
-#if REMODE
-		/**
-		 * In RE def and mdef can go over 127 (signed char) limit, so in RE mode we use short
-		 **/
-		def,mdef,
-#endif
 		aspd_rate;
+	/**
+	 * defType is REMODE dependent and defined in src/map/config/data/const.h
+	 **/
+	defType def,mdef;
+
 	unsigned char
 		def_ele, ele_lv,
-#if REMODE
+#ifdef RENEWAL
 		/**
 		 * in RE weapon level is used in several areas, keeping it here saves performance
 		 **/
 		wlv,
 #endif
 		size, race;
-#if REMODE == 0
-	/**
-	 * In NON-RE def and mdef are not required to be short, so we keep it signed char (ancient-default)
-	 **/
-	signed char
-		def, mdef;
-#endif
+
 	struct weapon_atk rhw, lhw; //Right Hand/Left Hand Weapon.
 };
 
@@ -1472,7 +1556,7 @@ struct status_change {
 /**
  * The Storm Gust counter was dropped in renewal
  **/
-#if isOFF(REMODE)
+#ifndef RENEWAL
 	unsigned char sg_counter; //Storm gust counter (previous hits from storm gust)
 #endif
 	struct status_change_entry *data[SC_MAX];
@@ -1522,11 +1606,7 @@ int status_get_lv(struct block_list *bl);
 #define status_get_luk(bl) status_get_status_data(bl)->luk
 #define status_get_hit(bl) status_get_status_data(bl)->hit
 #define status_get_flee(bl) status_get_status_data(bl)->flee
-#if REMODE
-	short status_get_def(struct block_list *bl);
-#else
-	signed char status_get_def(struct block_list *bl);
-#endif
+defType status_get_def(struct block_list *bl);
 #define status_get_mdef(bl) status_get_status_data(bl)->mdef
 #define status_get_flee2(bl) status_get_status_data(bl)->flee2
 #define status_get_def2(bl) status_get_status_data(bl)->def2
@@ -1552,7 +1632,7 @@ unsigned char status_calc_attack_element(struct block_list *bl, struct status_ch
 #define status_get_race(bl) status_get_status_data(bl)->race
 #define status_get_size(bl) status_get_status_data(bl)->size
 #define status_get_mode(bl) status_get_status_data(bl)->mode
-#if REMODE
+#ifdef RENEWAL
 	/**
 	 * in RE weapon level is used in several areas, keeping it here saves performance
 	 **/
@@ -1593,6 +1673,7 @@ int status_change_clear_buffs(struct block_list* bl, int type);
 #define status_calc_pc(sd, first) status_calc_bl_(&(sd)->bl, SCB_ALL, first)
 #define status_calc_homunculus(hd, first) status_calc_bl_(&(hd)->bl, SCB_ALL, first)
 #define status_calc_mercenary(md, first) status_calc_bl_(&(md)->bl, SCB_ALL, first)
+#define status_calc_elemental(ed, first) status_calc_bl_(&(ed)->bl, SCB_ALL, first)
 
 void status_calc_bl_(struct block_list *bl, enum scb_flag flag, bool first);
 int status_calc_mob_(struct mob_data* md, bool first);
@@ -1600,6 +1681,7 @@ int status_calc_pet_(struct pet_data* pd, bool first);
 int status_calc_pc_(struct map_session_data* sd, bool first);
 int status_calc_homunculus_(struct homun_data *hd, bool first);
 int status_calc_mercenary_(struct mercenary_data *md, bool first);
+int status_calc_elemental_(struct elemental_data *ed, bool first);
 
 void status_calc_misc(struct block_list *bl, struct status_data *status, int level);
 void status_calc_regen(struct block_list *bl, struct status_data *status, struct regen_data *regen);
