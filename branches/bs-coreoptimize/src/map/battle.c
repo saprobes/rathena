@@ -317,7 +317,7 @@ int battle_attr_fix(struct block_list *src, struct block_list *target, int damag
 			int x,y;
 			
 			if( !su || !su->alive || (sg = su->group) == NULL || !sg || sg->val3 == -1 ||
-			   (src = map_id2bl(su->val2)) == NULL || status_isdead(src) )
+			   (src = map_id2bl(sg->src_id)) == NULL || status_isdead(src) )
 				return 0;
 			
 			if( sg->unit_id != UNT_FIREWALL ) {
@@ -328,13 +328,23 @@ int battle_attr_fix(struct block_list *src, struct block_list *target, int damag
 				sg->limit = DIFF_TICK(gettick(),sg->tick)+300;
 			}
 		}
-	}	
-	if( atk_elem == ELE_FIRE && tsc && tsc->count && tsc->data[SC_SPIDERWEB] ){
-		tsc->data[SC_SPIDERWEB]->val1 = 0; // free to move now
-		if( tsc->data[SC_SPIDERWEB]->val2-- > 0 )
-			damage <<= 1; // double damage
-		if( tsc->data[SC_SPIDERWEB]->val2 == 0 )
-			status_change_end(target, SC_SPIDERWEB, INVALID_TIMER);
+	}
+	if( tsc && tsc->count ) {
+		if( tsc->data[SC_SPIDERWEB] && atk_elem == ELE_FIRE ){
+			tsc->data[SC_SPIDERWEB]->val1 = 0; // free to move now
+			if( tsc->data[SC_SPIDERWEB]->val2-- > 0 )
+				damage <<= 1; // double damage
+			if( tsc->data[SC_SPIDERWEB]->val2 == 0 )
+				status_change_end(target, SC_SPIDERWEB, INVALID_TIMER);
+		}
+		if( tsc->data[SC_ORATIO] && atk_elem == ELE_HOLY )
+			ratio += tsc->data[SC_ORATIO]->val1 * 2;
+		if( tsc->data[SC_VENOMIMPRESS] && atk_elem == ELE_POISON )
+			ratio += tsc->data[SC_VENOMIMPRESS]->val2;
+		if( tsc->data[SC_THORNSTRAP] && atk_elem == ELE_FIRE )
+			status_change_end(target, SC_THORNSTRAP, -1);
+		if( tsc->data[SC_FIRE_CLOAK_OPTION] && atk_elem == ELE_FIRE )
+			damage -= damage * tsc->data[SC_FIRE_CLOAK_OPTION]->val2 / 100;		
 	}
 	return damage*ratio/100;
 }
@@ -517,9 +527,11 @@ int battle_calc_damage(struct block_list *src,struct block_list *bl,struct Damag
 		}
 
 		if (((sce=sc->data[SC_UTSUSEMI]) || sc->data[SC_BUNSINJYUTSU])
-		&& 
-			flag&BF_WEAPON && !(skill_get_nk(skill_num)&NK_NO_CARDFIX_ATK))
-		{
+		&& flag&BF_WEAPON && !(skill_get_nk(skill_num)&NK_NO_CARDFIX_ATK)) {
+			
+			skill_additional_effect (src, bl, skill_num, skill_lv, flag, ATK_BLOCK, gettick() );
+			if( !status_isdead(src) )
+				skill_counter_additional_effect( src, bl, skill_num, skill_lv, flag, gettick() );
 			if (sce) {
 				clif_specialeffect(bl, 462, AREA);
 				skill_blown(src,bl,sce->val3,-1,0);
@@ -529,6 +541,7 @@ int battle_calc_damage(struct block_list *src,struct block_list *bl,struct Damag
 				status_change_end(bl, SC_UTSUSEMI, INVALID_TIMER);
 			if ((sce=sc->data[SC_BUNSINJYUTSU]) && --(sce->val2) <= 0)
 				status_change_end(bl, SC_BUNSINJYUTSU, INVALID_TIMER);
+						
 			return 0;
 		}
 
@@ -1760,7 +1773,7 @@ static struct Damage battle_calc_weapon_attack(struct block_list *src,struct blo
 				case MC_CARTREVOLUTION:
 					skillratio += 50;
 					if(sd && sd->cart_weight)
-						skillratio += 100*sd->cart_weight/battle_config.max_cart_weight; // +1% every 1% weight
+						skillratio += 100*sd->cart_weight/sd->cart_weight_max; // +1% every 1% weight
 					else if (!sd)
 						skillratio += 100; //Max damage for non players.
 					break;
@@ -3577,6 +3590,7 @@ struct Damage battle_calc_magic_attack(struct block_list *src,struct block_list 
 			 * Damage from magic = Magic Attack * 111.5/(111.5+eMDEF) 
 			 * Damage = Magic Attack * 111.5/(111.5+eMDEF) - sMDEF 
 			 **/
+			if(mdef < -111) mdef = -111; // value smaller -111 brings back the damage to origin up to -223. 
 			ad.damage = ad.damage * 1115 / (1115 + mdef * 10) - mdef2;
 		#else
 			if(battle_config.magic_defense_type)
@@ -4859,13 +4873,11 @@ bool battle_check_range(struct block_list *src, struct block_list *bl, int range
 		return false;
 
 #ifndef CIRCULAR_AREA
-	if( src->type == BL_PC )
-	{ // Range for players' attacks and skills should always have a circular check. [Inkfish]
+	if( src->type == BL_PC ) { // Range for players' attacks and skills should always have a circular check. [Angezerus]
 		int dx = src->x - bl->x, dy = src->y - bl->y;
-		if( !check_distance(dx*dx + dy*dy, 0, range*range+(dx&&dy?1:0)) )
+		if( !check_distance(dx, dy, range) )
 			return false;
-	}
-	else
+	} else
 #endif
 	if( !check_distance_bl(src, bl, range) )
 		return false;
@@ -5258,6 +5270,7 @@ static const struct _battle_data {
 	{ "atcommand_max_stat_bypass",          &battle_config.atcommand_max_stat_bypass,       0,      0,      100,            },          
 	{ "skill_amotion_leniency",             &battle_config.skill_amotion_leniency,          90,     0,      100				},
 	{ "mvp_tomb_enabled",					&battle_config.mvp_tomb_enabled,				1,      0,      1				},
+	{ "feature.atcommand_suggestions",		&battle_config.atcommand_suggestions_enabled,	0,      0,      1				},
 };
 
 

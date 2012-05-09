@@ -2871,13 +2871,13 @@ struct script_data* push_str(struct script_stack* stack, enum c_op type, char* s
 }
 
 /// Pushes a retinfo into the stack
-struct script_data* push_retinfo(struct script_stack* stack, struct script_retinfo* ri)
+struct script_data* push_retinfo(struct script_stack* stack, struct script_retinfo* ri, DBMap **ref)
 {
 	if( stack->sp >= stack->sp_max )
 		stack_expand(stack);
 	stack->stack_data[stack->sp].type = C_RETINFO;
 	stack->stack_data[stack->sp].u.ri = ri;
-	stack->stack_data[stack->sp].ref  = NULL;
+	stack->stack_data[stack->sp].ref  = ref;
 	stack->sp++;
 	return &stack->stack_data[stack->sp-1];
 }
@@ -2933,6 +2933,8 @@ void pop_stack(struct script_state* st, int start, int end)
 			struct script_retinfo* ri = data->u.ri;
 			if( ri->var_function )
 				script_free_vars(ri->var_function);
+			if( data->ref )
+				aFree(data->ref);
 			aFree(ri);
 		}
 		data->type = C_NOP;
@@ -3781,7 +3783,7 @@ int script_config_read(char *cfgName)
 
 	fp=fopen(cfgName,"r");
 	if(fp==NULL){
-		ShowError("file not found: [%s]\n", cfgName);
+		ShowError("File not found: %s\n", cfgName);
 		return 1;
 	}
 	while(fgets(line, sizeof(line), fp))
@@ -4451,6 +4453,7 @@ BUILDIN_FUNC(callfunc)
 	struct script_retinfo* ri;
 	struct script_code* scr;
 	const char* str = script_getstr(st,2);
+	DBMap **ref = NULL;
 
 	scr = (struct script_code*)strdb_get(userfunc_db, str);
 	if( !scr )
@@ -4466,10 +4469,13 @@ BUILDIN_FUNC(callfunc)
 		if( data_isreference(data) && !data->ref )
 		{
 			const char* name = reference_getname(data);
-			if( name[0] == '.' && name[1] == '@' )
-				data->ref = &st->stack->var_function;
-			else if( name[0] == '.' )
-				data->ref = &st->script->script_vars;
+			if( name[0] == '.' ) {
+				if ( !ref )	{
+					ref = (struct DBMap**)aCalloc(sizeof(struct DBMap*), 1);
+					ref[0] = (name[1] == '@' ? st->stack->var_function : st->script->script_vars);
+				}
+				data->ref = ref;
+			}
 		}
 	}
 
@@ -4479,7 +4485,7 @@ BUILDIN_FUNC(callfunc)
 	ri->pos          = st->pos;// script location
 	ri->nargs        = j;// argument count
 	ri->defsp        = st->stack->defsp;// default stack pointer
-	push_retinfo(st->stack, ri);
+	push_retinfo(st->stack, ri, ref);
 
 	st->pos = 0;
 	st->script = scr;
@@ -4497,6 +4503,7 @@ BUILDIN_FUNC(callsub)
 	int i,j;
 	struct script_retinfo* ri;
 	int pos = script_getnum(st,2);
+	DBMap **ref = NULL;
 
 	if( !data_islabel(script_getdata(st,2)) && !data_isfunclabel(script_getdata(st,2)) )
 	{
@@ -4512,8 +4519,13 @@ BUILDIN_FUNC(callsub)
 		if( data_isreference(data) && !data->ref )
 		{
 			const char* name = reference_getname(data);
-			if( name[0] == '.' && name[1] == '@' )
-				data->ref = &st->stack->var_function;
+			if( name[0] == '.' && name[1] == '@' ) {
+				if ( !ref ) {
+					ref = (struct DBMap**)aCalloc(sizeof(struct DBMap*), 1);
+					ref[0] = st->stack->var_function;
+				}
+				data->ref = ref;
+			}
 		}
 	}
 
@@ -4523,7 +4535,7 @@ BUILDIN_FUNC(callsub)
 	ri->pos          = st->pos;// script location
 	ri->nargs        = j;// argument count
 	ri->defsp        = st->stack->defsp;// default stack pointer
-	push_retinfo(st->stack, ri);
+	push_retinfo(st->stack, ri, ref);
 
 	st->pos = pos;
 	st->stack->defsp = st->stack->sp;
@@ -5093,13 +5105,13 @@ BUILDIN_FUNC(set)
 {
 	TBL_PC* sd = NULL;
 	struct script_data* data;
-	struct script_data* datavalue;
+	//struct script_data* datavalue;
 	int num;
 	const char* name;
 	char prefix;
 
 	data = script_getdata(st,2);
-	datavalue = script_getdata(st,3);
+	//datavalue = script_getdata(st,3);
 	if( !data_isreference(data) )
 	{
 		ShowError("script:set: not a variable\n");
@@ -5122,6 +5134,7 @@ BUILDIN_FUNC(set)
 		}
 	}
 
+#if 0
 	if( data_isreference(datavalue) )
 	{// the value being referenced is a variable
 		const char* namevalue = reference_getname(datavalue);
@@ -5147,6 +5160,7 @@ BUILDIN_FUNC(set)
 			return buildin_copyarray(st);
 		}
 	}
+#endif
 
 	if( is_string_variable(name) )
 		set_reg(st,sd,num,name,(void*)script_getstr(st,3),script_getref(st,2));

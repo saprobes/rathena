@@ -3365,7 +3365,7 @@ int inter_config_read(char *cfgName)
 
 	fp=fopen(cfgName,"r");
 	if(fp==NULL){
-		ShowError("File not found: '%s'.\n",cfgName);
+		ShowError("File not found: %s\n",cfgName);
 		return 1;
 	}
 	while(fgets(line, sizeof(line), fp))
@@ -3936,12 +3936,12 @@ int do_init(int argc, char *argv[])
 	do_init_pet();
 	do_init_merc();
 	do_init_mercenary();
+	do_init_elemental();
 	do_init_quest();
 	do_init_npc();
 	do_init_unit();
 	do_init_battleground();
 	do_init_duel();
-	do_init_elemental();
 	
 	npc_event_do_oninit();	// npcのOnInitイベント?行
 

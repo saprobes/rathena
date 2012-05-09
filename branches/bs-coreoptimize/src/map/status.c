@@ -612,7 +612,7 @@ void initChangeTables(void)
 	set_sc( SC_WEAKNESS          , SC__WEAKNESS       , SI_WEAKNESS        , SCB_FLEE2|SCB_MAXHP );
 	set_sc( SC_STRIPACCESSARY    , SC__STRIPACCESSORY , SI_STRIPACCESSARY  , SCB_DEX|SCB_INT|SCB_LUK );
 	set_sc_with_vfx( SC_MANHOLE           , SC__MANHOLE        , SI_MANHOLE         , SCB_NONE );
-	add_sc( SC_CHAOSPANIC        , SC_CHAOS );
+	add_sc( SC_CHAOSPANIC        , SC_CONFUSION );
 	set_sc( SC_BLOODYLUST        , SC__BLOODYLUST     , SI_BLOODYLUST      , SCB_DEF|SCB_DEF2|SCB_BATK|SCB_WATK );
 	/**
 	 * Sura
@@ -1726,7 +1726,12 @@ int status_base_amotion_pc(struct map_session_data* sd, struct status_data* stat
 
 static unsigned short status_base_atk(const struct block_list *bl, const struct status_data *status)
 {
-	int flag = 0, str, dex, dstr;
+	int flag = 0, str, dex,
+#ifdef RENEWAL
+		rstr,
+#endif
+		dstr;
+
 
 	if(!(bl->type&battle_config.enable_baseatk))
 		return 0;
@@ -1744,9 +1749,15 @@ static unsigned short status_base_atk(const struct block_list *bl, const struct 
 			flag = 1;
 	}
 	if (flag) {
+#ifdef RENEWAL
+		rstr =
+#endif
 		str = status->dex;
 		dex = status->str;
 	} else {
+#ifdef RENEWAL
+		rstr =
+#endif
 		str = status->str;
 		dex = status->dex;
 	}
@@ -1756,7 +1767,11 @@ static unsigned short status_base_atk(const struct block_list *bl, const struct 
 	dstr = str/10;
 	str += dstr*dstr;
 	if (bl->type == BL_PC)
+#ifdef RENEWAL
+		str = (rstr*10 + dex*10/5 + status->luk*10/3 + ((TBL_PC*)bl)->status.base_level*10/4)/10;	
+#else
 		str+= dex/5 + status->luk/5;
+#endif
 	return cap_value(str, 0, USHRT_MAX);
 }
 
@@ -1827,11 +1842,6 @@ void status_calc_misc(struct block_list *bl, struct status_data *status, int lev
 		status->batk = cap_value(temp, 0, USHRT_MAX);
 	} else
 		status->batk = status_base_atk(bl, status);
-
-#ifdef RENEWAL // renewal attack bonus formula
-	status->batk += (int)((float)status->luk/3 + (float)level/4); //(every 3 luk = + 1ATK) + (every 4 base level = +1 ATK)
-#endif
-
 	if (status->cri)
 	switch (bl->type) {
 	case BL_MOB:
@@ -2155,7 +2165,7 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 	struct status_data *status; // pointer to the player's base status
 	const struct status_change *sc = &sd->sc;
 	struct s_skill b_skill[MAX_SKILL]; // previous skill tree
-	int b_weight, b_max_weight; // previous weight
+	int b_weight, b_max_weight, b_cart_weight_max; // previous weight
 	int i,index;
 	int skill,refinedef=0;
 
@@ -2166,6 +2176,7 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 	memcpy(b_skill, &sd->status.skill, sizeof(b_skill));
 	b_weight = sd->weight;
 	b_max_weight = sd->max_weight;
+	b_cart_weight_max = sd->cart_weight_max;
 
 	pc_calc_skilltree(sd);	// スキルツリ?の計算
 
@@ -2861,6 +2872,8 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 	if((skill=pc_checkskill(sd,ALL_INCCARRY))>0)
 		sd->max_weight += 2000*skill;
 
+	sd->cart_weight_max = battle_config.max_cart_weight + (pc_checkskill(sd, GN_REMODELING_CART)*5000);
+	
 	if (pc_checkskill(sd,SM_MOVINGRECOVERY)>0)
 		sd->regen.state.walk = 1;
 	else
@@ -2973,7 +2986,10 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 		clif_updatestatus(sd,SP_MAXWEIGHT);
 		pc_updateweightstatus(sd);
 	}
-
+	if( b_cart_weight_max != sd->cart_weight_max ) {
+		clif_updatestatus(sd,SP_CARTINFO);
+	}
+	
 	calculating = 0;
 
 	return 0;
@@ -3749,8 +3765,12 @@ void status_calc_bl_(struct block_list* bl, enum scb_flag flag, bool first)
 			)
 			clif_updatestatus(sd,SP_ATK1);
 
-		if(b_status.def != status->def)
+		if(b_status.def != status->def){
 			clif_updatestatus(sd,SP_DEF1);
+#ifdef RENEWAL
+			clif_updatestatus(sd,SP_DEF2);
+#endif
+		}
 
 		if(b_status.rhw.atk2 != status->rhw.atk2 || b_status.lhw.atk2 != status->lhw.atk2
 #ifdef RENEWAL
@@ -3759,8 +3779,12 @@ void status_calc_bl_(struct block_list* bl, enum scb_flag flag, bool first)
 			)
 			clif_updatestatus(sd,SP_ATK2);
 
-		if(b_status.def2 != status->def2)
+		if(b_status.def2 != status->def2){
 			clif_updatestatus(sd,SP_DEF2);
+#ifdef RENEWAL
+			clif_updatestatus(sd,SP_DEF1);
+#endif
+		}
 		if(b_status.flee2 != status->flee2)
 			clif_updatestatus(sd,SP_FLEE2);
 		if(b_status.cri != status->cri)
@@ -3769,10 +3793,18 @@ void status_calc_bl_(struct block_list* bl, enum scb_flag flag, bool first)
 			clif_updatestatus(sd,SP_MATK1);
 		if(b_status.matk_min != status->matk_min)
 			clif_updatestatus(sd,SP_MATK2);
-		if(b_status.mdef != status->mdef)
+		if(b_status.mdef != status->mdef){
 			clif_updatestatus(sd,SP_MDEF1);
-		if(b_status.mdef2 != status->mdef2)
+#ifdef RENEWAL
 			clif_updatestatus(sd,SP_MDEF2);
+#endif
+		}
+		if(b_status.mdef2 != status->mdef2){
+			clif_updatestatus(sd,SP_MDEF2);
+#ifdef RENEWAL
+			clif_updatestatus(sd,SP_MDEF1);
+#endif
+		}
 		if(b_status.rhw.range != status->rhw.range)
 			clif_updatestatus(sd,SP_ATTACKRANGE);
 		if(b_status.max_hp != status->max_hp)
@@ -4519,7 +4551,11 @@ static defType status_calc_def(struct block_list *bl, struct status_change *sc, 
 static signed short status_calc_def2(struct block_list *bl, struct status_change *sc, int def2)
 {
 	if(!sc || !sc->count)
-		return cap_value(def2,1,SHRT_MAX);
+#ifdef RENEWAL
+		return (short)cap_value(def2,SHRT_MIN,SHRT_MAX);
+#else
+		return (short)cap_value(def2,1,SHRT_MAX);
+#endif
 	
 	if(sc->data[SC_BERSERK])
 		return 0;
@@ -4557,7 +4593,11 @@ static signed short status_calc_def2(struct block_list *bl, struct status_change
 	if( sc->data[SC_GT_REVITALIZE] )
 		def2 += def2 * ( 50 + 10 * sc->data[SC_GT_REVITALIZE]->val1 ) / 100;
 
+#ifdef RENEWAL
+	return (short)cap_value(def2,SHRT_MIN,SHRT_MAX);
+#else
 	return (short)cap_value(def2,1,SHRT_MAX);
+#endif
 }
 
 
@@ -4607,7 +4647,12 @@ static defType status_calc_mdef(struct block_list *bl, struct status_change *sc,
 static signed short status_calc_mdef2(struct block_list *bl, struct status_change *sc, int mdef2)
 {
 	if(!sc || !sc->count)
-		return cap_value(mdef2,1,SHRT_MAX);
+#ifdef RENEWAL
+		return (short)cap_value(mdef2,SHRT_MIN,SHRT_MAX);
+#else
+		return (short)cap_value(mdef2,1,SHRT_MAX);
+#endif
+
 
 	if(sc->data[SC_BERSERK])
 		return 0;
@@ -4618,7 +4663,11 @@ static signed short status_calc_mdef2(struct block_list *bl, struct status_chang
 	if(sc->data[SC_ANALYZE])
 		mdef2 -= mdef2 * ( 14 * sc->data[SC_ANALYZE]->val1 ) / 100;
 
+#ifdef RENEWAL
+	return (short)cap_value(mdef2,SHRT_MIN,SHRT_MAX);
+#else
 	return (short)cap_value(mdef2,1,SHRT_MAX);
+#endif
 }
 
 static unsigned short status_calc_speed(struct block_list *bl, struct status_change *sc, int speed)
@@ -4919,36 +4968,36 @@ static short status_calc_aspd_rate(struct block_list *bl, struct status_change *
 	if( sc->data[SC_FIGHTINGSPIRIT] && sc->data[SC_FIGHTINGSPIRIT]->val2 )
 		aspd_rate -= sc->data[SC_FIGHTINGSPIRIT]->val2;
 	if( sc->data[SC_PARALYSE] )
-		aspd_rate += aspd_rate * 10 / 100;
+		aspd_rate += 100;
 	if( sc->data[SC__BODYPAINT] )
-		aspd_rate += aspd_rate * (20 + 5 * sc->data[SC__BODYPAINT]->val1) / 100;
+		aspd_rate +=  200 + 50 * sc->data[SC__BODYPAINT]->val1;
 	if( sc->data[SC__INVISIBILITY] )
-		aspd_rate += aspd_rate * sc->data[SC__INVISIBILITY]->val2 / 100;
+		aspd_rate += sc->data[SC__INVISIBILITY]->val2 * 10 ;
 	if( sc->data[SC__GROOMY] )
-		aspd_rate += aspd_rate * sc->data[SC__GROOMY]->val2 / 100;
+		aspd_rate += sc->data[SC__GROOMY]->val2 * 10;
 	if( sc->data[SC_SWINGDANCE] )
-		aspd_rate -= aspd_rate * sc->data[SC_SWINGDANCE]->val2 / 100;
+		aspd_rate -= sc->data[SC_SWINGDANCE]->val2 * 10;
 	if( sc->data[SC_DANCEWITHWUG] )
-		aspd_rate -= aspd_rate * sc->data[SC_DANCEWITHWUG]->val3 / 100;
+		aspd_rate -= sc->data[SC_DANCEWITHWUG]->val3 * 10;
 	if( sc->data[SC_GLOOMYDAY] )
-		aspd_rate += aspd_rate * sc->data[SC_GLOOMYDAY]->val3 / 100;
+		aspd_rate += sc->data[SC_GLOOMYDAY]->val3 * 10;
 	if( sc->data[SC_EARTHDRIVE] )
-		aspd_rate += aspd_rate * 25 / 100;
+		aspd_rate += 250;
 	/*As far I tested the skill there is no ASPD addition is applied. [Jobbie] */
 	//if( sc->data[SC_RAISINGDRAGON] )
 	//	aspd_rate -= 100; //FIXME: Need official ASPD bonus of this status. [Jobbie]
 	if( sc->data[SC_GT_CHANGE] )
-		aspd_rate -= aspd_rate * (sc->data[SC_GT_CHANGE]->val2/200) / 100;
+		aspd_rate -= (sc->data[SC_GT_CHANGE]->val2/200) * 10;
 	if( sc->data[SC_GT_REVITALIZE] )
-		aspd_rate -= aspd_rate * sc->data[SC_GT_REVITALIZE]->val2 / 100;
+		aspd_rate -= sc->data[SC_GT_REVITALIZE]->val2 * 10;
 	if( sc->data[SC_MELON_BOMB] )
-		aspd_rate += aspd_rate * sc->data[SC_MELON_BOMB]->val1 / 100;
+		aspd_rate += sc->data[SC_MELON_BOMB]->val1 * 10;
 	if( sc->data[SC_BOOST500] )
-		aspd_rate -= aspd_rate * sc->data[SC_BOOST500]->val1/100;
+		aspd_rate -= sc->data[SC_BOOST500]->val1 *10;
 	if( sc->data[SC_EXTRACT_SALAMINE_JUICE] )
-		aspd_rate -= aspd_rate * sc->data[SC_EXTRACT_SALAMINE_JUICE]->val1/100;
+		aspd_rate -= sc->data[SC_EXTRACT_SALAMINE_JUICE]->val1 * 10;
 	if( sc->data[SC_INCASPDRATE] )
-		aspd_rate -= aspd_rate * sc->data[SC_INCASPDRATE]->val1 / 100;
+		aspd_rate -= sc->data[SC_INCASPDRATE]->val1 * 10;
 
 	return (short)cap_value(aspd_rate,0,SHRT_MAX);
 }
@@ -6419,8 +6468,7 @@ int status_change_start(struct block_list* bl,enum sc_type type,int rate,int val
 			case SC__IGNORANCE:
 			case SC__LAZINESS:
 			case SC__WEAKNESS:
-			case SC__UNLUCKY:
-			case SC_CHAOS:			
+			case SC__UNLUCKY:		
 				return 0;
 			case SC_COMBO: 
 			case SC_DANCING:
@@ -7537,6 +7585,7 @@ int status_change_start(struct block_list* bl,enum sc_type type,int rate,int val
 			status_change_end(bl, SC_CRYSTALIZE, INVALID_TIMER);
 			break;
 		case SC_STRIKING:
+			val1 = 6 - val1;//spcost = 6 - level (lvl1:5 ... lvl 5: 1)
 			val4 = tick / 1000;
 			tick_time = 1000; // [GodLesZ] tick time
 			break;
@@ -7851,7 +7900,6 @@ int status_change_start(struct block_list* bl,enum sc_type type,int rate,int val
 		case SC_BITE:
 		case SC_THORNSTRAP:
 		case SC__MANHOLE:
-		case SC_CHAOS:
 		case SC_CRYSTALIZE:
 		case SC_WHITEIMPRISON:
 		case SC_VACUUM_EXTREME:
@@ -7895,7 +7943,6 @@ int status_change_start(struct block_list* bl,enum sc_type type,int rate,int val
 		case SC_SILENCE:      sc->opt2 |= OPT2_SILENCE;      break;
 		
 		case SC_SIGNUMCRUCIS:
-		case SC_CHAOS:
 			sc->opt2 |= OPT2_SIGNUMCRUCIS;
 			break;
 		
@@ -8713,7 +8760,6 @@ int status_change_end_(struct block_list* bl, enum sc_type type, int tid, const 
 		sc->opt2 &= ~OPT2_DPOISON;
 		break;
 	case SC_SIGNUMCRUCIS:
-	case SC_CHAOS:
 		sc->opt2 &= ~OPT2_SIGNUMCRUCIS;
 		break;
 
