@@ -52,6 +52,7 @@
 #define ACMD_FUNC(x) static int atcommand_ ## x (const int fd, struct map_session_data* sd, const char* command, const char* message)
 #define MAX_MSG 1000
 
+
 typedef struct AtCommandInfo AtCommandInfo;
 typedef struct AliasInfo AliasInfo;
 
@@ -79,6 +80,7 @@ static char atcmd_player_name[NAME_LENGTH];
 
 static AtCommandInfo* get_atcommandinfo_byname(const char *name); // @help
 static const char* atcommand_checkalias(const char *aliasname); // @help
+static void atcommand_get_suggestions(struct map_session_data* sd, const char *name, bool atcommand); // @help
 
 //-----------------------------------------------------------
 // Return the message string of the specified number by [Yor]
@@ -1657,11 +1659,13 @@ ACMD_FUNC(help)
 	if (!pc_can_use_command(sd, command_name, COMMAND_ATCOMMAND)) {
 		sprintf(atcmd_output, msg_txt(153), message); // "%s is Unknown Command"
 		clif_displaymessage(fd, atcmd_output);
+		atcommand_get_suggestions(sd, command_name, true);
 		return -1;
 	}
 	
 	if (!config_setting_lookup_string(help, command_name, &text)) {
 		clif_displaymessage(fd, "There is no help for this command_name.");
+		atcommand_get_suggestions(sd, command_name, true);
 		return -1;
 	}
 
@@ -6705,10 +6709,10 @@ ACMD_FUNC(mobinfo)
 		else
 			sprintf(atcmd_output, "Monster: '%s'/'%s'/'%s' (%d)", mob->name, mob->jname, mob->sprite, mob->vd.class_);
 		clif_displaymessage(fd, atcmd_output);
-		sprintf(atcmd_output, " Level:%d  HP:%d  SP:%d  Base EXP:%u  Job EXP:%u", mob->lv, mob->status.max_hp, mob->status.max_sp, mob->base_exp, mob->job_exp);
+		sprintf(atcmd_output, " Lv:%d  HP:%d  Base EXP:%u  Job EXP:%u  HIT:%d  FLEE:%d", mob->lv, mob->status.max_hp, mob->base_exp, mob->job_exp,MOB_HIT(mob), MOB_FLEE(mob));
 		clif_displaymessage(fd, atcmd_output);
 		sprintf(atcmd_output, " DEF:%d  MDEF:%d  STR:%d  AGI:%d  VIT:%d  INT:%d  DEX:%d  LUK:%d",
-			mob->status.def, mob->status.mdef, mob->status.str, mob->status.agi,
+			mob->status.def, mob->status.mdef,mob->status.str, mob->status.agi,
 			mob->status.vit, mob->status.int_, mob->status.dex, mob->status.luk);
 		clif_displaymessage(fd, atcmd_output);
 		
@@ -8452,6 +8456,23 @@ ACMD_FUNC(new_mount) {
 	return 0;
 }
 
+ACMD_FUNC(accinfo) {
+	char query[NAME_LENGTH];
+	
+	if (!message || !*message || strlen(message) > NAME_LENGTH ) {
+		clif_displaymessage(fd, "(usage: @accinfo/@accountinfo <account_id/char name>).");
+		clif_displaymessage(fd, "You may search partial name by making use of '%' in the search, \"@accinfo %Mario%\" lists all characters whose name contain \"Mario\"");
+		return -1;
+	}
+	
+	//remove const type
+	safestrncpy(query, message, NAME_LENGTH);
+	
+	intif_request_accinfo( sd->fd, sd->bl.id, sd->group_id, query );
+	
+	return 0;
+}
+
 /**
  * Fills the reference of available commands in atcommand DBMap
  **/
@@ -8695,6 +8716,7 @@ void atcommand_basecommands(void) {
 		ACMD_DEF(delitem),
 		ACMD_DEF(charcommands),
 		ACMD_DEF(font),
+		ACMD_DEF(accinfo),
 		/**
 		 * For Testing Purposes, not going to be here after we're done.
 		 **/
@@ -8737,6 +8759,83 @@ static const char* atcommand_checkalias(const char *aliasname)
 	if ((alias_info = (AliasInfo*)strdb_get(atcommand_alias_db, aliasname)) != NULL)
 		return alias_info->command->command;
 	return aliasname;
+}
+
+/// AtCommand suggestion
+static void atcommand_get_suggestions(struct map_session_data* sd, const char *name, bool atcommand) {
+	DBIterator* atcommand_iter;
+	DBIterator* alias_iter;
+	AtCommandInfo* command_info = NULL;
+	AliasInfo* alias_info = NULL;
+	AtCommandType type;
+	char* suggestions[MAX_SUGGESTIONS];
+	int count = 0;
+	
+	if (!battle_config.atcommand_suggestions_enabled)
+		return;
+
+	atcommand_iter = db_iterator(atcommand_db);
+	alias_iter = db_iterator(atcommand_alias_db);	
+	
+	if (atcommand)
+		type = COMMAND_ATCOMMAND;
+	else
+		type = COMMAND_CHARCOMMAND;
+
+	
+	// First match the beginnings of the commands
+	for (command_info = dbi_first(atcommand_iter); dbi_exists(atcommand_iter) && count < MAX_SUGGESTIONS; command_info = dbi_next(atcommand_iter)) {
+		if ( strstr(command_info->command, name) == command_info->command && pc_can_use_command(sd, command_info->command, type) )
+		{
+			suggestions[count] = command_info->command;
+			++count;
+		}
+	}
+
+	for (alias_info = dbi_first(alias_iter); dbi_exists(alias_iter) && count < MAX_SUGGESTIONS; alias_info = dbi_next(alias_iter)) {
+		if ( strstr(alias_info->alias, name) == alias_info->alias && pc_can_use_command(sd, alias_info->command->command, type) )
+		{
+			suggestions[count] = alias_info->alias;
+			++count;
+		}
+	}
+	
+	// Fill up the space left, with full matches
+	for (command_info = dbi_first(atcommand_iter); dbi_exists(atcommand_iter) && count < MAX_SUGGESTIONS; command_info = dbi_next(atcommand_iter)) {
+		if ( strstr(command_info->command, name) != NULL && pc_can_use_command(sd, command_info->command, type) )
+		{
+			suggestions[count] = command_info->command;
+			++count;
+		}
+	}
+
+	for (alias_info = dbi_first(alias_iter); dbi_exists(alias_iter) && count < MAX_SUGGESTIONS; alias_info = dbi_next(alias_iter)) {
+		if ( strstr(alias_info->alias, name) != NULL && pc_can_use_command(sd, alias_info->command->command, type) )
+		{
+			suggestions[count] = alias_info->alias;
+			++count;
+		}
+	}
+
+	if (count > 0)
+	{
+		char buffer[512];
+		int i;
+
+		strcpy(buffer, msg_txt(205));
+		strcat(buffer,"\n");
+		
+		for(i=0; i < count; ++i)
+		{
+			strcat(buffer,suggestions[i]);
+			strcat(buffer," ");
+		}
+
+		clif_displaymessage(sd->fd, buffer);
+	}
+
+	dbi_destroy(atcommand_iter);
+	dbi_destroy(alias_iter);
 }
 
 /// Executes an at-command.
@@ -8837,6 +8936,7 @@ bool is_atcommand(const int fd, struct map_session_data* sd, const char* message
 		if( pc_get_group_level(sd) ) { // TODO: remove or replace with proper permission
 			sprintf(output, msg_txt(153), command); // "%s is Unknown Command."
 			clif_displaymessage(fd, output);
+			atcommand_get_suggestions(sd, command + 1, *message == atcommand_symbol);
 			return true;
 		} else
 			return false;

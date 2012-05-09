@@ -8455,13 +8455,13 @@ mid_camp,143,306,5	script	Breeder Taab#ep13_alba	946,{
 				mes "material to give you.";
 				mes "How about a spiritual reward?";
 				next;
-				mes "^4d4dff You have received 80,000 EXP";
-				mes "and 30000 JEXP.^000000.";
 				delitem 579,50; //Delicious_Fish
 				set ep13_alba,6;
 				getexp 8000,3000;
 				erasequest 7042;
 				setquest 7047;
+				mes "^4d4dff You have received 8,000 EXP";
+				mes "and 3,000 JEXP.^000000.";
 				close;
 			}
 			else {
@@ -8487,14 +8487,14 @@ mid_camp,143,306,5	script	Breeder Taab#ep13_alba	946,{
 				mes "material to give you.";
 				mes "How about a spiritual reward?";
 				next;
-				mes "^4d4dff You have received 90,000 EXP";
-				mes "and 40000 JEXP.^000000.";
 				delitem 7198,30; //Great_Leaf
 				delitem 7188,30; //Browny_Root
 				set ep13_alba,6;
 				getexp 9000,4000;
 				erasequest 7043;
 				setquest 7047;
+				mes "^4d4dff You have received 9,000 EXP";
+				mes "and 4,000 JEXP.^000000.";
 				close;
 			}
 			else {
@@ -8525,14 +8525,14 @@ mid_camp,143,306,5	script	Breeder Taab#ep13_alba	946,{
 				mes "material to give you.";
 				mes "How about a spiritual reward?";
 				next;
-				mes "^4d4dff You have received 80,000 EXP";
-				mes "and 30000 JEXP.^000000.";
 				delitem 528,20; //Monster's_Feed
 				delitem 537,30; //Pet_Food
 				set ep13_alba,6;
 				getexp 8000,3000;
 				erasequest 7044;
 				setquest 7047;
+				mes "^4d4dff You have received 8,000 EXP";
+				mes "and 3,000 JEXP.^000000.";
 				close;
 			}
 			else {
@@ -8560,14 +8560,14 @@ mid_camp,143,306,5	script	Breeder Taab#ep13_alba	946,{
 				mes "material to give you.";
 				mes "How about a spiritual reward?";
 				next;
-				mes "^4d4dff You have received 80,000 EXP";
-				mes "and 30000 JEXP.^000000.";
 				delitem 517,50; //Meat
 				delitem 537,30; //Pet_Food
 				set ep13_alba,6;
 				getexp 8000,3000;
 				erasequest 7045;
 				setquest 7047;
+				mes "^4d4dff You have received 8,000 EXP";
+				mes "and 3,000 JEXP.^000000.";
 				close;
 			}
 			else {
@@ -8593,13 +8593,13 @@ mid_camp,143,306,5	script	Breeder Taab#ep13_alba	946,{
 				mes "material to give you.";
 				mes "How about a spiritual reward?";
 				next;
-				mes "^4d4dff You have received 80,000 EXP";
-				mes "and 30000 JEXP.^000000.";
 				delitem 6020,30; //Fur
 				set ep13_alba,6;
 				getexp 8000,3000;
 				erasequest 7046;
 				setquest 7047;
+				mes "^4d4dff You have received 8,000 EXP";
+				mes "and 3,000 JEXP.^000000.";
 				close;
 			}
 			else {
@@ -9917,7 +9917,7 @@ mid_camp,69,144,0	script	Ferocious Gorurug	421,{
 				set ep13_yong1,10;
 				setquest 12060;
 				next;
-				mes "^0000ffYou gain EXP 30,000^000000";
+				mes "^0000ffYou gain EXP 3,000^000000";
 				close;
 			}
 			else {
@@ -9937,7 +9937,7 @@ mid_camp,69,144,0	script	Ferocious Gorurug	421,{
 				setquest 12060;
 				set ep13_yong1,ep13_yong1+1;
 				next;
-				mes "^0000ffYou gain EXP 15,000^000000";
+				mes "^0000ffYou gain EXP 1,500^000000";
 				close;
 			}
 			else {
@@ -9958,7 +9958,7 @@ mid_camp,69,144,0	script	Ferocious Gorurug	421,{
 				setquest 12060;
 				set ep13_yong1,ep13_yong1+1;
 				next;
-				mes "^0000ffYou gain EXP 15,000^000000";
+				mes "^0000ffYou gain EXP 1,500^000000";
 				close;
 			}
 			else {
@@ -9978,7 +9978,7 @@ mid_camp,69,144,0	script	Ferocious Gorurug	421,{
 				setquest 12060;
 				set ep13_yong1,ep13_yong1+1;
 				next;
-				mes "^0000ffYou gain EXP 15,000^000000";
+				mes "^0000ffYou gain EXP 1,500^000000";
 				close;
 			}
 			else {
@@ -10001,7 +10001,7 @@ mid_camp,69,144,0	script	Ferocious Gorurug	421,{
 				setquest 12060;
 				set ep13_yong1,ep13_yong1+1;
 				next;
-				mes "^0000ffYou gain EXP 15,000^000000";
+				mes "^0000ffYou gain EXP 1,500^000000";
 				close;
 			}
 			else {
