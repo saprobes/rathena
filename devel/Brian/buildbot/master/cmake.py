@@ -62,8 +62,8 @@ class CMakeFactory(BuildFactory):
             name = "Package",
             description = ["packaging"],
             descriptionDone = ["package"],
-            haltOnFailure = True,
-            flunkOnFailure = True,
+            haltOnFailure = False,
+            flunkOnFailure = False,
             doStepIf=lambda step: step.build.getProperty("WITH_CPACK"),
             command=["cmake", "--build", ".", "--target", "package"] + buildTypeArgument,
             logEnviron=False))
