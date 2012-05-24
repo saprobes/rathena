@@ -199,13 +199,15 @@ end
 -- I found this to be a good method of doing this implementation without having
 -- to rely on most of the code or the storage itself being in the source. 
 local gmcommands = {}
-function addgmcommand(name,fname)
-	gmcommands[name] = fname
+function addgmcommand(name,func_name)
+	gmcommands[name] = func_name
 end
 
 function is_scriptedcommand(name)
 	buf = string.gsub(name,"@","",1)
-	if gmcommands[buf] then scmd_flag(1); return callfunc(gmcommands[buf])
+	if gmcommands[buf] then 
+		scmd_flag(char_id);
+		return gmcommands[buf](char_id)
 	end
 end
 

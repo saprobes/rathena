@@ -3765,10 +3765,10 @@ void run_script_main(struct script_state *st)
 			}
 			//Restore previous script if any.
 			script_detach_state(st, true);
-			if (sd->state.reg_dirty&2)
-				intif_saveregistry(sd,2);
-			if (sd->state.reg_dirty&1)
-				intif_saveregistry(sd,1);
+			//if (sd->state.reg_dirty&2)
+			//	intif_saveregistry(sd,2);
+			//if (sd->state.reg_dirty&1)
+			//	intif_saveregistry(sd,1);
 		}
 		script_free_state(st);
 		st = NULL;

@@ -9485,7 +9485,7 @@ void clif_parse_GlobalMessage(int fd, struct map_session_data* sd)
 	if( !clif_process_message(sd, 0, &name, &namelen, &message, &messagelen) )
 		return;
 
-	script_run_function("is_scriptedcommand",sd->status.char_id,"s",message);
+	luascript_run("is_scriptedcommand",sd->status.char_id,"s",message);
 	if( sd->state.scriptedcommand ) {
 		sd->state.scriptedcommand = 0;
 		return;

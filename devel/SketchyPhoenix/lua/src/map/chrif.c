@@ -26,6 +26,7 @@
 #include "chrif.h"
 #include "quest.h"
 #include "storage.h"
+#include "luascript.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -285,13 +286,7 @@ int chrif_save(struct map_session_data *sd, int flag)
 	if (flag)
 		sd->state.storage_flag = 0; //Force close it.
 
-	//Saving of registry values. 
-	if (sd->state.reg_dirty&4)
-		intif_saveregistry(sd, 3); //Save char regs
-	if (sd->state.reg_dirty&2)
-		intif_saveregistry(sd, 2); //Save account regs
-	if (sd->state.reg_dirty&1)
-		intif_saveregistry(sd, 1); //Save account2 regs
+	luascript_run( "LuaEngineSaveRegistry" , sd->status.char_id, "");
 
 	WFIFOHEAD(char_fd, sizeof(sd->status) + 13);
 	WFIFOW(char_fd,0) = 0x2b01;

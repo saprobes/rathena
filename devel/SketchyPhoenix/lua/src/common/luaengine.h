@@ -19,5 +19,8 @@ struct LuaCommandInfo {
 void do_init_luaengine( void );
 void do_final_luaengine( void );
 void load_script_commands( void );
+void charscript_run(const char *name,const char *format,...);
+void luaengine_open_config( void );
+void luaengine_stackdump(lua_State *L);
 
 #endif /* _LUAENGINE_H_ */

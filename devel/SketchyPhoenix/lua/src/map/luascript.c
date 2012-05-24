@@ -6647,13 +6647,6 @@ LUA_FUNC(progressbar)
     return 0;
 }
 
-LUA_FUNC(callfunc)
-{
-	lua_get_target(2);
-	script_run_function(luaL_checkstring(NL,1),sd->status.char_id,"");
-	return 0;
-}
-
 LUA_FUNC(scmd_flag)
 {
 	lua_get_target(2);
@@ -6661,35 +6654,46 @@ LUA_FUNC(scmd_flag)
 	return 0;
 }
 
-/*
-	Table containing a user registry is converted
-	into a struct to be sent to char-server for saving.
-*/
 LUA_FUNC(saveregistry)
 {
-	int i = 1;
+	char **lkey = NULL;
+	char **lvalue = NULL;
+	int i = 0,n = 0;
 	
-	struct reg
-	{
-		char *key[MAX_REG_NUM];
-		char *value[MAX_REG_NUM];
-	} table;
+	lua_get_target(2);
 	
+	if( !sd )
+		return 0;
+	
+	/* So the stack in lua looks something like
+		(the table that was passed), char id, (index of the table), (key or value depending on index)
+		
+		because of the way the key/value works, the values are assigned in the loop by allocating for the
+		key, then allocating for the key's value in the next loop. */
+		
 	lua_pushnil( NL );
 	while( lua_next( NL , -3 ) != 0 )
 	{
-		table.key[i] = malloc( strlen( lua_tostring( NL , -2 ) ) + 1 );
-		table.value[i] = malloc( strlen( lua_tostring( NL , -1 ) ) + 1 );
+		if( i == n+1 )
+		{
+			lvalue = (char **)aRealloc( lvalue, (n+1) * sizeof(char *) );
+			lvalue[n] = strdup( lua_tostring(NL, 4) );
+			n++;
+		}
+		else
+		{
+			lkey = (char **)aRealloc( lkey, (i+1) * sizeof(char *) );
+			lkey[i] = strdup( lua_tostring(NL, 4) );
+			i++;
+		}
 		lua_pop( NL , 1 );
-		i++;
 	}
-	lua_pop( NL , 1 );
 	
-	//intif_saveregistry( sd , table );
+	intif_saveregistry( sd , 0, lkey, lvalue );
 	
-	free( table.key );
-	free( table.value );
-	
+	aFree( lkey );
+	aFree( lvalue );
+
 	return 0;
 }
 
@@ -6988,12 +6992,17 @@ static struct LuaCommandInfo commands[] = {
 	LUA_DEF(setfont),
 	LUA_DEF(areamobuseskill),
 	LUA_DEF(progressbar),
-	LUA_DEF(callfunc),
 	LUA_DEF(scmd_flag),
 	LUA_DEF(saveregistry),
 	// End of build-in functions list
 	{"-End of list-", NULL},
 };
+
+void luaengine_open_config()
+{
+	if ( luaL_dofile(L,"script/map/script_main.lua") )
+		ShowError("%s\n", lua_tostring(L,-1));
+}
 
 /*
 	Load commands into Lua
@@ -7033,72 +7042,79 @@ static struct map_session_data* script_get_target(lua_State *NL,int idx)
 	return sd;
 }
 
-/* Run a Lua function that was previously loaded, specifying the type of arguments with a "format" string
 
- A bit of an explanation on how format works. When a lua function is called using script_run_function, these values are pushed as arguments to the function.
- The args can be named whatever in lua.
- 
- ex: script_run_function(nd->function,sd->status.char_id,"ii",sd->status.char_id,nd->bl.id)
- run from npc_click() will push the character's id and the npc's id as arguments in
- 
- function foo(arg,arg2) (let's say nd-> function was "foo")
- end
- 
+/*	Run a function that was previously loaded.
+	Specify type of arguments with a "format" string.
+	Attempts to run a script with the supplied char_id attached, otherwise it uses the global state.
+	
+	If/once the script is finished, threads attached to the player are destroyed and their states should
+	be reset
 */
-void script_run_function(const char *name,int char_id,const char *format,...)
+void luascript_run(const char *name,int char_id,const char *format,...)
 {
 	va_list arg;
 	lua_State *NL;
 	struct map_session_data *sd=NULL;
 	int n=0;
 
-	if (char_id == 0) { // If char_id points to no player
-		NL = L; // Use the global thread
-	} else { // Else we want to run the function for a specific player
+	if ( char_id == 0 )
+	{
+		NL = L;
+	} else
+	{ 
 		sd = map_charid2sd(char_id);
 		nullpo_retv(sd);
-		if(sd->lua_script_state!=L_NRUN) { // Check that the player is not currently running a script
+		
+		if( sd->lua_script_state != L_NRUN )
+		{
 			ShowError("Cannot run function %s for player %d : player is already running a script (state %d, expected state %d)\n",name,char_id,sd->lua_script_state,L_NRUN);
 			return;
 		}
-		NL = sd->NL = lua_newthread(L); // Use the player's personal thread
-		lua_pushliteral(NL,"char_id"); // Push global key for char_id
-		lua_pushnumber(NL,char_id); // Push value for char_id
-		lua_rawset(NL,LUA_GLOBALSINDEX); // Tell Lua to set char_id as a global var
+		
+		NL = sd->NL = lua_newthread(L);
+		lua_pushliteral(NL,"char_id");
+		lua_pushnumber(NL,char_id);
+		lua_rawset(NL,LUA_GLOBALSINDEX);
 	}
 
-	lua_getglobal(NL,name); // Pass function name to Lua
-			
-	va_start(arg,format); // Initialize the argument list
-	while (*format) { // Pass arguments to Lua, according to the types defined by "format"
-        switch (*format++) {
-          case 'd': // d = Double
+	lua_getglobal(NL,name);
+	
+	/*	Initialize argument list
+		Pass arguments according to types defined by "format"
+		d = double, i = integer, s = string
+	*/
+	va_start(arg,format);
+	while (*format) 
+	{
+        switch (*format++) 
+		{
+          case 'd':
             lua_pushnumber(NL,va_arg(arg,double));
             break;
-          case 'i': // i = Integer
+          case 'i':
             lua_pushnumber(NL,va_arg(arg,int));
             break;
-          case 's': // s = String
+          case 's':
             lua_pushstring(NL,va_arg(arg,char*));
             break;
-          default: // Unknown code
+          default:
             ShowError("%c : Invalid argument type code, allowed codes are 'd'/'i'/'s'\n",*(format-1));
         }
         n++;
         luaL_checkstack(NL,1,"Too many arguments");
     }
 	va_end(arg);
-	
-	// Tell Lua to run the function
-	if ( lua_resume(NL,n)!=0 && lua_tostring(NL,-1) != NULL ) {
-		//If it fails, print to console the error that lua returned.
+
+	if ( lua_resume(NL,n) !=0 && lua_tostring(NL,-1) != NULL )
+	{
 		ShowError("Cannot run function %s : %s\n",name,lua_tostring(NL,-1));
 		return;
 	}
 
-	if(sd && sd->lua_script_state==L_NRUN) { // If the script has finished (not waiting answer from client)
-	    sd->NL=NULL; // Close the player's personal thread
-		sd->npc_id=0; // Set the player's current NPC to 'none'
+	if( sd && sd->lua_script_state == L_NRUN )
+	{
+	    sd->NL = NULL;
+		sd->npc_id = 0;
 	}
 	
 }

@@ -10,6 +10,35 @@
 #include <lauxlib.h>
 #include <lualib.h>
 
+void luaengine_stackdump (lua_State *L) {
+	int i;
+	int top = lua_gettop(L);
+	for (i = 1; i <= top; i++) {  /* repeat for each level */
+		int t = lua_type(L, i);
+		switch (t) {
+		
+		case LUA_TSTRING:  /* strings */
+			printf("`%s'", lua_tostring(L, i));
+			break;
+			
+		case LUA_TBOOLEAN:  /* booleans */
+			printf(lua_toboolean(L, i) ? "true" : "false");
+            break;
+    
+		case LUA_TNUMBER:  /* numbers */
+			printf("%g", lua_tonumber(L, i));
+			break;
+    
+		default:  /* other values */
+			printf("%s", lua_typename(L, t));
+			break;
+    
+		}
+		printf("  ");  /* put a separator */
+	}
+		printf("\n");  /* end the listing */
+}
+
 /*
 	Create our Lua environment. Each server has its own global Lua state.
 */
@@ -18,10 +47,7 @@ void do_init_luaengine()
 	L = luaL_newstate();
 	luaL_openlibs(L);
 	load_script_commands();
-	
-	if ( luaL_dofile(L,"script/map/script_main.lua") )
-		ShowError("%s\n", lua_tostring(L,-1));
-	
+	luaengine_open_config();
 }
 
 /*

@@ -2530,20 +2530,20 @@ int mob_dead(struct mob_data *md, struct block_list *src, int type)
 			if( sd && battle_config.mob_npc_event_type )
 			{
 				//killer of the mob
-				script_run_function(md->function,sd->status.char_id,"i",sd->bl.id);
+				luascript_run(md->function,sd->status.char_id,"i",sd->bl.id);
 			}
 			else if( mvp_sd )
 			{
 				//run function with the mvp but pass the id of the person who killed it if one.
-				script_run_function(md->function,mvp_sd->status.char_id,"i",sd?sd->bl.id:0);
+				luascript_run(md->function,mvp_sd->status.char_id,"i",sd?sd->bl.id:0);
 			}
 			else {
-				script_run_function(md->function,0,"");
+				luascript_run(md->function,0,"");
 			}
 		}
 		else if( mvp_sd && !md->state.npc_killmonster )
 		{
-			script_run_function("OnNPCKillEvent",mvp_sd->status.char_id,"ii",md->class_);
+			luascript_run("OnNPCKillEvent",mvp_sd->status.char_id,"ii",md->class_);
 		}
 		
 		md->status.hp = 1;

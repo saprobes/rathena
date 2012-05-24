@@ -9,7 +9,7 @@ unsigned short lua_eventcount;
 
 int menu_countoptions(const char* str, int max_count, int* total);
 
-void script_run_function(const char *name,int char_id,const char *format,...);
+void luascript_run(const char *name,int char_id,const char *format,...);
 void script_run_chunk(const char *chunk,int char_id);
 void script_resume(struct map_session_data *sd,const char *format,...);
 

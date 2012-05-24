@@ -291,50 +291,40 @@ int intif_regtostr(char* str, struct global_reg *reg, int qty)
 	return len;
 }
 
-//Request for saving registry values.
-int intif_saveregistry(struct map_session_data *sd, int type)
+
+/*	Request for saving registry values.
+	TODO: Account-based variables. 
+	
+	type is being passed as 0 at the moment which will represent character variables.
+	account will be type 1 */
+int intif_saveregistry(struct map_session_data *sd, int type, char **lkey, char **lvalue)
 {
-	struct global_reg *reg;
-	int count;
-	int i, p;
+	int i = 0;
+	int p = 17;
+	int len = sizeof(lkey); /* lkey and lvalue (should) have the same length so we only need len for one*/
 
 	if (CheckForCharServer())
 		return -1;
-
-	switch (type) {
-	case 3: //Character reg
-		reg = sd->save_reg.global;
-		count = sd->save_reg.global_num;
-		sd->state.reg_dirty &= ~0x4;
-	break;
-	case 2: //Account reg
-		reg = sd->save_reg.account;
-		count = sd->save_reg.account_num;
-		sd->state.reg_dirty &= ~0x2;
-	break;
-	case 1: //Account2 reg
-		reg = sd->save_reg.account2;
-		count = sd->save_reg.account2_num;
-		sd->state.reg_dirty &= ~0x1;
-	break;
-	default: //Broken code?
-		ShowError("intif_saveregistry: Invalid type %d\n", type);
-		return -1;
+		
+	WFIFOHEAD(inter_fd, ( sizeof(char *) * sizeof(lkey)*2 ) + 17 );
+	WFIFOW(inter_fd,0) = 0x3004;
+	WFIFOL(inter_fd,4) = sd->status.account_id;
+	WFIFOL(inter_fd,8) = sd->status.char_id;
+	WFIFOB(inter_fd,12) = type;
+	WFIFOB(inter_fd,16) = len;
+	
+	while( i < len )
+	{
+		p += sprintf( (char*)WFIFOP(inter_fd,p), "%s", lkey[i] )+1;
+		p += sprintf( (char*)WFIFOP(inter_fd,p), "%s", lvalue[i] )+1;
+		i++;
 	}
-	WFIFOHEAD(inter_fd, 288 * MAX_REG_NUM+13);
-	WFIFOW(inter_fd,0)=0x3004;
-	WFIFOL(inter_fd,4)=sd->status.account_id;
-	WFIFOL(inter_fd,8)=sd->status.char_id;
-	WFIFOB(inter_fd,12)=type;
-	for( p = 13, i = 0; i < count; i++ ) {
-		if (reg[i].str[0] != '\0' && reg[i].value[0] != '\0') {
-			p+= sprintf((char*)WFIFOP(inter_fd,p), "%s", reg[i].str)+1; //We add 1 to consider the '\0' in place.
-			p+= sprintf((char*)WFIFOP(inter_fd,p), "%s", reg[i].value)+1;
-		}
-	}
+	
 	WFIFOW(inter_fd,2)=p;
 	WFIFOSET(inter_fd,WFIFOW(inter_fd,2));
+	
 	return 0;
+
 }
 
 //Request the registries for this player.

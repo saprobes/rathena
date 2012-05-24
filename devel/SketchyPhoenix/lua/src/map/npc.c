@@ -873,7 +873,7 @@ int npc_touch_areascript(struct map_session_data *sd,int m,int x,int y)
 			x >= map[m].areascript[i]->x1 && x <= map[m].areascript[i]->x2 &&
 			y >= map[m].areascript[i]->y1 && x <= map[m].areascript[i]->y2) {
 			sd->areanpc_id=map[m].areascript[i]->bl.id;
-			script_run_function(map[m].areascript[i]->function,sd->status.char_id,"");
+			luascript_run(map[m].areascript[i]->function,sd->status.char_id,"");
 		}
 	}
 	return 0;
@@ -1165,7 +1165,7 @@ int npc_click(struct map_session_data* sd, struct npc_data* nd)
 		run_tomb(sd,nd);
 		break;
 	case LUA:
-		script_run_function(nd->function,sd->status.char_id,"i",nd->bl.id);
+		luascript_run(nd->function,sd->status.char_id,"i",nd->bl.id);
 		break;
 	}
 
@@ -3917,7 +3917,7 @@ static int npc_lua_eventtimer(int tid, unsigned int tick, int id, intptr data)
 	{
 		lua_eventtimer[i] = -1;
 		lua_eventcount--;
-		script_run_function(p,0,"");
+		luascript_run(p,0,"");
 	}
 	else
 		ShowError("npc_lua_eventtimer: no such event timer\n");

@@ -7491,78 +7491,7 @@ int pc_setregistry(struct map_session_data *sd,const char *reg,int val,int type)
 
 int pc_setregistry_str(struct map_session_data *sd,const char *reg,const char *val,int type)
 {
-	struct global_reg *sd_reg;
-	int i,*max, regmax;
-
-	nullpo_ret(sd);
-	if (reg[strlen(reg)-1] != '$') {
-		ShowError("pc_setregistry_str : reg %s must be string (end in '$') to use this!\n", reg);
-		return 0;
-	}
-
-	switch (type) {
-	case 3: //Char reg
-		sd_reg = sd->save_reg.global;
-		max = &sd->save_reg.global_num;
-		regmax = GLOBAL_REG_NUM;
-	break;
-	case 2: //Account reg
-		sd_reg = sd->save_reg.account;
-		max = &sd->save_reg.account_num;
-		regmax = ACCOUNT_REG_NUM;
-	break;
-	case 1: //Account2 reg
-		sd_reg = sd->save_reg.account2;
-		max = &sd->save_reg.account2_num;
-		regmax = ACCOUNT_REG2_NUM;
-	break;
-	default:
-		return 0;
-	}
-	if (*max == -1) {
-		ShowError("pc_setregistry_str : refusing to set %s (type %d) until vars are received.\n", reg, type);
-		return 0;
-	}
-	
-	// delete reg
-	if (!val || strcmp(val,"")==0)
-	{
-		ARR_FIND( 0, *max, i, strcmp(sd_reg[i].str, reg) == 0 );
-		if( i < *max )
-		{
-			if (i != *max - 1)
-				memcpy(&sd_reg[i], &sd_reg[*max - 1], sizeof(struct global_reg));
-			memset(&sd_reg[*max - 1], 0, sizeof(struct global_reg));
-			(*max)--;
-			sd->state.reg_dirty |= 1<<(type-1); //Mark this registry as "need to be saved"
-			if (type!=3) intif_saveregistry(sd,type);
-		}
-		return 1;
-	}
-
-	// change value if found
-	ARR_FIND( 0, *max, i, strcmp(sd_reg[i].str, reg) == 0 );
-	if( i < *max )
-	{
-		safestrncpy(sd_reg[i].value, val, sizeof(sd_reg[i].value));
-		sd->state.reg_dirty |= 1<<(type-1); //Mark this registry as "need to be saved"
-		if (type!=3) intif_saveregistry(sd,type);
-		return 1;
-	}
-
-	// add value if not found
-	if (i < regmax) {
-		memset(&sd_reg[i], 0, sizeof(struct global_reg));
-		safestrncpy(sd_reg[i].str, reg, sizeof(sd_reg[i].str));
-		safestrncpy(sd_reg[i].value, val, sizeof(sd_reg[i].value));
-		(*max)++;
-		sd->state.reg_dirty |= 1<<(type-1); //Mark this registry as "need to be saved"
-		if (type!=3) intif_saveregistry(sd,type);
-		return 1;
-	}
-
-	ShowError("pc_setregistry : couldn't set %s, limit of registries reached (%d)\n", reg, regmax);
-
+	// remove me later [sketchyphoenix]
 	return 0;
 }
 
@@ -7583,7 +7512,7 @@ static int pc_eventtimer(int tid, unsigned int tick, int id, intptr_t data)
 		sd->eventtimer[i] = INVALID_TIMER;
 		sd->eventcount--;
 		if(get_timer_event_lua(tid)){
-			script_run_function(p,sd->status.char_id,"");
+			luascript_run(p,sd->status.char_id,"");
 		}
 		else {
 			npc_event(sd,p,0);

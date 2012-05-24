@@ -8,6 +8,7 @@
 #include "../common/showmsg.h"
 #include "../common/socket.h"
 #include "../common/timer.h"
+#include "../common/luaengine.h"
 #include "char.h"
 #include "inter.h"
 #include "int_party.h"
@@ -1087,37 +1088,30 @@ int mapif_parse_WisToGM(int fd)
 	return 0;
 }
 
-// Save account_reg into sql (type=2)
 int mapif_parse_Registry(int fd)
 {
-	int j,p,len, max;
-	struct accreg *reg=accreg_pt;
+	int j,p,top,max,id;
+	char *buf = NULL;
 	
-	memset(accreg_pt,0,sizeof(struct accreg));
-	switch (RFIFOB(fd, 12)) {
-	case 3: //Character registry
-		max = GLOBAL_REG_NUM;
-	break;
-	case 2: //Account Registry
-		max = ACCOUNT_REG_NUM;
-	break;
-	case 1: //Account2 registry, must be sent over to login server.
-		return save_accreg2(RFIFOP(fd,4), RFIFOW(fd,2)-4);
-	default:
-		return 1;
+	max = RFIFOB( fd , 16 );
+	lua_newtable(L);
+	top = lua_gettop(L);
+	for( j = 0, p = 17; j < max && p < RFIFOW( fd , 2 ); j++ )
+	{
+		/* copy key */
+		buf = RFIFOP( fd, p );
+		lua_pushstring(L, buf );
+		p += strlen(buf)+1;
+		/* copy value */
+		buf = RFIFOP( fd, p );
+		lua_pushstring(L, buf );
+		p += strlen(buf)+1;
+		
+		lua_settable(L, top);
 	}
-	for(j=0,p=13;j<max && p<RFIFOW(fd,2);j++){
-		sscanf((char*)RFIFOP(fd,p), "%31c%n",reg->reg[j].str,&len);
-		reg->reg[j].str[len]='\0';
-		p +=len+1; //+1 to skip the '\0' between strings.
-		sscanf((char*)RFIFOP(fd,p), "%255c%n",reg->reg[j].value,&len);
-		reg->reg[j].value[len]='\0';
-		p +=len+1;
-	}
-	reg->reg_num=j;
-
-	inter_accreg_tosql(RFIFOL(fd,4),RFIFOL(fd,8),reg, RFIFOB(fd,12));
-	mapif_account_reg(fd,RFIFOP(fd,0));	// Send updated accounts to other map servers.
+	id = RFIFOL(fd, 8);
+	lua_setglobal(L,"reg");
+	charscript_run("SaveRegistry","i",id);
 	return 0;
 }
 
