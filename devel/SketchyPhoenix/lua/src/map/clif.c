@@ -21,7 +21,6 @@
 #include "chat.h"
 #include "trade.h"
 #include "storage.h"
-#include "script.h"
 #include "skill.h"
 #include "atcommand.h"
 #include "intif.h"
@@ -1876,7 +1875,7 @@ void clif_scriptclose(struct map_session_data *sd, int npcid)
 	WFIFOW(fd,0)=0xb6;
 	WFIFOL(fd,2)=npcid;
 	WFIFOSET(fd,packet_len(0xb6));
-	sd->lua_script_state = L_NRUN;
+	sd->lua.state = NOT_RUNNING;
 	//todo: need to distinguish between a close and close2. too lazy to add that flag at the moment. 
 }
 
@@ -9184,7 +9183,7 @@ void clif_parse_LoadEndAck(int fd,struct map_session_data *sd)
 		sd->state.menu_or_input = 0;
 		sd->npc_menu = 0;
 
-		if(sd->npc_id)
+		if(sd->lua.npc_id)
 			npc_event_dequeue(sd);
 	}
 
@@ -9364,8 +9363,8 @@ void clif_parse_progressbar(int fd, struct map_session_data * sd)
 {
 	int npc_id = sd->progressbar.npc_id;
 
-	if( gettick() < sd->progressbar.timeout && sd->st )
-		sd->st->state = END;
+	if( gettick() < sd->progressbar.timeout && sd->lua.npc_id )
+		sd->lua.state = YIELD;
 
 	sd->progressbar.npc_id = sd->progressbar.timeout = 0;
 	npc_scriptcont(sd, npc_id);
@@ -9535,7 +9534,7 @@ void clif_parse_GlobalMessage(int fd, struct map_session_data* sd)
 	WFIFOSET(fd, WFIFOW(fd,2));
 #ifdef PCRE_SUPPORT
 	// trigger listening npcs
-	map_foreachinrange(npc_chat_sub, &sd->bl, AREA_SIZE, BL_NPC, text, textlen, &sd->bl);
+	//map_foreachinrange(npc_chat_sub, &sd->bl, AREA_SIZE, BL_NPC, text, textlen, &sd->bl);
 #endif
 
 	// Chat logging type 'O' / Global Chat
@@ -9824,44 +9823,7 @@ void clif_parse_WisMessage(int fd, struct map_session_data* sd)
 	//-------------------------------------------------------//
 	if (target[0] && (strncasecmp(target,"NPC:",4) == 0) && (strlen(target) > 4))
 	{
-		char* str = target+4; //Skip the NPC: string part.
-		struct npc_data* npc;
-		if ((npc = npc_name2id(str)))
-		{
-			char split_data[NUM_WHISPER_VAR][CHAT_SIZE_MAX];
-			char *split;
-			char output[256];
-
-			str = message;
-			// skip codepage indicator, if detected
-			if( str[0] == '|' && strlen(str) >= 4 )
-				str += 3;
-			for( i = 0; i < NUM_WHISPER_VAR; ++i )
-			{// Splits the message using '#' as separators
-				split = strchr(str,'#');
-				if( split == NULL )
-				{	// use the remaining string
-					safestrncpy(split_data[i], str, ARRAYLENGTH(split_data[i]));
-					for( ++i; i < NUM_WHISPER_VAR; ++i )
-						split_data[i][0] = '\0';
-					break;
-				}
-				*split = '\0';
-				safestrncpy(split_data[i], str, ARRAYLENGTH(split_data[i]));
-				str = split+1;
-			}
-			
-			for( i = 0; i < NUM_WHISPER_VAR; ++i )
-			{
-				sprintf(output, "@whispervar%d$", i);
-				set_var(sd,output,(char *) split_data[i]);
-			}
-			
-			sprintf(output, "%s::OnWhisperGlobal", npc->exname);
-			npc_event(sd,output,0); // Calls the NPC label
-
-			return;
-		}
+		/* Rewrite using Lua [sketchyphoenix] */
 	}
 	
 	// Main chat [LuzZza]
@@ -10037,8 +9999,8 @@ void clif_parse_UseItem(int fd, struct map_session_data *sd)
 		return;
 	
 	//This flag enables you to use items while in an NPC. [Skotlex]
-	if (sd->npc_id) {
-		if (sd->npc_id != sd->npc_item_flag)
+	if (sd->lua.npc_id) {
+		if (sd->lua.npc_id != sd->npc_item_flag)
 			return;
 	} else
 	if (pc_istrading(sd))
@@ -10069,8 +10031,8 @@ void clif_parse_EquipItem(int fd,struct map_session_data *sd)
 	if (index < 0 || index >= MAX_INVENTORY)
 		return; //Out of bounds check.
 	
-	if(sd->npc_id) {
-		if (sd->npc_id != sd->npc_item_flag)
+	if(sd->lua.npc_id) {
+		if (sd->lua.npc_id != sd->npc_item_flag)
 			return;
 	} else if (sd->state.storage_flag || sd->sc.opt1)
 		; //You can equip/unequip stuff while storage is open/under status changes
@@ -10913,15 +10875,15 @@ void clif_parse_NpcSelectMenu(int fd,struct map_session_data *sd)
 
 	nullpo_retv(sd->NL);
 	
-	if ( sd->lua_script_state != L_MENU )
+	if ( sd->lua.state != IN_MENU )
 		return;
 
 	if ( select == 0xff )
 	{	//If the player clicks Cancel, flag him as no longer running a script, close his thread, and set his current NPC to none
 		sd->state.menu_or_input = 0;
-		sd->lua_script_state = L_NRUN;
+		sd->lua.state = NOT_RUNNING;
 		sd->NL = NULL;
-		sd->npc_id = 0;
+		sd->lua.npc_id = 0;
 		sd->areanpc_id = 0;
 		return;
 	}
@@ -10943,8 +10905,7 @@ void clif_parse_NpcSelectMenu(int fd,struct map_session_data *sd)
 /// 00b9 <npc id>.L
 void clif_parse_NpcNextClicked(int fd,struct map_session_data *sd)
 {
-	//npc_scriptcont(sd,RFIFOL(fd,2));
-	if ( sd->lua_script_state != L_NEXT )
+	if ( sd->lua.state != NEXT_BUTTON )
 		return;
 		
 	script_resume(sd,"");
@@ -10959,9 +10920,8 @@ void clif_parse_NpcAmountInput(int fd,struct map_session_data *sd)
 	int amount = (int)RFIFOL(fd,6);
 
 	sd->npc_amount = amount;
-	//npc_scriptcont(sd, npcid);
 	
-	if ( sd->lua_script_state!=L_INPUT )
+	if ( sd->lua.state!=INPUT_WINDOW )
 		return;
 	
 	script_resume(sd,"i",amount);
@@ -10980,7 +10940,6 @@ void clif_parse_NpcStringInput(int fd, struct map_session_data* sd)
 		return; // invalid input
 
 	safestrncpy(sd->npc_str, message, min(message_len,CHATBOX_SIZE));
-	//npc_scriptcont(sd, npcid);
 	script_resume(sd,"s",sd->npc_str);
 }
 
@@ -10989,11 +10948,10 @@ void clif_parse_NpcStringInput(int fd, struct map_session_data* sd)
 /// 0146 <npc id>.L
 void clif_parse_NpcCloseClicked(int fd,struct map_session_data *sd)
 {
-	if (!sd->npc_id || sd->lua_script_state != L_CLOSE) //Avoid parsing anything when the script was done with. [Skotlex]
+	if (!sd->lua.npc_id || sd->lua.state != CLOSE_BUTTON) //Avoid parsing anything when the script was done with. [Skotlex]
 		return;
 	
 	script_resume(sd,"");
-	//npc_scriptcont(sd,RFIFOL(fd,2));
 }
 
 
@@ -11655,7 +11613,7 @@ void clif_parse_CloseVending(int fd, struct map_session_data* sd)
 /// 0130 <account id>.L
 void clif_parse_VendingListReq(int fd, struct map_session_data* sd)
 {
-	if( sd->npc_id )
+	if( sd->lua.npc_id )
 	{// using an NPC
 		return;
 	}
@@ -13086,7 +13044,7 @@ void clif_parse_FeelSaveOk(int fd,struct map_session_data *sd)
 
 	sd->feel_map[i].index = map_id2index(sd->bl.m);
 	sd->feel_map[i].m = sd->bl.m;
-	pc_setglobalreg(sd,sg_info[i].feel_var,sd->feel_map[i].index);
+	//sd->feel_map[i].index needs to be saved [sketchyphoenix]
 
 //Are these really needed? Shouldn't they show up automatically from the feel save packet?
 //	clif_misceffect2(&sd->bl, 0x1b0);

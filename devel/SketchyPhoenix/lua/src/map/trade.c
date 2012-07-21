@@ -41,7 +41,7 @@ void trade_traderequest(struct map_session_data *sd, struct map_session_data *ta
 		return;
 	}
 
-	if (target_sd->npc_id)
+	if (target_sd->lua.npc_id)
 	{	//Trade fails if you are using an NPC.
 		clif_tradestart(sd, 2);
 		return;
@@ -134,8 +134,8 @@ void trade_tradeack(struct map_session_data *sd, int type)
 	}
 
 	//Check if you can start trade.
-	if (sd->npc_id || sd->state.vending || sd->state.buyingstore || sd->state.storage_flag ||
-		tsd->npc_id || tsd->state.vending || tsd->state.buyingstore || tsd->state.storage_flag)
+	if (sd->lua.npc_id || sd->state.vending || sd->state.buyingstore || sd->state.storage_flag ||
+		tsd->lua.npc_id || tsd->state.vending || tsd->state.buyingstore || tsd->state.storage_flag)
 	{	//Fail
 		clif_tradestart(sd, 2);
 		clif_tradestart(tsd, 2);
@@ -170,7 +170,7 @@ int impossible_trade_check(struct map_session_data *sd)
 	
 	if(sd->deal.zeny > sd->status.zeny)
 	{
-		pc_setglobalreg(sd,"ZENY_HACKER",1);
+		//pc_setglobalreg(sd,"ZENY_HACKER",1); needs conversion [sketchyphoenix]
 		return -1;
 	}
 

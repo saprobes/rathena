@@ -41,7 +41,6 @@
 #include "unit.h"
 #include "pet.h"
 #include "mail.h"
-#include "script.h"
 #include "quest.h"
 #include "luascript.h"
 
@@ -66,6 +65,8 @@ static int buildin_killmonster_sub(struct block_list *bl,va_list ap);
 static int buildin_killmonster_sub_strip(struct block_list *bl,va_list ap);
 static int buildin_killmonsterall_sub(struct block_list *bl,va_list ap);
 static int buildin_killmonsterall_sub_strip(struct block_list *bl,va_list ap);
+
+int potion_flag = 0, potion_target = 0, potion_hp = 0, potion_per_hp = 0, potion_sp = 0, potion_per_sp = 0;
 
 enum {
 	MF_NOMEMO,	//0
@@ -233,7 +234,7 @@ LUA_FUNC(mes)
 
 	sprintf(mes,"%s",luaL_checkstring(NL, 1));
 
-	clif_scriptmes(sd, sd->npc_id, mes);
+	clif_scriptmes(sd, sd->lua.npc_id, mes);
 
 	return 0;
 }
@@ -273,8 +274,8 @@ LUA_FUNC(npcmenu)
 			sd->npc_menu += menu_countoptions(text,0,NULL);
 		}
 		sd->state.menu_or_input = 1;
-		sd->lua_script_state = L_MENU;
-		clif_scriptmenu(sd,sd->npc_id,StringBuf_Value(&buf));
+		sd->lua.state = IN_MENU;
+		clif_scriptmenu(sd,sd->lua.npc_id,StringBuf_Value(&buf));
 		StringBuf_Destroy(&buf);
 	}
 	return lua_yield(NL,1);
@@ -286,9 +287,9 @@ LUA_FUNC(npcnext)
 {
 	lua_get_target(1);
 
-	clif_scriptnext(sd,sd->npc_id);
+	clif_scriptnext(sd,sd->lua.npc_id);
 
-	sd->lua_script_state = L_NEXT;
+	sd->lua.state = NEXT_BUTTON;
 	//return lua_yield(NL, 0);
 	return 0;
 }
@@ -299,9 +300,9 @@ LUA_FUNC(close)
 {
 	lua_get_target(1);
 	
-	sd->lua_script_state = L_CLOSE;
+	sd->lua.state = CLOSE_BUTTON;
 	
-	clif_scriptclose(sd,sd->npc_id);
+	clif_scriptclose(sd,sd->lua.npc_id);
 
 	return lua_yield(NL, 0);
 }
@@ -309,9 +310,9 @@ LUA_FUNC(close)
 LUA_FUNC(halt)
 {
 	lua_get_target(1);
-	sd->lua_script_state = L_NRUN;
+	sd->lua.state = NOT_RUNNING;
 	sd->NL = NULL;
-	sd->npc_id = 0;
+	sd->lua.npc_id = 0;
 	sd->areanpc_id = 0;
 	return 0;
 }
@@ -395,15 +396,15 @@ LUA_FUNC(input)
 
 	switch(type){
 		case 0:
-			clif_scriptinput(sd,sd->npc_id);
+			clif_scriptinput(sd,sd->lua.npc_id);
 			break;
 		case 1:
-			clif_scriptinputstr(sd,sd->npc_id);
+			clif_scriptinputstr(sd,sd->lua.npc_id);
 			break;
 	}
 	
 	//TODO: there's a sd->state.menu_or_input for this
-	sd->lua_script_state = L_INPUT;
+	sd->lua.state = INPUT_WINDOW;
 	return lua_yield(NL, 1);
 }
 
@@ -442,13 +443,13 @@ LUA_FUNC(npcshop)
 
 	/* Needs cash shop support
 	if ( nd->subtype == CASHSHOP )
-		clif_cashshop_show(sd, sd->npc_id);
+		clif_cashshop_show(sd, sd->lua.npc_id);
 	else*/
-		clif_npcbuysell(sd, sd->npc_id);
+		clif_npcbuysell(sd, sd->lua.npc_id);
 
 	//sd->npc_shopid = nd->bl.id
 	//May need this later
-	sd->lua_script_state = SHOP;
+	sd->lua.state = SHOP;
 	return lua_yield(NL, 1);
 }
 
@@ -929,7 +930,7 @@ LUA_FUNC(itemuseenable)
 	lua_get_target(1);
 	
 	if ( sd ) {
-		sd->npc_item_flag = sd->npc_id;
+		sd->npc_item_flag = sd->lua.npc_id;
 		lua_pushinteger(NL,1);
 		return 1;
 	}
@@ -1079,7 +1080,7 @@ LUA_FUNC(deleteitem)
 		struct item_data* id = itemdb_searchname(item_name);
 		if( id == NULL )
 		{
-			sd->lua_script_state = L_CLOSE;
+			sd->lua.state = CLOSE_BUTTON;
 			return 0;
 		}
 		nameid = id->nameid;
@@ -1142,7 +1143,7 @@ LUA_FUNC(deleteitem)
 			}
 		}
 
-	sd->lua_script_state = L_CLOSE;
+	sd->lua.state = CLOSE_BUTTON;
 	return 1;
 }
 
@@ -1163,7 +1164,7 @@ LUA_FUNC(deleteitem2)
 		struct item_data* id = itemdb_searchname(item_name);
 		if( id == NULL )
 		{
-			sd->lua_script_state = L_CLOSE;
+			sd->lua.state = CLOSE_BUTTON;
 			return 1;
 		}
 		nameid = id->nameid;// "<item name>"
@@ -1207,7 +1208,7 @@ LUA_FUNC(deleteitem2)
 		}
 	}
 
-	sd->lua_script_state = L_CLOSE;
+	sd->lua.state = CLOSE_BUTTON;
 	return 1;
 }
 
@@ -6633,7 +6634,7 @@ LUA_FUNC(progressbar)
 	if( !sd )
 		return 0;
 
-	sd->lua_script_state = L_CLOSE;
+	sd->lua.state = CLOSE_BUTTON;
 
 	color = luaL_checkstring(NL,1);
 	second = luaL_checkint(NL,2);
@@ -7065,9 +7066,9 @@ void luascript_run(const char *name,int char_id,const char *format,...)
 		sd = map_charid2sd(char_id);
 		nullpo_retv(sd);
 		
-		if( sd->lua_script_state != L_NRUN )
+		if( sd->lua.state != NOT_RUNNING )
 		{
-			ShowError("Cannot run function %s for player %d : player is already running a script (state %d, expected state %d)\n",name,char_id,sd->lua_script_state,L_NRUN);
+			ShowError("Cannot run function %s for player %d : player is already running a script (state %d, expected state %d)\n",name,char_id,sd->lua.state,NOT_RUNNING);
 			return;
 		}
 		
@@ -7111,10 +7112,10 @@ void luascript_run(const char *name,int char_id,const char *format,...)
 		return;
 	}
 
-	if( sd && sd->lua_script_state == L_NRUN )
+	if( sd && sd->lua.state == NOT_RUNNING )
 	{
 	    sd->NL = NULL;
-		sd->npc_id = 0;
+		sd->lua.npc_id = 0;
 	}
 	
 }
@@ -7130,7 +7131,7 @@ void script_run_chunk(const char *chunk,int char_id)
 	} else { // Else we want to run the chunk for a specific player
 		sd = map_charid2sd(char_id);
 		nullpo_retv(sd);
-		if(sd->lua_script_state!=L_NRUN) { // Check that the player is not currently running a script
+		if(sd->lua.state!=NOT_RUNNING) { // Check that the player is not currently running a script
 			ShowError("Cannot run chunk %s for player %d : player is currently running a script\n",chunk,char_id);
 			return;
 		}
@@ -7146,9 +7147,9 @@ void script_run_chunk(const char *chunk,int char_id)
 		return;
 	}
 
-	if(sd && sd->lua_script_state==L_NRUN) { // If the script has finished (not waiting answer from client)
+	if(sd && sd->lua.state==NOT_RUNNING) { // If the script has finished (not waiting answer from client)
 	    sd->NL=NULL; // Close the player's personal thread
-		sd->npc_id=0; // Set the player's current NPC to 'none'
+		sd->lua.npc_id=0; // Set the player's current NPC to 'none'
 	}
 }
 
@@ -7159,11 +7160,11 @@ void script_resume(struct map_session_data *sd,const char *format,...) {
 
 	nullpo_retv(sd);
 		
-	if(sd->lua_script_state==L_NRUN) { // Check that the player is currently running a script
+	if(sd->lua.state==NOT_RUNNING) { // Check that the player is currently running a script
 		ShowError("Cannot resume script for player %d : player is not running a script\n",sd->status.char_id);
 		return;
 	}
-	sd->lua_script_state=L_NRUN; // Set the script flag as 'not waiting for anything'
+	sd->lua.state=NOT_RUNNING; // Set the script flag as 'not waiting for anything'
 
 	va_start(arg,format); // Initialize the argument list
 	while (*format) { // Pass arguments to Lua, according to the types defined by "format"
@@ -7192,9 +7193,9 @@ void script_resume(struct map_session_data *sd,const char *format,...) {
 		return;
 	}
 
-	if(sd->lua_script_state==L_NRUN) { // If the script has finished (not waiting answer from client)
+	if(sd->lua.state==NOT_RUNNING) { // If the script has finished (not waiting answer from client)
 	    sd->NL=NULL; // Close the player's personal thread
-		sd->npc_id=0; // Set the player's current NPC to 'none'
+		sd->lua.npc_id=0; // Set the player's current NPC to 'none'
 		sd->areanpc_id=0;
 	}
 }

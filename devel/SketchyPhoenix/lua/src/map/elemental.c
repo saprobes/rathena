@@ -26,7 +26,6 @@
 #include "party.h"
 #include "guild.h"
 #include "atcommand.h"
-#include "script.h"
 #include "npc.h"
 #include "trade.h"
 #include "unit.h"

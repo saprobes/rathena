@@ -8,7 +8,6 @@
 #include "../common/showmsg.h"
 #include "../common/strlib.h"
 #include "../common/timer.h"
-#include "script.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

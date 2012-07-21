@@ -14,7 +14,6 @@
 #include "pc.h"
 #include "npc.h"
 #include "itemdb.h"
-#include "script.h"
 #include "intif.h"
 #include "battle.h"
 #include "mob.h"

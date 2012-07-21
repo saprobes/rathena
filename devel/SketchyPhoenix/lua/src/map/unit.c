@@ -31,7 +31,6 @@
 #include "party.h"
 #include "intif.h"
 #include "chrif.h"
-#include "script.h"
 #include "storage.h"
 
 #include <stdio.h>
@@ -2193,6 +2192,7 @@ void unit_free_pc(struct map_session_data *sd)
 /*==========================================
  * Function to free all related resources to the bl
  * if unit is on map, it is removed using the clrtype specified
+ * needs conversion [sketchyphoenix]
  *------------------------------------------*/
 int unit_free(struct block_list *bl, clr_type clrtype)
 {
@@ -2237,22 +2237,22 @@ int unit_free(struct block_list *bl, clr_type clrtype)
 				sd->reg = NULL;
 				sd->reg_num = 0;
 			}
-			if( sd->regstr )
-			{
-				int i;
-				for( i = 0; i < sd->regstr_num; ++i )
-					if( sd->regstr[i].data )
-						aFree(sd->regstr[i].data);
-				aFree(sd->regstr);
-				sd->regstr = NULL;
-				sd->regstr_num = 0;
-			}
-			if( sd->st && sd->st->state != RUN )
-			{// free attached scripts that are waiting
-				script_free_state(sd->st);
-				sd->st = NULL;
-				sd->npc_id = 0;
-			}
+			//if( sd->regstr )
+			//{
+			//	int i;
+			//	for( i = 0; i < sd->regstr_num; ++i )
+			//		if( sd->regstr[i].data )
+			//			aFree(sd->regstr[i].data);
+			//	aFree(sd->regstr);
+			//	sd->regstr = NULL;
+			//	sd->regstr_num = 0;
+			//}
+			//if( sd->st && sd->st->state != RUN )
+			//{// free attached scripts that are waiting
+			//	script_free_state(sd->st);
+			//	sd->st = NULL;
+			//	sd->npc_id = 0;
+			//}
 			break;
 		}
 		case BL_PET:

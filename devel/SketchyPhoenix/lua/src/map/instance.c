@@ -218,7 +218,7 @@ int instance_map_npcsub(struct block_list* bl, va_list args)
 	struct npc_data* nd = (struct npc_data*)bl;
 	int m = va_arg(args, int); // Destination Map
 
-	npc_duplicate4instance(nd, m);
+	//npc_duplicate4instance(nd, m); [sketchyphoenix] need conversion
 	return 1;
 }
 

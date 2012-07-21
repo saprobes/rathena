@@ -9,7 +9,6 @@
 #include "../common/strlib.h"
 #include "../common/timer.h"
 #include "map.h" // mmysql_handle
-#include "script.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -38,7 +37,7 @@ bool mapreg_setreg(int uid, int val)
 {
 	int num = (uid & 0x00ffffff);
 	int i   = (uid & 0xff000000) >> 24;
-	const char* name = get_str(num);
+	const char* name = " ";
 
 	if( val != 0 )
 	{
@@ -71,7 +70,7 @@ bool mapreg_setregstr(int uid, const char* str)
 {
 	int num = (uid & 0x00ffffff);
 	int i   = (uid & 0xff000000) >> 24;
-	const char* name = get_str(num);
+	const char* name = " ";
 	
 	if( str == NULL || *str == 0 )
 	{
@@ -128,7 +127,7 @@ static void script_load_mapreg(void)
 	
 	while ( SQL_SUCCESS == SqlStmt_NextRow(stmt) )
 	{
-		int s = add_str(varname);
+		int s = 0;
 		int i = index;
 
 		if( varname[length-1] == '$' )
@@ -154,7 +153,7 @@ static void script_save_mapreg(void)
 	{
 		int num = (key.i & 0x00ffffff);
 		int i   = (key.i & 0xff000000) >> 24;
-		const char* name = get_str(num);
+		const char* name = " ";
 
 		if( name[1] == '@' )
 			continue;
@@ -169,7 +168,7 @@ static void script_save_mapreg(void)
 	{
 		int num = (key.i & 0x00ffffff);
 		int i   = (key.i & 0xff000000) >> 24;
-		const char* name = get_str(num);
+		const char* name = " ";
 		char tmp_str2[2*255+1];
 
 		if( name[1] == '@' )

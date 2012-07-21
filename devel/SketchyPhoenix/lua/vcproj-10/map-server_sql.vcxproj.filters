@@ -64,9 +64,6 @@
     <ClCompile Include="..\src\map\npc.c">
       <Filter>map_sql</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\map\npc_chat.c">
-      <Filter>map_sql</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\map\party.c">
       <Filter>map_sql</Filter>
     </ClCompile>
@@ -80,9 +77,6 @@
       <Filter>map_sql</Filter>
     </ClCompile>
     <ClCompile Include="..\src\map\quest.c">
-      <Filter>map_sql</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\map\script.c">
       <Filter>map_sql</Filter>
     </ClCompile>
     <ClCompile Include="..\src\map\searchstore.c">
@@ -254,9 +248,6 @@
       <Filter>map_sql</Filter>
     </ClInclude>
     <ClInclude Include="..\src\map\quest.h">
-      <Filter>map_sql</Filter>
-    </ClInclude>
-    <ClInclude Include="..\src\map\script.h">
       <Filter>map_sql</Filter>
     </ClInclude>
     <ClInclude Include="..\src\map\searchstore.h">

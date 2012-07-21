@@ -11,7 +11,6 @@
 #include "buyingstore.h"  // struct s_buyingstore
 #include "itemdb.h" // MAX_ITEMGROUP
 #include "map.h" // RC_MAX
-#include "script.h" // struct script_reg, struct script_regstr
 #include "searchstore.h"  // struct s_search_store_info
 #include "status.h" // OPTION_*, struct weapon_atk
 #include "unit.h" // unit_stop_attack(), unit_stop_walking()
@@ -183,7 +182,7 @@ struct map_session_data {
 	unsigned short mapindex;
 	unsigned char head_dir; //0: Look forward. 1: Look right, 2: Look left.
 	unsigned int client_tick;
-	int npc_id,areanpc_id,npc_shopid,touching_id;
+	int areanpc_id,npc_shopid,touching_id;
 	int npc_item_flag; //Marks the npc_id with which you can use items during interactions with said npc (see script command enable_itemuse)
 	int npc_menu; // internal variable, used in npc menu handling
 	int npc_amount;
@@ -192,11 +191,19 @@ struct map_session_data {
 	int npc_timer_id; //For player attached npc timers. [Skotlex]
 	unsigned int chatID;
 	time_t idletime;
-	int lua_script_state;
 	int menu_snum;
 	//npc_menu_datas npc_menu_data;
 	lua_State *NL;
 
+	struct 
+	{
+		int state;
+		int npc_id;
+		int areanpc_id;
+		int shopnpc_id;
+		int touching_id;
+	} lua;
+	
 	struct { //Lua shop npc data
 		int nameid[40];
 		int value[40];
@@ -622,8 +629,8 @@ enum e_pc_permission {
 #define pc_isdead(sd)         ( (sd)->state.dead_sit == 1 )
 #define pc_issit(sd)          ( (sd)->vd.dead_sit == 2 )
 #define pc_isidle(sd)         ( (sd)->chatID || (sd)->state.vending || (sd)->state.buyingstore || DIFF_TICK(last_tick, (sd)->idletime) >= battle_config.idle_no_share )
-#define pc_istrading(sd)      ( (sd)->npc_id || (sd)->state.vending || (sd)->state.buyingstore || (sd)->state.trading )
-#define pc_cant_act(sd)       ( (sd)->npc_id || (sd)->state.vending || (sd)->state.buyingstore || (sd)->chatID || ((sd)->sc.opt1 && (sd)->sc.opt1 != OPT1_BURNING) || (sd)->state.trading || (sd)->state.storage_flag )
+#define pc_istrading(sd)      ( (sd)->lua.npc_id || (sd)->state.vending || (sd)->state.buyingstore || (sd)->state.trading )
+#define pc_cant_act(sd)       ( (sd)->lua.npc_id || (sd)->state.vending || (sd)->state.buyingstore || (sd)->chatID || ((sd)->sc.opt1 && (sd)->sc.opt1 != OPT1_BURNING) || (sd)->state.trading || (sd)->state.storage_flag )
 #define pc_setdir(sd,b,h)     ( (sd)->ud.dir = (b) ,(sd)->head_dir = (h) )
 #define pc_setchatid(sd,n)    ( (sd)->chatID = n )
 #define pc_ishiding(sd)       ( (sd)->sc.option&(OPTION_HIDE|OPTION_CLOAK|OPTION_CHASEWALK) )
@@ -813,23 +820,6 @@ int pc_readreg(struct map_session_data*,int);
 int pc_setreg(struct map_session_data*,int,int);
 char *pc_readregstr(struct map_session_data *sd,int reg);
 int pc_setregstr(struct map_session_data *sd,int reg,const char *str);
-
-#define pc_readglobalreg(sd,reg) pc_readregistry(sd,reg,3)
-#define pc_setglobalreg(sd,reg,val) pc_setregistry(sd,reg,val,3)
-#define pc_readglobalreg_str(sd,reg) pc_readregistry_str(sd,reg,3)
-#define pc_setglobalreg_str(sd,reg,val) pc_setregistry_str(sd,reg,val,3)
-#define pc_readaccountreg(sd,reg) pc_readregistry(sd,reg,2)
-#define pc_setaccountreg(sd,reg,val) pc_setregistry(sd,reg,val,2)
-#define pc_readaccountregstr(sd,reg) pc_readregistry_str(sd,reg,2)
-#define pc_setaccountregstr(sd,reg,val) pc_setregistry_str(sd,reg,val,2)
-#define pc_readaccountreg2(sd,reg) pc_readregistry(sd,reg,1)
-#define pc_setaccountreg2(sd,reg,val) pc_setregistry(sd,reg,val,1)
-#define pc_readaccountreg2str(sd,reg) pc_readregistry_str(sd,reg,1)
-#define pc_setaccountreg2str(sd,reg,val) pc_setregistry_str(sd,reg,val,1)
-int pc_readregistry(struct map_session_data*,const char*,int);
-int pc_setregistry(struct map_session_data*,const char*,int,int);
-char *pc_readregistry_str(struct map_session_data*,const char*,int);
-int pc_setregistry_str(struct map_session_data*,const char*,const char*,int);
 
 int pc_addeventtimer(struct map_session_data *sd,int tick,const char *name);
 int pc_deleventtimer(struct map_session_data *sd,const char *name);

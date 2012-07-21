@@ -37,7 +37,6 @@
 #include "elemental.h"
 #include "party.h"
 #include "guild.h"
-#include "script.h"
 #include "storage.h"
 #include "trade.h"
 #include "unit.h"
@@ -851,7 +850,7 @@ ACMD_FUNC(storage)
 {
 	nullpo_retr(-1, sd);
 	
-	if (sd->npc_id || sd->state.vending || sd->state.buyingstore || sd->state.trading || sd->state.storage_flag)
+	if (sd->lua.npc_id || sd->state.vending || sd->state.buyingstore || sd->state.trading || sd->state.storage_flag)
 		return -1;
 
 	if (storage_storageopen(sd) == 1)
@@ -878,7 +877,7 @@ ACMD_FUNC(guildstorage)
 		return -1;
 	}
 
-	if (sd->npc_id || sd->state.vending || sd->state.buyingstore || sd->state.trading)
+	if (sd->lua.npc_id || sd->state.vending || sd->state.buyingstore || sd->state.trading)
 		return -1;
 
 	if (sd->state.storage_flag == 1) {
@@ -3961,7 +3960,7 @@ ACMD_FUNC(reloadscript)
 	//atcommand_broadcast( fd, sd, "@broadcast", "Reloading NPCs..." );
 
 	flush_fifos();
-	script_reload();
+	//script_reload();
 	npc_reload();
 
 	clif_displaymessage(fd, msg_txt(100)); // Scripts have been reloaded.

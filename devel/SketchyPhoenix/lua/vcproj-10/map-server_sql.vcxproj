@@ -194,7 +194,6 @@
     <ClInclude Include="..\src\map\config\Skills\General.h" />
     <ClInclude Include="..\src\map\config\Skills\Mage_Classes.h" />
     <ClInclude Include="..\src\map\config\Skills\Swordsman_Classes.h" />
-    <ClInclude Include="..\src\map\script.h" />
     <ClInclude Include="..\src\map\searchstore.h" />
     <ClInclude Include="..\src\map\skill.h" />
     <ClInclude Include="..\src\map\status.h" />
@@ -252,14 +251,12 @@
     <ClCompile Include="..\src\map\mercenary.c" />
     <ClCompile Include="..\src\map\mob.c" />
     <ClCompile Include="..\src\map\npc.c" />
-    <ClCompile Include="..\src\map\npc_chat.c" />
     <ClCompile Include="..\src\map\party.c" />
     <ClCompile Include="..\src\map\path.c" />
     <ClCompile Include="..\src\map\pc.c" />
     <ClCompile Include="..\src\map\pc_groups.c" />
     <ClCompile Include="..\src\map\pet.c" />
     <ClCompile Include="..\src\map\quest.c" />
-    <ClCompile Include="..\src\map\script.c" />
     <ClCompile Include="..\src\map\searchstore.c" />
     <ClCompile Include="..\src\map\skill.c" />
     <ClCompile Include="..\src\map\status.c" />

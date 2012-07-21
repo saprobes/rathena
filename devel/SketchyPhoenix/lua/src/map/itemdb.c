@@ -9,7 +9,6 @@
 #include "itemdb.h"
 #include "map.h"
 #include "battle.h" // struct battle_config
-#include "script.h" // item script processing
 #include "pc.h"     // W_MUSICAL, W_WHIP
 
 #include <stdio.h>
@@ -843,28 +842,16 @@ static bool itemdb_parse_dbrow(char** str, const char* source, int line, int scr
 	id->view_id = 0;
 	id->sex = itemdb_gendercheck(id); //Apply gender filtering.
 
-	if (id->script)
-	{
-		script_free_code(id->script);
-		id->script = NULL;
-	}
-	if (id->equip_script)
-	{
-		script_free_code(id->equip_script);
-		id->equip_script = NULL;
-	}
-	if (id->unequip_script)
-	{
-		script_free_code(id->unequip_script);
-		id->unequip_script = NULL;
-	}
-
-	if (*str[19])
-		id->script = parse_script(str[19], source, line, scriptopt);
-	if (*str[20])
-		id->equip_script = parse_script(str[20], source, line, scriptopt);
-	if (*str[21])
-		id->unequip_script = parse_script(str[21], source, line, scriptopt);
+	/* 
+	todo: run item scripts as lua chunks
+	leaving variable names for reference later
+	
+	id->script
+	id->equip_script
+	id->unequip_script
+	
+	[sketchyphoenix]
+	*/
 
 	return true;
 }
@@ -1024,8 +1011,9 @@ static int itemdb_read_sqldb(void)
 				Sql_GetData(mmysql_handle, i, &str[i], NULL);
 				if( str[i] == NULL ) str[i] = dummy; // get rid of NULL columns
 			}
-
-			if (!itemdb_parse_dbrow(str, item_db_name[fi], lines, SCRIPT_IGNORE_EXTERNAL_BRACKETS))
+			
+			// todo: make itemdb_parse_dbrow() not need scriptopt
+			if (!itemdb_parse_dbrow(str, item_db_name[fi], lines, 0))
 				continue;
 			++count;
 		}
@@ -1067,12 +1055,12 @@ static void destroy_item_data(struct item_data* self, int free_self)
 	if( self == NULL )
 		return;
 	// free scripts
-	if( self->script )
-		script_free_code(self->script);
-	if( self->equip_script )
-		script_free_code(self->equip_script);
-	if( self->unequip_script )
-		script_free_code(self->unequip_script);
+	//if( self->script )
+	//	script_free_code(self->script);
+	//if( self->equip_script )
+	//	script_free_code(self->equip_script);
+	//if( self->unequip_script )
+	//	script_free_code(self->unequip_script);
 #if defined(DEBUG)
 	// trash item
 	memset(self, 0xDD, sizeof(struct item_data));

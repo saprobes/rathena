@@ -35,7 +35,6 @@
 #include "battle.h"
 #include "battleground.h"
 #include "quest.h"
-#include "script.h"
 #include "mapreg.h"
 #include "guild.h"
 #include "pet.h"
@@ -91,7 +90,6 @@ char *LOG_CONF_NAME;
 char *MAP_CONF_NAME;
 char *BATTLE_CONF_FILENAME;
 char *ATCOMMAND_CONF_FILENAME;
-char *SCRIPT_CONF_NAME;
 char *MSG_CONF_NAME;
 char *GRF_PATH_FILENAME;
 
@@ -1680,7 +1678,7 @@ int map_quit(struct map_session_data *sd)
 	if (sd->npc_timer_id != INVALID_TIMER) //Cancel the event timer.
 		npc_timerevent_quit(sd);
 
-	if (sd->npc_id)
+	if (sd->lua.npc_id)
 		npc_event_dequeue(sd);
 
 	if( sd->bg_id )
@@ -3639,7 +3637,6 @@ void do_final(void)
 	do_final_battle();
 	do_final_chrif();
 	do_final_npc();
-	do_final_script();
 	do_final_luaengine();
 	do_final_instance();
 	do_final_itemdb();
@@ -3808,7 +3805,6 @@ int do_init(int argc, char *argv[])
 	MAP_CONF_NAME = "conf/map_athena.conf";
 	BATTLE_CONF_FILENAME = "conf/battle_athena.conf";
 	ATCOMMAND_CONF_FILENAME = "conf/atcommand_athena.conf";
-	SCRIPT_CONF_NAME = "conf/script_athena.conf";
 	MSG_CONF_NAME = "conf/msg_athena.conf";
 	GRF_PATH_FILENAME = "conf/grf-files.txt";
 
@@ -3849,11 +3845,6 @@ int do_init(int argc, char *argv[])
 			{
 				if( map_arg_next_value(arg, i, argc) )
 					ATCOMMAND_CONF_FILENAME = argv[++i];
-			}
-			else if( strcmp(arg, "script-config") == 0 )
-			{
-				if( map_arg_next_value(arg, i, argc) )
-					SCRIPT_CONF_NAME = argv[++i];
 			}
 			else if( strcmp(arg, "msg-config") == 0 )
 			{
@@ -3930,7 +3921,6 @@ int do_init(int argc, char *argv[])
 
 	battle_config_read(BATTLE_CONF_FILENAME);
 	msg_config_read(MSG_CONF_NAME);
-	script_config_read(SCRIPT_CONF_NAME);
 	inter_config_read(INTER_CONF_NAME);
 	log_config_read(LOG_CONF_NAME);
 
@@ -3965,7 +3955,6 @@ int do_init(int argc, char *argv[])
 	do_init_instance();
 	do_init_chrif();
 	do_init_clif();
-	do_init_script();
 	do_init_itemdb();
 	do_init_skill();
 	do_init_mob();

@@ -1,13 +1,13 @@
-:: Todo ::
-
-	:: Write NPCs
+:: To do ::
+	Write NPCs
 	
-	:: Document script commands
-
-	:: Cleanup
-
-	:: Item based scripts, namely autobonus scripts, should be updated to use lua.
-
-	:: Removal of txt databases (replacing it with sqlite since luaSQL is already installed).
-		Eventually I'll move all SQL operations into Lua, but that's not a major issue at
-		the moment.
+	Document script commands
+	
+	Cleanup
+	
+	Item based scripts, namely autobonus scripts, should be updated to use lua.
+	
+	Login-server related variable storage using sqlite. 
+	
+	Converting other systems into Lua that were still dependent on athena's script engine and/or its related functions
+	(like all of the pc_setglobalreg/run_script calls)

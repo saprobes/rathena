@@ -31,7 +31,6 @@
 #include "party.h"
 #include "npc.h"
 #include "log.h"
-#include "script.h"
 #include "atcommand.h"
 #include "date.h"
 #include "quest.h"
@@ -2099,11 +2098,12 @@ int mob_dead(struct mob_data *md, struct block_list *src, int type)
 			{
 				pc_addfame(sd, 1);
 				sd->mission_mobid = temp;
-				pc_setglobalreg(sd,"TK_MISSION_ID", temp);
+				//needs conversion [sketchyphoenix]
+				//pc_setglobalreg(sd,"TK_MISSION_ID", temp);
 				sd->mission_count = 0;
 				clif_mission_info(sd, temp, 0);
 			}
-			pc_setglobalreg(sd,"TK_MISSION_COUNT", sd->mission_count);
+			//pc_setglobalreg(sd,"TK_MISSION_COUNT", sd->mission_count);
 		}
 		if( sd->status.party_id )
 			map_foreachinrange(quest_update_objective_sub,&md->bl,AREA_SIZE,BL_PC,sd->status.party_id,md->class_);

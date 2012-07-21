@@ -25,7 +25,6 @@
 #include "chrif.h"
 #include "skill.h"
 #include "status.h"
-#include "script.h"
 #include "unit.h"
 #include "homunculus.h"
 #include "mercenary.h"
@@ -2380,7 +2379,7 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 
 		if(first && sd->inventory_data[index]->equip_script)
 	  	{	//Execute equip-script on login
-			run_script(sd->inventory_data[index]->equip_script,0,sd->bl.id,0);
+			//run_script(sd->inventory_data[index]->equip_script,0,sd->bl.id,0);
 			if (!calculating)
 				return 1;
 		}
@@ -2427,10 +2426,10 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 			if(sd->inventory_data[index]->script) {
 				if (wd == &sd->left_weapon) {
 					sd->state.lr_flag = 1;
-					run_script(sd->inventory_data[index]->script,0,sd->bl.id,0);
+					//run_script(sd->inventory_data[index]->script,0,sd->bl.id,0);
 					sd->state.lr_flag = 0;
 				} else
-					run_script(sd->inventory_data[index]->script,0,sd->bl.id,0);
+					//run_script(sd->inventory_data[index]->script,0,sd->bl.id,0);
 				if (!calculating) //Abort, run_script retriggered this. [Skotlex]
 					return 1;
 			}
@@ -2453,7 +2452,7 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 			if(sd->inventory_data[index]->script) {
 				if( i == EQI_HAND_L ) //Shield
 					sd->state.lr_flag = 3;
-				run_script(sd->inventory_data[index]->script,0,sd->bl.id,0);
+				//run_script(sd->inventory_data[index]->script,0,sd->bl.id,0);
 				if( i == EQI_HAND_L ) //Shield
 					sd->state.lr_flag = 0;
 				if (!calculating) //Abort, run_script retriggered this. [Skotlex]
@@ -2467,7 +2466,7 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 		if(sd->inventory_data[index]){		// Arrows
 			sd->arrow_atk += sd->inventory_data[index]->atk;
 			sd->state.lr_flag = 2;
-			run_script(sd->inventory_data[index]->script,0,sd->bl.id,0);
+			//run_script(sd->inventory_data[index]->script,0,sd->bl.id,0);
 			sd->state.lr_flag = 0;
 			if (!calculating) //Abort, run_script retriggered status_calc_pc. [Skotlex]
 				return 1;
@@ -2513,7 +2512,7 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 					continue;
 				if(first && data->equip_script)
 			  	{	//Execute equip-script on login
-					run_script(data->equip_script,0,sd->bl.id,0);
+					//run_script(data->equip_script,0,sd->bl.id,0);
 					if (!calculating)
 						return 1;
 				}
@@ -2534,10 +2533,10 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 				if(i == EQI_HAND_L && sd->status.inventory[index].equip == EQP_HAND_L)
 				{	//Left hand status.
 					sd->state.lr_flag = 1;
-					run_script(data->script,0,sd->bl.id,0);
+					//run_script(data->script,0,sd->bl.id,0);
 					sd->state.lr_flag = 0;
 				} else
-					run_script(data->script,0,sd->bl.id,0);
+					//run_script(data->script,0,sd->bl.id,0);
 				if (!calculating) //Abort, run_script his function. [Skotlex]
 					return 1;
 			}
@@ -2547,15 +2546,15 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 	if( sc->count && sc->data[SC_ITEMSCRIPT] )
 	{
 		struct item_data *data = itemdb_exists(sc->data[SC_ITEMSCRIPT]->val1);
-		if( data && data->script )
-			run_script(data->script,0,sd->bl.id,0);
+		//if( data && data->script )
+			//run_script(data->script,0,sd->bl.id,0);
 	}
 
 	if( sd->pd )
 	{ // Pet Bonus
 		struct pet_data *pd = sd->pd;
 		if( pd && pd->petDB && pd->petDB->equip_script && pd->pet.intimate >= battle_config.pet_equip_min_friendly )
-			run_script(pd->petDB->equip_script,0,sd->bl.id,0);
+			//run_script(pd->petDB->equip_script,0,sd->bl.id,0);
 		if( pd && pd->pet.intimate > 0 && (!battle_config.pet_equip_required || pd->pet.equip > 0) && pd->state.skillbonus == 1 && pd->bonus )
 			pc_bonus(sd,pd->bonus->type, pd->bonus->val);
 	}

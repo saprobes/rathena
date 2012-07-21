@@ -27,13 +27,13 @@
 #include "battleground.h"
 #include "party.h"
 #include "itemdb.h"
-#include "script.h"
 #include "intif.h"
 #include "log.h"
 #include "chrif.h"
 #include "guild.h"
 #include "date.h"
 #include "unit.h"
+#include "luascript.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -2455,8 +2455,8 @@ int skill_attack (int attack_type, struct block_list* src, struct block_list *ds
 				}
 
 				tsd->reproduceskill_id = copy_skill;
-				pc_setglobalreg(tsd, "REPRODUCE_SKILL", copy_skill);
-				pc_setglobalreg(tsd, "REPRODUCE_SKILL_LV", lv);
+				//pc_setglobalreg(tsd, "REPRODUCE_SKILL", copy_skill);
+				//pc_setglobalreg(tsd, "REPRODUCE_SKILL_LV", lv);
 
 				tsd->status.skill[copy_skill].id = copy_skill;
 				tsd->status.skill[copy_skill].lv = lv;
@@ -2475,8 +2475,8 @@ int skill_attack (int attack_type, struct block_list* src, struct block_list *ds
 					lv = type;
 
 				tsd->cloneskill_id = copy_skill;
-				pc_setglobalreg(tsd, "CLONE_SKILL", copy_skill);
-				pc_setglobalreg(tsd, "CLONE_SKILL_LV", lv);
+				//pc_setglobalreg(tsd, "CLONE_SKILL", copy_skill);
+				//pc_setglobalreg(tsd, "CLONE_SKILL_LV", lv);
 
 				tsd->status.skill[skillid].id = copy_skill;
 				tsd->status.skill[skillid].lv = lv;
@@ -5245,7 +5245,7 @@ int skill_castend_nodamage_id (struct block_list *src, struct block_list *bl, in
 			}
 			sd->mission_mobid = id;
 			sd->mission_count = 0;
-			pc_setglobalreg(sd,"TK_MISSION_ID", id);
+			//pc_setglobalreg(sd,"TK_MISSION_ID", id);
 			clif_mission_info(sd, id, 0);
 			clif_skill_nodamage(src,bl,skillid,skilllv,1);
 		}
@@ -6043,7 +6043,7 @@ int skill_castend_nodamage_id (struct block_list *src, struct block_list *bl, in
 				potion_flag = 1;
 				potion_hp = potion_sp = potion_per_hp = potion_per_sp = 0;
 				potion_target = bl->id;
-				run_script(sd->inventory_data[i]->script,0,sd->bl.id,0);
+				//run_script(sd->inventory_data[i]->script,0,sd->bl.id,0);
 				potion_flag = potion_target = 0;
 				if( sd->sc.data[SC_SPIRIT] && sd->sc.data[SC_SPIRIT]->val2 == SL_ALCHEMIST )
 					bonus += sd->status.base_level;
@@ -6953,7 +6953,7 @@ int skill_castend_nodamage_id (struct block_list *src, struct block_list *bl, in
 		if (skillid == SL_SUPERNOVICE && dstsd && dstsd->die_counter && !(rnd()%100))
 		{	//Erase death count 1% of the casts
 			dstsd->die_counter = 0;
-			pc_setglobalreg(dstsd,"PC_DIE_COUNTER", 0);
+			//pc_setglobalreg(dstsd,"PC_DIE_COUNTER", 0);
 			clif_specialeffect(bl, 0x152, AREA);
 			//SC_SPIRIT invokes status_calc_pc for us.
 		}
@@ -8479,10 +8479,10 @@ int skill_castend_nodamage_id (struct block_list *src, struct block_list *bl, in
 				struct script_code *script = sd->inventory_data[i]->script;
 				if( !script )
 					break;
-				if( dstsd )
-					run_script(script,0,dstsd->bl.id,fake_nd->bl.id);
-				else
-					run_script(script,0,src->id,0);
+				//if( dstsd )
+					//run_script(script,0,dstsd->bl.id,fake_nd->bl.id);
+				//else
+					//run_script(script,0,src->id,0);
 			}
 		}
 		clif_skill_nodamage(src,bl,skillid,skilllv,1);
@@ -9373,7 +9373,7 @@ int skill_castend_pos2(struct block_list* src, int x, int y, int skillid, int sk
 			potion_flag = 1;
 			potion_hp = 0;
 			potion_sp = 0;
-			run_script(sd->inventory_data[j]->script,0,sd->bl.id,0);
+			//run_script(sd->inventory_data[j]->script,0,sd->bl.id,0);
 			potion_flag = 0;
 			//Apply skill bonuses
 			i = pc_checkskill(sd,CR_SLIMPITCHER)*10
@@ -9399,7 +9399,7 @@ int skill_castend_pos2(struct block_list* src, int x, int y, int skillid, int sk
 			potion_flag = 1;
 			potion_hp = 0;
 			potion_sp = 0;
-			run_script(item->script,0,src->id,0);
+			//run_script(item->script,0,src->id,0);
 			potion_flag = 0;
 			i = skill_get_max(CR_SLIMPITCHER)*10;
 
@@ -15405,8 +15405,8 @@ int skill_produce_mix (struct map_session_data *sd, int skill_id, int nameid, in
 					if( skill_produce_db[idx].itemlv > 10 && skill_produce_db[idx].itemlv <= 20)
 					{ //Cooking items.
 						clif_specialeffect(&sd->bl, 608, AREA);
-						if( sd->cook_mastery < 1999 )
-							pc_setglobalreg(sd, "COOK_MASTERY",sd->cook_mastery + ( 1 << ( (skill_produce_db[idx].itemlv - 11) / 2 ) ) * 5);
+						//if( sd->cook_mastery < 1999 )
+							//pc_setglobalreg(sd, "COOK_MASTERY",sd->cook_mastery + ( 1 << ( (skill_produce_db[idx].itemlv - 11) / 2 ) ) * 5);
 					}
 					break;
 			}
@@ -15478,8 +15478,8 @@ int skill_produce_mix (struct map_session_data *sd, int skill_id, int nameid, in
 				if( skill_produce_db[idx].itemlv > 10 && skill_produce_db[idx].itemlv <= 20 )
 				{ //Cooking items.
 					clif_specialeffect(&sd->bl, 609, AREA);
-					if( sd->cook_mastery > 0 )
-						pc_setglobalreg(sd, "COOK_MASTERY", sd->cook_mastery - ( 1 << ((skill_produce_db[idx].itemlv - 11) / 2) ) - ( ( ( 1 << ((skill_produce_db[idx].itemlv - 11) / 2) ) >> 1 ) * 3 ));
+					//if( sd->cook_mastery > 0 )
+						//pc_setglobalreg(sd, "COOK_MASTERY", sd->cook_mastery - ( 1 << ((skill_produce_db[idx].itemlv - 11) / 2) ) - ( ( ( 1 << ((skill_produce_db[idx].itemlv - 11) / 2) ) >> 1 ) * 3 ));
 				}
 		}
 	}

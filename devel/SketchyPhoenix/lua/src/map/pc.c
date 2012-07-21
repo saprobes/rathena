@@ -34,7 +34,6 @@
 #include "pet.h" // pet_unlocktarget()
 #include "party.h" // party_search()
 #include "guild.h" // guild_search(), guild_request_info()
-#include "script.h" // script_config
 #include "skill.h"
 #include "status.h" // struct status_data
 #include "pc.h"
@@ -1134,7 +1133,8 @@ int pc_set_hate_mob(struct map_session_data *sd, int pos, struct block_list *bl)
 			return 0; //Wrong size
 	}
 	sd->hate_mob[pos] = class_;
-	pc_setglobalreg(sd,sg_info[pos].hate_var,class_+1);
+	//needs conversion [sketchyphoenix]
+	//pc_setglobalreg(sd,sg_info[pos].hate_var,class_+1);
 	clif_hate_info(sd, pos, class_, 1);
 	return 1;
 }
@@ -1144,8 +1144,8 @@ int pc_set_hate_mob(struct map_session_data *sd, int pos, struct block_list *bl)
  *------------------------------------------*/
 int pc_reg_received(struct map_session_data *sd)
 {
-	int i,j;
-	
+	//int i,j;
+	/*needs conversion [sketchyphoenix]
 	sd->change_level_2nd = pc_readglobalreg(sd,"jobchange_level");
 	sd->change_level_3rd = pc_readglobalreg(sd,"jobchange_level_3rd");
 	sd->die_counter = pc_readglobalreg(sd,"PC_DIE_COUNTER");
@@ -1236,6 +1236,7 @@ int pc_reg_received(struct map_session_data *sd)
 	}
 
 	pc_inventory_rentals(sd);
+	*/
 
 	return 1;
 }
@@ -1567,7 +1568,7 @@ int pc_calc_skilltree_normalize_job(struct map_session_data *sd)
 
 			}
 
-			pc_setglobalreg (sd, "jobchange_level", sd->change_level_2nd);
+			//pc_setglobalreg (sd, "jobchange_level", sd->change_level_2nd); [sketchyphoenix] need conversion
 		}
 
 		if (skill_point < novice_skills + (sd->change_level_2nd - 1))
@@ -1584,7 +1585,7 @@ int pc_calc_skilltree_normalize_job(struct map_session_data *sd)
 						- (sd->status.job_level - 1)
 						- (sd->change_level_2nd - 1)
 						- novice_skills;
-					pc_setglobalreg (sd, "jobchange_level_3rd", sd->change_level_3rd);
+					//pc_setglobalreg (sd, "jobchange_level_3rd", sd->change_level_3rd); [sketchyphoenix] need conversion
 			}
 
 			if (skill_point < novice_skills + (sd->change_level_2nd - 1) + (sd->change_level_3rd - 1))
@@ -1872,8 +1873,10 @@ int pc_addautobonus(struct s_autobonus *bonus,char max,const char *script,short 
 	return 1;
 }
 
+//[sketchyphoenix] need conversion
 int pc_delautobonus(struct map_session_data* sd, struct s_autobonus *autobonus,char max,bool restore)
 {
+	/*
 	int i;
 	nullpo_ret(sd);
 
@@ -1888,7 +1891,9 @@ int pc_delautobonus(struct map_session_data* sd, struct s_autobonus *autobonus,c
 					int j;
 					ARR_FIND( 0, EQI_MAX-1, j, sd->equip_index[j] >= 0 && sd->status.inventory[sd->equip_index[j]].equip == autobonus[i].pos );
 					if( j < EQI_MAX-1 )
-						script_run_autobonus(autobonus[i].bonus_script,sd->bl.id,sd->equip_index[j]);
+					{
+						//script_run_autobonus(autobonus[i].bonus_script,sd->bl.id,sd->equip_index[j]);
+					}
 				}
 				continue;
 			}
@@ -1905,12 +1910,14 @@ int pc_delautobonus(struct map_session_data* sd, struct s_autobonus *autobonus,c
 		autobonus[i].rate = autobonus[i].atk_type = autobonus[i].duration = autobonus[i].pos = 0;
 		autobonus[i].active = INVALID_TIMER;
 	}
-
+	*/
 	return 0;
 }
 
+//needs conversion [sketchyphoenix]
 int pc_exeautobonus(struct map_session_data *sd,struct s_autobonus *autobonus)
 {
+	/*
 	nullpo_ret(sd);
 	nullpo_ret(autobonus);
 
@@ -1925,12 +1932,14 @@ int pc_exeautobonus(struct map_session_data *sd,struct s_autobonus *autobonus)
 	autobonus->active = add_timer(gettick()+autobonus->duration, pc_endautobonus, sd->bl.id, (intptr_t)autobonus);
 	sd->state.autobonus |= autobonus->pos;
 	status_calc_pc(sd,0);
-
+	*/
 	return 0;
 }
 
+//needs conversion [sketchyphoenix]
 int pc_endautobonus(int tid, unsigned int tick, int id, intptr_t data)
 {
+	/*
 	struct map_session_data *sd = map_id2sd(id);
 	struct s_autobonus *autobonus = (struct s_autobonus *)data;
 
@@ -1940,6 +1949,7 @@ int pc_endautobonus(int tid, unsigned int tick, int id, intptr_t data)
 	autobonus->active = INVALID_TIMER;
 	sd->state.autobonus &= ~autobonus->pos;
 	status_calc_pc(sd,0);
+	*/
 	return 0;
 }
 
@@ -3523,8 +3533,8 @@ void pc_paycash(struct map_session_data *sd, int price, int points)
 		return;
 	}
 
-	pc_setaccountreg(sd, "#CASHPOINTS", sd->cashPoints-cash);
-	pc_setaccountreg(sd, "#KAFRAPOINTS", sd->kafraPoints-points);
+	//pc_setaccountreg(sd, "#CASHPOINTS", sd->cashPoints-cash);
+	//pc_setaccountreg(sd, "#KAFRAPOINTS", sd->kafraPoints-points); [sketchyphoenix] need conversion
 
 	if( battle_config.cashshop_show_points )
 	{
@@ -3546,7 +3556,8 @@ void pc_getcash(struct map_session_data *sd, int cash, int points)
 			cash = MAX_ZENY-sd->cashPoints;
 		}
 
-		pc_setaccountreg(sd, "#CASHPOINTS", sd->cashPoints+cash);
+		//needs conversion [sketchyphoenix]
+		//pc_setaccountreg(sd, "#CASHPOINTS", sd->cashPoints+cash);
 
 		if( battle_config.cashshop_show_points )
 		{
@@ -3567,7 +3578,7 @@ void pc_getcash(struct map_session_data *sd, int cash, int points)
 			points = MAX_ZENY-sd->kafraPoints;
 		}
 
-		pc_setaccountreg(sd, "#KAFRAPOINTS", sd->kafraPoints+points);
+		//pc_setaccountreg(sd, "#KAFRAPOINTS", sd->kafraPoints+points);
 
 		if( battle_config.cashshop_show_points )
 		{
@@ -4097,7 +4108,7 @@ int pc_useitem(struct map_session_data *sd,int n)
 	if( itemdb_iscashfood(nameid) )
 		sd->canusecashfood_tick = tick + battle_config.cashfood_use_interval;
 
-	run_script(script,0,sd->bl.id,fake_nd->bl.id);
+	//run_script(script,0,sd->bl.id,fake_nd->bl.id); needs conversion[sketchyphoenix]
 	potion_flag = 0;
 	return 1;
 }
@@ -4466,7 +4477,7 @@ int pc_setpos(struct map_session_data* sd, unsigned short mapindex, int x, int y
 		if(!sd->mapindex || map_mapname2ipport(mapindex,&ip,&port))
 			return 2;
 
-		if (sd->npc_id)
+		if (sd->lua.npc_id)
 			npc_event_dequeue(sd);
 		npc_script_event(sd, NPCE_LOGOUT);
 		//remove from map, THEN change x/y coordinates
@@ -5934,7 +5945,7 @@ int pc_resetstate(struct map_session_data* sd)
 	if( sd->mission_mobid ) { //bugreport:2200
 		sd->mission_mobid = 0;
 		sd->mission_count = 0;
-		pc_setglobalreg(sd,"TK_MISSION_ID", 0);
+		//pc_setglobalreg(sd,"TK_MISSION_ID", 0); needs conversion [sketchyphoenix]
 	}
 
 	status_calc_pc(sd,0);
@@ -6063,7 +6074,7 @@ int pc_resetfeel(struct map_session_data* sd)
 	{
 		sd->feel_map[i].m = -1;
 		sd->feel_map[i].index = 0;
-		pc_setglobalreg(sd,sg_info[i].feel_var,0);
+		//pc_setglobalreg(sd,sg_info[i].feel_var,0);
 	}
 
 	return 0;
@@ -6077,7 +6088,7 @@ int pc_resethate(struct map_session_data* sd)
 	for (i=0; i<3; i++)
 	{
 		sd->hate_mob[i] = -1;
-		pc_setglobalreg(sd,sg_info[i].hate_var,0);
+		//pc_setglobalreg(sd,sg_info[i].hate_var,0);
 	}
 	return 0;
 }
@@ -6221,7 +6232,7 @@ int pc_dead(struct map_session_data *sd,struct block_list *src)
 			duel_reject(sd->duel_invite, sd);
 	}
 
-	pc_setglobalreg(sd,"PC_DIE_COUNTER",sd->die_counter+1);
+	//pc_setglobalreg(sd,"PC_DIE_COUNTER",sd->die_counter+1);
 	pc_setparam(sd, SP_KILLERRID, src?src->id:0);
 	
 	if( sd->bg_id ) {
@@ -6853,12 +6864,12 @@ int pc_jobchange(struct map_session_data *sd,int job, int upper)
 	// changing from 1st to 2nd job
 	if ((b_class&JOBL_2) && !(sd->class_&JOBL_2) && (b_class&MAPID_UPPERMASK) != MAPID_SUPER_NOVICE) {
 		sd->change_level_2nd = sd->status.job_level;
-		pc_setglobalreg (sd, "jobchange_level", sd->change_level_2nd);
+		//pc_setglobalreg (sd, "jobchange_level", sd->change_level_2nd);
 	}
 	// changing from 2nd to 3rd job
 	else if((b_class&JOBL_THIRD) && !(sd->class_&JOBL_THIRD)) {
 		sd->change_level_3rd = sd->status.job_level;
-		pc_setglobalreg (sd, "jobchange_level_3rd", sd->change_level_3rd);
+		//pc_setglobalreg (sd, "jobchange_level_3rd", sd->change_level_3rd);
 	}
 
 	if(sd->cloneskill_id) {
@@ -6869,8 +6880,8 @@ int pc_jobchange(struct map_session_data *sd,int job, int upper)
 			clif_deleteskill(sd,sd->cloneskill_id);
 		}
 		sd->cloneskill_id = 0;
-		pc_setglobalreg(sd, "CLONE_SKILL", 0);
-		pc_setglobalreg(sd, "CLONE_SKILL_LV", 0);
+		//pc_setglobalreg(sd, "CLONE_SKILL", 0);
+		//pc_setglobalreg(sd, "CLONE_SKILL_LV", 0);
 	}
 	if(sd->reproduceskill_id) {
 		if( sd->status.skill[sd->reproduceskill_id].flag == SKILL_FLAG_PLAGIARIZED ) {
@@ -6880,8 +6891,8 @@ int pc_jobchange(struct map_session_data *sd,int job, int upper)
 			clif_deleteskill(sd,sd->reproduceskill_id);
 		}
 		sd->reproduceskill_id = 0;
-		pc_setglobalreg(sd, "REPRODUCE_SKILL",0);
-		pc_setglobalreg(sd, "REPRODUCE_SKILL_LV",0);
+		//pc_setglobalreg(sd, "REPRODUCE_SKILL",0);
+		//pc_setglobalreg(sd, "REPRODUCE_SKILL_LV",0);
 	}
 	if ((b_class&&MAPID_UPPERMASK) != (sd->class_&MAPID_UPPERMASK))
 	{ //Things to remove when changing class tree.
@@ -7234,270 +7245,6 @@ int pc_candrop(struct map_session_data *sd, struct item *item)
 	return (itemdb_isdropable(item, pc_get_group_level(sd)));
 }
 
-/*==========================================
- * script用??の値を?む
- *------------------------------------------*/
-int pc_readreg(struct map_session_data* sd, int reg)
-{
-	int i;
-
-	nullpo_ret(sd);
-
-	ARR_FIND( 0, sd->reg_num, i,  sd->reg[i].index == reg );
-	return ( i < sd->reg_num ) ? sd->reg[i].data : 0;
-}
-/*==========================================
- * script用??の値を設定
- *------------------------------------------*/
-int pc_setreg(struct map_session_data* sd, int reg, int val)
-{
-	int i;
-
-	nullpo_ret(sd);
-
-	ARR_FIND( 0, sd->reg_num, i, sd->reg[i].index == reg );
-	if( i < sd->reg_num )
-	{// overwrite existing entry
-		sd->reg[i].data = val;
-		return 1;
-	}
-
-	ARR_FIND( 0, sd->reg_num, i, sd->reg[i].data == 0 );
-	if( i == sd->reg_num )
-	{// nothing free, increase size
-		sd->reg_num++;
-		RECREATE(sd->reg, struct script_reg, sd->reg_num);
-	}
-	sd->reg[i].index = reg;
-	sd->reg[i].data = val;
-
-	return 1;
-}
-
-/*==========================================
- * script用文字列??の値を?む
- *------------------------------------------*/
-char* pc_readregstr(struct map_session_data* sd, int reg)
-{
-	int i;
-
-	nullpo_ret(sd);
-
-	ARR_FIND( 0, sd->regstr_num, i,  sd->regstr[i].index == reg );
-	return ( i < sd->regstr_num ) ? sd->regstr[i].data : NULL;
-}
-/*==========================================
- * script用文字列??の値を設定
- *------------------------------------------*/
-int pc_setregstr(struct map_session_data* sd, int reg, const char* str)
-{
-	int i;
-
-	nullpo_ret(sd);
-
-	ARR_FIND( 0, sd->regstr_num, i, sd->regstr[i].index == reg );
-	if( i < sd->regstr_num )
-	{// found entry, update
-		if( str == NULL || *str == '\0' )
-		{// empty string
-			if( sd->regstr[i].data != NULL )
-				aFree(sd->regstr[i].data);
-			sd->regstr[i].data = NULL;
-		}
-		else if( sd->regstr[i].data )
-		{// recreate
-			size_t len = strlen(str)+1;
-			RECREATE(sd->regstr[i].data, char, len);
-			memcpy(sd->regstr[i].data, str, len*sizeof(char));
-		}
-		else
-		{// create
-			sd->regstr[i].data = aStrdup(str);
-		}
-		return 1;
-	}
-
-	if( str == NULL || *str == '\0' )
-		return 1;// nothing to add, empty string
-
-	ARR_FIND( 0, sd->regstr_num, i, sd->regstr[i].data == NULL );
-	if( i == sd->regstr_num )
-	{// nothing free, increase size
-		sd->regstr_num++;
-		RECREATE(sd->regstr, struct script_regstr, sd->regstr_num);
-	}
-	sd->regstr[i].index = reg;
-	sd->regstr[i].data = aStrdup(str);
-
-	return 1;
-}
-
-int pc_readregistry(struct map_session_data *sd,const char *reg,int type)
-{
-	struct global_reg *sd_reg;
-	int i,max;
-
-	nullpo_ret(sd);
-	switch (type) {
-	case 3: //Char reg
-		sd_reg = sd->save_reg.global;
-		max = sd->save_reg.global_num;
-	break;
-	case 2: //Account reg
-		sd_reg = sd->save_reg.account;
-		max = sd->save_reg.account_num;
-	break;
-	case 1: //Account2 reg
-		sd_reg = sd->save_reg.account2;
-		max = sd->save_reg.account2_num;
-	break;
-	default:
-		return 0;
-	}
-	if (max == -1) {
-		ShowError("pc_readregistry: Trying to read reg value %s (type %d) before it's been loaded!\n", reg, type);
-		//This really shouldn't happen, so it's possible the data was lost somewhere, we should request it again.
-		intif_request_registry(sd,type==3?4:type);
-		return 0;
-	}
-
-	ARR_FIND( 0, max, i, strcmp(sd_reg[i].str,reg) == 0 );
-	return ( i < max ) ? atoi(sd_reg[i].value) : 0;
-}
-
-char* pc_readregistry_str(struct map_session_data *sd,const char *reg,int type)
-{
-	struct global_reg *sd_reg;
-	int i,max;
-	
-	nullpo_ret(sd);
-	switch (type) {
-	case 3: //Char reg
-		sd_reg = sd->save_reg.global;
-		max = sd->save_reg.global_num;
-	break;
-	case 2: //Account reg
-		sd_reg = sd->save_reg.account;
-		max = sd->save_reg.account_num;
-	break;
-	case 1: //Account2 reg
-		sd_reg = sd->save_reg.account2;
-		max = sd->save_reg.account2_num;
-	break;
-	default:
-		return NULL;
-	}
-	if (max == -1) {
-		ShowError("pc_readregistry: Trying to read reg value %s (type %d) before it's been loaded!\n", reg, type);
-		//This really shouldn't happen, so it's possible the data was lost somewhere, we should request it again.
-		intif_request_registry(sd,type==3?4:type);
-		return NULL;
-	}
-
-	ARR_FIND( 0, max, i, strcmp(sd_reg[i].str,reg) == 0 );
-	return ( i < max ) ? sd_reg[i].value : NULL;
-}
-
-int pc_setregistry(struct map_session_data *sd,const char *reg,int val,int type)
-{
-	struct global_reg *sd_reg;
-	int i,*max, regmax;
-
-	nullpo_ret(sd);
-
-	switch( type )
-	{
-	case 3: //Char reg
-		if( !strcmp(reg,"PC_DIE_COUNTER") && sd->die_counter != val )
-		{
-			i = (!sd->die_counter && (sd->class_&MAPID_UPPERMASK) == MAPID_SUPER_NOVICE);
-			sd->die_counter = val;
-			if( i )
-				status_calc_pc(sd,0); // Lost the bonus.
-		}
-		else if( !strcmp(reg,"COOK_MASTERY") && sd->cook_mastery != val )
-		{
-			val = cap_value(val, 0, 1999);
-			sd->cook_mastery = val;
-		}
-		sd_reg = sd->save_reg.global;
-		max = &sd->save_reg.global_num;
-		regmax = GLOBAL_REG_NUM;
-	break;
-	case 2: //Account reg
-		if( !strcmp(reg,"#CASHPOINTS") && sd->cashPoints != val )
-		{
-			val = cap_value(val, 0, MAX_ZENY);
-			sd->cashPoints = val;
-		}
-		else if( !strcmp(reg,"#KAFRAPOINTS") && sd->kafraPoints != val )
-		{
-			val = cap_value(val, 0, MAX_ZENY);
-			sd->kafraPoints = val;
-		}
-		sd_reg = sd->save_reg.account;
-		max = &sd->save_reg.account_num;
-		regmax = ACCOUNT_REG_NUM;
-	break;
-	case 1: //Account2 reg
-		sd_reg = sd->save_reg.account2;
-		max = &sd->save_reg.account2_num;
-		regmax = ACCOUNT_REG2_NUM;
-	break;
-	default:
-		return 0;
-	}
-	if (*max == -1) {
-		ShowError("pc_setregistry : refusing to set %s (type %d) until vars are received.\n", reg, type);
-		return 1;
-	}
-	
-	// delete reg
-	if (val == 0) {
-		ARR_FIND( 0, *max, i, strcmp(sd_reg[i].str, reg) == 0 );
-		if( i < *max )
-		{
-			if (i != *max - 1)
-				memcpy(&sd_reg[i], &sd_reg[*max - 1], sizeof(struct global_reg));
-			memset(&sd_reg[*max - 1], 0, sizeof(struct global_reg));
-			(*max)--;
-			sd->state.reg_dirty |= 1<<(type-1); //Mark this registry as "need to be saved"
-		}
-		return 1;
-	}
-	// change value if found
-	ARR_FIND( 0, *max, i, strcmp(sd_reg[i].str, reg) == 0 );
-	if( i < *max )
-	{
-		safesnprintf(sd_reg[i].value, sizeof(sd_reg[i].value), "%d", val);
-		sd->state.reg_dirty |= 1<<(type-1);
-		return 1;
-	}
-
-	// add value if not found
-	if (i < regmax) {
-		memset(&sd_reg[i], 0, sizeof(struct global_reg));
-		safestrncpy(sd_reg[i].str, reg, sizeof(sd_reg[i].str));
-		safesnprintf(sd_reg[i].value, sizeof(sd_reg[i].value), "%d", val);
-		(*max)++;
-		sd->state.reg_dirty |= 1<<(type-1);
-		return 1;
-	}
-
-	ShowError("pc_setregistry : couldn't set %s, limit of registries reached (%d)\n", reg, regmax);
-
-	return 0;
-}
-
-int pc_setregistry_str(struct map_session_data *sd,const char *reg,const char *val,int type)
-{
-	// remove me later [sketchyphoenix]
-	return 0;
-}
-
-/*==========================================
- * イベントタイマ??理
- *------------------------------------------*/
 static int pc_eventtimer(int tid, unsigned int tick, int id, intptr_t data)
 {
 	struct map_session_data *sd=map_id2sd(id);
@@ -7784,8 +7531,8 @@ int pc_equipitem(struct map_session_data *sd,int n,int req_pos)
 	if (id) {
 		int i;
 		struct item_data *data;
-		if (id->equip_script)
-			run_script(id->equip_script,0,sd->bl.id,fake_nd->bl.id);
+		//if (id->equip_script)
+			//run_script(id->equip_script,0,sd->bl.id,fake_nd->bl.id);
 		if(itemdb_isspecial(sd->status.inventory[n].card[0]))
 			; //No cards
 		else
@@ -7794,8 +7541,8 @@ int pc_equipitem(struct map_session_data *sd,int n,int req_pos)
 			if (!sd->status.inventory[n].card[i])
 				continue;
 			data = itemdb_exists(sd->status.inventory[n].card[i]);
-			if (data && data->equip_script)
-				run_script(data->equip_script,0,sd->bl.id,fake_nd->bl.id);
+			//if (data && data->equip_script)
+				//run_script(data->equip_script,0,sd->bl.id,fake_nd->bl.id);
 		}
 	}
 	return 0;
@@ -7912,8 +7659,8 @@ int pc_unequipitem(struct map_session_data *sd,int n,int flag)
 	//OnUnEquip script [Skotlex]
 	if (sd->inventory_data[n]) {
 		struct item_data *data;
-		if (sd->inventory_data[n]->unequip_script)
-			run_script(sd->inventory_data[n]->unequip_script,0,sd->bl.id,fake_nd->bl.id);
+		//if (sd->inventory_data[n]->unequip_script)
+			//run_script(sd->inventory_data[n]->unequip_script,0,sd->bl.id,fake_nd->bl.id);
 		if(itemdb_isspecial(sd->status.inventory[n].card[0]))
 			; //No cards
 		else
@@ -7922,8 +7669,8 @@ int pc_unequipitem(struct map_session_data *sd,int n,int flag)
 			if (!sd->status.inventory[n].card[i])
 				continue;
 			data = itemdb_exists(sd->status.inventory[n].card[i]);
-			if (data && data->unequip_script)
-				run_script(data->unequip_script,0,sd->bl.id,fake_nd->bl.id);
+			//if (data && data->unequip_script)
+				//run_script(data->unequip_script,0,sd->bl.id,fake_nd->bl.id);
 		}
 	}
 
