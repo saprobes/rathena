@@ -76,7 +76,7 @@ class ShutdownIdleSlaves(StatusReceiverMultiService):
 			for pending in results:
 				if len(pending) > 0:
 					return # slave has pending builds
-			log.msg("ShutdownIdleSlaves: initiating graceful shutdown for slave {}".format(slave.getName()))
+			log.msg("ShutdownIdleSlaves: initiating graceful shutdown for slave {0}".format(slave.getName()))
 			slave.setGraceful(True)
 		d.addCallback(checkResults, self, slave)
 		return d
