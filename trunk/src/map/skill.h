@@ -118,7 +118,8 @@ struct skill_condition {
 		state,
 		spiritball,
 		itemid[MAX_SKILL_ITEM_REQUIRE],
-		amount[MAX_SKILL_ITEM_REQUIRE];
+		amount[MAX_SKILL_ITEM_REQUIRE],
+		eqItem[10]; //max eq_item
 	uint8 status_count;
 	enum sc_type status[MAX_SKILL_STATUS_REQUIRE];
 };
@@ -136,7 +137,8 @@ struct s_skill_require {
 		state,
 		spiritball[MAX_SKILL_LEVEL],
 		itemid[MAX_SKILL_ITEM_REQUIRE],
-		amount[MAX_SKILL_ITEM_REQUIRE];
+		amount[MAX_SKILL_ITEM_REQUIRE],
+		eqItem[10]; //max eq_item
 	uint8 status_count;
 	enum sc_type status[MAX_SKILL_STATUS_REQUIRE];
 };
@@ -429,11 +431,13 @@ int skill_castend_nodamage_id( struct block_list *src, struct block_list *bl,uin
 int skill_castend_damage_id( struct block_list* src, struct block_list *bl,uint16 skill_id,uint16 skill_lv,unsigned int tick,int flag );
 int skill_castend_pos2( struct block_list *src, int x,int y,uint16 skill_id,uint16 skill_lv,unsigned int tick,int flag);
 
-int skill_blockpc_start_(struct map_session_data*, uint16 skill_id, int, bool);
+int skill_blockpc_start(struct map_session_data*, int, int);
+int skill_blockpc_get(struct map_session_data *sd, int skillid);
+int skill_blockpc_clear(struct map_session_data *sd);
+int skill_blockpc_end(int tid, unsigned int tick, int id, intptr_t data);
 int skill_blockhomun_start (struct homun_data*,uint16 skill_id,int);
 int skill_blockmerc_start (struct mercenary_data*,uint16 skill_id,int);
 
-#define skill_blockpc_start(sd, skill_id, tick) skill_blockpc_start_( sd, skill_id, tick, false )
 
 // (Epoque:) To-do: replace this macro with some sort of skill tree check (rather than hard-coded skill names)
 #define skill_ischangesex(id) ( \
@@ -1903,10 +1907,6 @@ enum {
  **/
 void skill_usave_add(struct map_session_data * sd, uint16 skill_id, uint16 skill_lv);
 void skill_usave_trigger(struct map_session_data *sd);
-/**
- * Skill Cool Downs - load from pc.c when the character logs in
- **/
-void skill_cooldown_load(struct map_session_data * sd);
 /**
  * Warlock
  **/
