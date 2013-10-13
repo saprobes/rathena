@@ -3,7 +3,7 @@
 //===== By: ==================================================
 //= L0ne_W0lf
 //===== Current Version: =====================================
-//= 2.8
+//= 2.7
 //===== Compatible With: =====================================
 //= rAthena SVN
 //===== Description: =========================================
@@ -47,11 +47,9 @@
 //= 2.6 Fixed incorrect use of 'close'. [Joseph]
 //= 2.6a Disabled GM NPC. [Euphy]
 //= 2.7 Updated RE/Pre-RE EXP. [Euphy]
-//= 2.7a Added Izlude RE coordinates. [Euphy]
-//= 2.8 Added GM management function. [Euphy]
 //============================================================ 
 
-// Cat Hand Addition :: cat_enhance
+// Cat Hand Addition.
 //============================================================ 
 spl_fild02,25,211,4	script	Cat Hand Agent#spl	421,{
 	function Catwarp;
@@ -108,7 +106,7 @@ spl_fild02,25,211,4	script	Cat Hand Agent#spl	421,{
 				close;
 			}
 			else if (Zeny >= 60) {
-				set Zeny, Zeny-60;
+				set zeny,zeny-60;
 				mes "[Cat Hand Agent]";
 				mes "Thank you.";
 				mes "Your storage will be opened shortly.";
@@ -155,7 +153,7 @@ spl_fild02,25,211,4	script	Cat Hand Agent#spl	421,{
 				close;
 			}
 			else if (Zeny >= 60) {
-				set Zeny, Zeny-60;
+				set zeny,zeny-60;
 				mes "[Cat Hand Agent]";
 				mes "Thank you.";
 				mes "Your storage will be opened shortly.";
@@ -276,7 +274,7 @@ spl_fild02,25,211,4	script	Cat Hand Agent#spl	421,{
 				close;
 			}
 			else if (Zeny >= 60) {
-				set Zeny, Zeny-60;
+				set zeny,zeny-60;
 				mes "[Cat Hand Agent]";
 				mes "Thank you.";
 				mes "Your storage will be opened shortly.";
@@ -394,14 +392,13 @@ function Catwarp {
 	if (Zeny < getarg(0)) {
 		mes "[Cat Hand Agent]";
 		mes "Don't play with money.";
-		close;
-	}
+		close; }
 	close2;
 	set Zeny, Zeny-getarg(0);
 	switch(getarg(1)) {
 		case 1: warp "alberta",117,56; end;
 		case 2: warp "prontera",116,72; end;
-		case 3: if (checkre(0)) warp "izlude",128,98; else warp "izlude",91,105; end;
+		case 3: warp "izlude",91,105; end;
 		case 4: warp "geffen",120,39; end;
 		case 5: warp "payon",161,58; end;
 		case 6: warp "morocc",156,46; end;
@@ -415,6 +412,7 @@ function Catwarp {
 	}
 }
 }
+
 man_fild02,132,47,4	duplicate(Cat Hand Agent#spl)	Cat Hand Agent#man	421
 
 -	script	Mysterious Rock#30::manukrock2	-1,{
@@ -431,13 +429,11 @@ man_fild02,132,47,4	duplicate(Cat Hand Agent#spl)	Cat Hand Agent#man	421
 		else getitem 6048,1; //Unidentified_Mineral
 		initnpctimer;
 		disablenpc strnpcinfo(0);
-		end;
-	}
+		end; }
 	else {
 		mes "This rock contains unidentified minerals.";
 		mes "It's not possible to mine more than the limit.";
-		close;
-	}
+		close; }
 	end;
 
 OnTimer120000:
@@ -531,7 +527,7 @@ spl_fild01,55,269,0	duplicate(FishingHole_spl3)	School of Fish#12	844
 spl_fild01,332,131,0	duplicate(FishingHole_spl3)	School of Fish#13	844
 spl_fild01,170,74,0	duplicate(FishingHole_spl3)	School of Fish#14	844
 
-// Two Tribes :: ep13_2_msg
+// Two Tribes
 //============================================================
 spl_in01,32,306,3	script	Splendide Guard#ep13md01	447,2,2,{
 	if (checkweight(1201,2) == 0) {
@@ -2703,7 +2699,7 @@ spl_fild01,329,29,0	script	???#ep13mdf03	844,{
 	}
 }
 
-// Monster Suppression :: ep13_2_dayquest
+// Monster Suppression
 //============================================================
 manuk,252,116,3	script	Manuk Galtun#ep13_2day	450,{
 	if (checkweight(1201,2) == 0) {
@@ -2816,7 +2812,7 @@ manuk,252,116,3	script	Manuk Galtun#ep13_2day	450,{
 	close;
 }
 
-// Daily Quests :: ep13_2_dayquest
+// Daily Quests
 // - Bradium Collection
 // - Laphine Craftsman
 // - Draco Egg Collection (NPC includes 'Wanted' quest)
@@ -3516,7 +3512,7 @@ OnTimer300000:
 	end;
 }
 
-// Otherworld language :: ep13_2_rhea
+// Otherworld language
 //============================================================ 
 mid_camp,197,237,3	script	Schwartzvalt Mechanic#1	869,{
 	if (ep13_1_edq > 2 || ep13_start == 100) {
@@ -4585,66 +4581,75 @@ OnTimer300000:
 	end;
 }
 
+/*
 mid_camp,7,3,0	script	Translator Preparation#1	708,{
-	callfunc "F_GM_NPC";
-	mes "[EP13 Translator Quest Preparation]";
-	mes "First, you must confirm that you are my master.";
+	mes "[Plot13 Translator Quest Preparation]";
+	mes "Input password.";
 	next;
-	set .@i, callfunc("F_GM_NPC",1854,0);
-	if (.@i == -1) {
+	input .@input; //,0,2000;
+	if (.@input == 0) {
 		mes "[EP 13 Translator Quest Preparation]";
 		mes "Cancelled";
 		close;
-	} else if (.@i == 0) {
+	}
+	else if (.@input == 1854) {
 		mes "[EP 13 Translator Quest Preparation]";
-		mes "Try again.";
-		close;
-	} else {
-		mes "[EP 13 Translator Quest Preparation]";
-		mes "I'm the NPC who gives the Episode 13.2 Translator Quest's Linked-Quest Items.";
+		mes "I'm the provider of ep13.2 Translator Quest's quest item's NPC" <--Not my fault, they used bad chinese grammar in first place;
 		next;
-		mes "What would you like to do?";
+		mes "What you want?";
 		next;
-		switch(select("Receive EP13.1 Quest:Receive Quest Window - Meeting with Fairy and Giant")) {
+		switch(select("Finish quest:Accept fairy / giant meetup quest")) {
 		case 1:
 			mes "[EP 13 Translator Quest Preparation]";
-			mes "Episode 13.1 - The Report Quest Reward Item Received.";
+			mes "Acquired the report's quest completion item";
 			next;
 			mes "[EP 13 Translator Quest Preparation]";
-			mes "Currently the Report Quest's Set Item is "+ep13_1_edq+".";
-			mes "Do you want to proceed?";
+			mes "Current report quest's item is "+ ep13_1_edq +" ";
+			mes "Start Quest?";
 			next;
-			if(select("No:Yes") == 1) {
+			switch(select("Yes:No")) {
+			case 1:
 				mes "[EP 13 Translator Quest Preparation]";
 				mes "Cancelled";
 				close;
+			case 2:
+				break;
 			}
 			mes "[EP 13 Translator Quest Preparation]";
-			mes "Episode 13.1 - The Report Quest Reward Item Received.";
+			mes "Acquired the report's quest completion item";
 			set ep13_1_edq,14;
 			close;
 		case 2:
 			mes "[EP 13 Translator Quest Preparation]";
-			mes "Episode 13.1 - Receiving the Quest window - Meeting with Fairy and Giant.";
+			mes "Accept the fairy / giant meetup quest";
 			next;
 			mes "[EP 13 Translator Quest Preparation]";
-			mes "Do you want to proceed?";
+			mes "Start Quest?";
 			next;
-			if(select("No:Yes") == 1) {
+			switch(select("Yes:No")) {
+			case 1:
 				mes "[EP 13 Translator Quest Preparation]";
 				mes "Cancelled";
 				close;
+			case 2:
+				break;
 			}
 			mes "[EP 13 Translator Quest Preparation]";
-			mes "Episode 13.1 - The Report Quest Reward Item Received.";
+			mes "Acquired the report's quest completion item";
 			setquest 2158;
 			setquest 2159;
 			close;
 		}
 	}
+	else {
+		mes "[EP 13 Translator Quest Preparation]";
+		mes "Please try again";
+		close;
+	}
 }
+*/
 
-// Daily Quests :: ep13_2_tre
+// Daily Quests
 // - Midgard Ore
 // - Alfheim Perfume
 //============================================================ 
@@ -6222,7 +6227,7 @@ OnTimer60000:
 	end;
 }
 
-// Secret note of Bazett :: ep13_2_dailybs
+// Secret note of Bazett
 //============================================================ 
 mid_camp,283,198,5	script	Bazett Teablack#ep13bs	883,{
 	if (checkweight(1201,1) == 0) {
@@ -6888,7 +6893,7 @@ manuk,193,135,0	script	Worker#ep13bs	454,{
 	}
 }
 
-// Yggdrasil Dungeon Floor 2 puzzle :: ny_dun02_puzzle
+// Yggdrasil Dungeon Floor 2 puzzle.
 //============================================================ 
 nyd_dun02,178,255,0	script	Strange Device#ep13_out	844,3,3,{
 	mes "There's something strange here.";
@@ -7298,27 +7303,30 @@ OnTouch:
 nyd_dun01,255,142,0	warp	nynm_dun1f_to_2f	1,1,nyd_dun02,61,265
 nyd_dun02,56,264,0	warp	nynm_dun2f_to_1f	1,1,nyd_dun01,249,143
 
+/*
 nyd_dun02,1,1,0	script	ep13_nd2f_mng	844,{
-	callfunc "F_GM_NPC";
 	mes "Enter password.";
 	next;
-	if (callfunc("F_GM_NPC",1854,0) == 1) {
-		mes "Reset Control devices?";
+	input .@input; //,0,4000;
+	if (.@input == 1854) {
+		mes "Reset Puzzle?";
 		next;
 		switch(select("Yes:No")) {
 		case 1:
 			donpcevent "ep13_nd2f_mng::OnReset";
 			set $@08_ep13nydun02_in,0;
-			mes "Done.";
+			mes "Puzzle reset";
 			close;
 		case 2:
 			mes "Canceled.";
 			close;
 		}
-	} else {
+	}
+	else {
 		mes "Invalid.";
 		close;
 	}
+	end;
 
 OnReset:
 	donpcevent "ep13_warp_s1::OnEnable";
@@ -7387,3 +7395,4 @@ OnReset:
 	donpcevent "ep13_warp_85_2::OnDisable";
 	end;
 }
+*/
