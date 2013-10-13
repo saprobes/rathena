@@ -3,18 +3,16 @@
 //===== By: ==================================================
 //= Euphy
 //===== Current Version: =====================================
-//= 1.1
+//= 1.0
 //===== Compatible With: =====================================
 //= rAthena SVN
 //===== Description: =========================================
-//= [Official Conversion]
 //= Expansion for War of Emperium FE.
 //= Invest in each realm to unlock new maps:
 //= - Guild Dungeon F2, total 20,000,000z.
 //= - Hall of Abyss, total 70,000,000z.
 //===== Additional Comments: =================================
 //= 1.0 First version. Missing official times. [Euphy]
-//= 1.1 Added GM management function. [Euphy]
 //============================================================
 
 // Global Variables
@@ -389,10 +387,11 @@ OnReset:
 }
 
 prt_gld,2,2,0	script	Investment_total#fund00	844,{
-	callfunc "F_GM_NPC";
+/*
 	mes "Is this not working properly?";
 	next;
-	if (callfunc("F_GM_NPC",1854,0) == 1) {
+	input .@input;
+	if (.@input == 1854) {
 		mes "If you think the investment timer is dead, please adjust the timer.";
 		next;
 		switch(select("Turn on the timer:Cancel")) {
@@ -408,7 +407,8 @@ prt_gld,2,2,0	script	Investment_total#fund00	844,{
 		mes "I don't need to adjust anything now.";
 		close;
 	}
-
+*/
+	end;
 OnInit:
 	if (callfunc("F_Invest_Status") == 1) {
 		initnpctimer;
