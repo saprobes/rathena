@@ -1592,6 +1592,10 @@ int status_check_skilluse(struct block_list *src, struct block_list *target, uin
 	if ( src ) sc = status_get_sc(src);
 
 	if( sc && sc->count ) {
+		if((sc->data[SC_ASH] && rnd()%2)){
+			if(src->type==BL_PC) clif_skill_fail((TBL_PC*)src,skill_id,0,0);
+			return 0;
+		}
 
 		if (skill_id != RK_REFRESH && sc->opt1 >0 && !(sc->opt1 == OPT1_CRYSTALIZE && src->type == BL_MOB) && sc->opt1 != OPT1_BURNING && skill_id != SR_GENTLETOUCH_CURE) { //Stuned/Frozen/etc
 			if (flag != 1) //Can't cast, casted stuff can't damage.
@@ -1779,9 +1783,9 @@ int status_check_visibility(struct block_list *src, struct block_list *target)
 	switch (target->type)
 	{	//Check for chase-walk/hiding/cloaking opponents.
 	case BL_PC:
-		if ( tsc->data[SC_CLOAKINGEXCEED] && !(status->mode&MD_BOSS) )
+		if ( tsc && tsc->data[SC_CLOAKINGEXCEED] && !(status->mode&MD_BOSS) )
 			return 0;
-		if( (tsc->option&(OPTION_HIDE|OPTION_CLOAK|OPTION_CHASEWALK) || tsc->data[SC__INVISIBILITY] || tsc->data[SC_CAMOUFLAGE]) && !(status->mode&MD_BOSS) &&
+		if( ( tsc && (tsc->option&(OPTION_HIDE|OPTION_CLOAK|OPTION_CHASEWALK) || tsc->data[SC__INVISIBILITY] || tsc->data[SC_CAMOUFLAGE])) && !(status->mode&MD_BOSS) &&
 			( ((TBL_PC*)target)->special_state.perfect_hiding || !(status->mode&MD_DETECTOR) ) )
 			return 0;
 		break;
@@ -2461,12 +2465,10 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 		if(!sd->inventory_data[index])
 			continue;
 
-		if(!pc_has_permission(sd,PC_PERM_USE_ALL_EQUIPMENT) && itemdb_isNoEquip(sd->inventory_data[index],sd->bl.m)) // Items may be equipped, their effects however are nullified.
-			continue;
-
 		status->def += sd->inventory_data[index]->def;
 
-		if(first && sd->inventory_data[index]->equip_script)
+		// Items may be equipped, their effects however are nullified.
+		if(first && sd->inventory_data[index]->equip_script && (pc_has_permission(sd,PC_PERM_USE_ALL_EQUIPMENT) || !itemdb_isNoEquip(sd->inventory_data[index],sd->bl.m)))
 	  	{	//Execute equip-script on login
 			run_script(sd->inventory_data[index]->equip_script,0,sd->bl.id,0);
 			if (!calculating)
@@ -2506,7 +2508,7 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 				wd->overrefine = refine_info[wlv].randombonus_max[r-1] / 100;
 
 			wa->range += sd->inventory_data[index]->range;
-			if(sd->inventory_data[index]->script) {
+			if(sd->inventory_data[index]->script && (pc_has_permission(sd,PC_PERM_USE_ALL_EQUIPMENT) || !itemdb_isNoEquip(sd->inventory_data[index],sd->bl.m))) {
 				if (wd == &sd->left_weapon) {
 					sd->state.lr_flag = 1;
 					run_script(sd->inventory_data[index]->script,0,sd->bl.id,0);
@@ -2532,7 +2534,7 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 			int r;
 			if ( (r = sd->status.inventory[index].refine) )
 				refinedef += refine_info[REFINE_TYPE_ARMOR].bonus[r-1];
-			if(sd->inventory_data[index]->script) {
+			if(sd->inventory_data[index]->script && (pc_has_permission(sd,PC_PERM_USE_ALL_EQUIPMENT) || !itemdb_isNoEquip(sd->inventory_data[index],sd->bl.m))) {
 				if( i == EQI_HAND_L ) //Shield
 					sd->state.lr_flag = 3;
 				run_script(sd->inventory_data[index]->script,0,sd->bl.id,0);
@@ -2557,9 +2559,31 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 		}
 	}
 
-	/* we've got combos to process */
+	/* we've got combos to process and check */
 	if( sd->combos.count ) {
-		for( i = 0; i < sd->combos.count; i++ ) {
+		for (i = 0; i < sd->combos.count; i++) {
+			uint8 j;
+			bool no_run = false;
+			struct s_combo_pair *ids;
+			if (!sd->combos.bonus[i])
+				continue;
+			/* check combo items */
+			CREATE(ids,struct s_combo_pair,1);
+			memcpy(ids, &sd->combos.pair[i], sizeof(ids));
+			for (j = 0; j < MAX_ITEMS_PER_COMBO; j++) {
+				uint16 nameid = ids->nameid[j];
+				struct item_data *id = NULL;
+				if (!nameid || !(id = itemdb_exists(nameid)))
+					continue;
+				/* don't run the script if the items has restriction */
+				if (!pc_has_permission(sd, PC_PERM_USE_ALL_EQUIPMENT) && itemdb_isNoEquip(id, sd->bl.m)) {
+					no_run = true;
+					break;
+				}
+			}
+			aFree(ids);
+			if (no_run)
+				continue;
 			run_script(sd->combos.bonus[i],0,sd->bl.id,0);
 			if (!calculating) //Abort, run_script retriggered this.
 				return 1;
@@ -2598,7 +2622,7 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 				data = itemdb_exists(c);
 				if(!data)
 					continue;
-				if(first && data->equip_script) {//Execute equip-script on login
+				if(first && data->equip_script && (pc_has_permission(sd,PC_PERM_USE_ALL_EQUIPMENT) || !itemdb_isNoEquip(data,sd->bl.m))) {//Execute equip-script on login
 					run_script(data->equip_script,0,sd->bl.id,0);
 					if (!calculating)
 						return 1;
@@ -2607,8 +2631,7 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 					continue;
 				if(!pc_has_permission(sd,PC_PERM_USE_ALL_EQUIPMENT) && itemdb_isNoEquip(data,sd->bl.m)) //Card restriction checks.
 					continue;
-				if(i == EQI_HAND_L && sd->status.inventory[index].equip == EQP_HAND_L)
-				{	//Left hand status.
+				if(i == EQI_HAND_L && sd->status.inventory[index].equip == EQP_HAND_L) {	//Left hand status.
 					sd->state.lr_flag = 1;
 					run_script(data->script,0,sd->bl.id,0);
 					sd->state.lr_flag = 0;
@@ -2726,7 +2749,7 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 #else
 	status->watk = status_weapon_atk(status->rhw, status);
 	status->watk2 = status_weapon_atk(status->lhw, status);
-	status->eatk = (sd->bonus.eatk >= 0) ? sd->bonus.eatk : 0;
+	status->eatk = max(sd->bonus.eatk,0);
 #endif
 
 // ----- HP MAX CALCULATION -----
@@ -3546,6 +3569,7 @@ void status_calc_state( struct block_list *bl, struct status_change *sc, enum sc
 	if( flag&SCS_NOMOVE ) {
 		if( !(flag&SCS_NOMOVECOND) ) {
 			sc->cant.move += ( start ? 1 : -1 );
+			sc->cant.move = max(sc->cant.move,0); //safecheck
 		} else if(
 				     (sc->data[SC_GOSPEL] && sc->data[SC_GOSPEL]->val4 == BCT_SELF)	// cannot move while gospel is in effect
 				  || (sc->data[SC_BASILICA] && sc->data[SC_BASILICA]->val4 == bl->id) // Basilica caster cannot move
@@ -4680,8 +4704,6 @@ static unsigned short status_calc_watk(struct block_list *bl, struct status_chan
 		watk -= watk * 25/100;
 	if(sc->data[SC_STRIPWEAPON]  && bl->type != BL_PC)
 		watk -= watk * sc->data[SC_STRIPWEAPON]->val2/100;
-	if(sc->data[SC__ENERVATION])
-		watk -= watk * sc->data[SC__ENERVATION]->val2 / 100;
 	if((sc->data[SC_FIRE_INSIGNIA] && sc->data[SC_FIRE_INSIGNIA]->val1 == 2)
 	   || (sc->data[SC_WATER_INSIGNIA] && sc->data[SC_WATER_INSIGNIA]->val1 == 2)
 	   || (sc->data[SC_WIND_INSIGNIA] && sc->data[SC_WIND_INSIGNIA]->val1 == 2)
@@ -4781,7 +4803,7 @@ static signed short status_calc_critical(struct block_list *bl, struct status_ch
 	if(sc->data[SC_CLOAKING])
 		critical += critical;
 	if(sc->data[SC_STRIKING])
-		critical += sc->data[SC_STRIKING]->val1;
+		critical += sc->data[SC_STRIKING]->val1*10;
 #ifdef RENEWAL
 	if (sc->data[SC_SPEARQUICKEN])
 		critical += 3*sc->data[SC_SPEARQUICKEN]->val1*10;
@@ -4938,7 +4960,7 @@ static defType status_calc_def(struct block_list *bl, struct status_change *sc, 
 
 	if(!sc || !sc->count)
 		return (defType)cap_value(def,DEFTYPE_MIN,DEFTYPE_MAX);
-	
+
 	if(sc->data[SC_DEFSET]) //FIXME: Find out if this really overrides all other SCs
 		return sc->data[SC_DEFSET]->val1;
 	if(sc->data[SC_BERSERK])
@@ -5080,7 +5102,7 @@ static defType status_calc_mdef(struct block_list *bl, struct status_change *sc,
 
 	if(!sc || !sc->count)
 		return (defType)cap_value(mdef,DEFTYPE_MIN,DEFTYPE_MAX);
-	
+
 	if(sc->data[SC_MDEFSET]) //FIXME: Find out if this really overrides all other SCs
 		return sc->data[SC_MDEFSET]->val1;
 	if(sc->data[SC_BERSERK])
@@ -7014,10 +7036,12 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 		status_change_end(bl, SC_CONCENTRATE, INVALID_TIMER);
 		status_change_end(bl, SC_TRUESIGHT, INVALID_TIMER);
 		status_change_end(bl, SC_WINDWALK, INVALID_TIMER);
+		status_change_end(bl, SC_MAGNETICFIELD, INVALID_TIMER);
 		//Also blocks the ones below...
 	case SC_DECREASEAGI:
 	case SC_ADORAMUS:
 		status_change_end(bl, SC_CARTBOOST, INVALID_TIMER);
+		status_change_end(bl, SC_GN_CARTBOOST, INVALID_TIMER);
 		//Also blocks the ones below...
 	case SC_DONTFORGETME:
 		status_change_end(bl, SC_INCREASEAGI, INVALID_TIMER);
@@ -7080,6 +7104,7 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 	case SC_KAITE:
 		status_change_end(bl, SC_ASSUMPTIO, INVALID_TIMER);
 		break;
+	case SC_GN_CARTBOOST:
 	case SC_CARTBOOST:
 		if(sc->data[SC_DECREASEAGI] || sc->data[SC_ADORAMUS])
 		{	//Cancel Decrease Agi, but take no further effect [Skotlex]
@@ -7218,6 +7243,11 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 		if( type != SC_GT_CHANGE )
 			status_change_end(bl, SC_GT_CHANGE, INVALID_TIMER);
 		break;
+	case SC_WARMER:
+		status_change_end(bl, SC_CRYSTALIZE, INVALID_TIMER);
+		status_change_end(bl, SC_FREEZING, INVALID_TIMER);
+		status_change_end(bl, SC_FREEZE, INVALID_TIMER);
+		break;
 	case SC_INVINCIBLE:
 		status_change_end(bl, SC_INVINCIBLEOFF, INVALID_TIMER);
 		break;
@@ -7226,6 +7256,15 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 		break;
 	case SC_MAGICPOWER:
 		status_change_end(bl, type, INVALID_TIMER);
+		break;
+	case SC_WHITEIMPRISON:
+		status_change_end(bl, SC_BURNING, INVALID_TIMER);
+		status_change_end(bl, SC_FREEZING, INVALID_TIMER);
+		status_change_end(bl, SC_FREEZE, INVALID_TIMER);
+		status_change_end(bl, SC_STONE, INVALID_TIMER);
+		break;
+	case SC_FREEZING:
+		status_change_end(bl, SC_BURNING, INVALID_TIMER);
 		break;
 	}
 
@@ -8292,15 +8331,6 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 			val3 = 10 * val1; // Evasion rate of magical attacks.
 			val_flag |= 1|2|4;
 			break;
-		case SC_WHITEIMPRISON:
-			status_change_end(bl, SC_BURNING, INVALID_TIMER);
-			status_change_end(bl, SC_FREEZING, INVALID_TIMER);
-			status_change_end(bl, SC_FREEZE, INVALID_TIMER);
-			status_change_end(bl, SC_STONE, INVALID_TIMER);
-			break;
-		case SC_FREEZING:
-			status_change_end(bl, SC_BURNING, INVALID_TIMER);
-			break;
 		case SC_READING_SB:
 			// val2 = sp reduction per second
 			tick_time = 5000; // [GodLesZ] tick time
@@ -8400,7 +8430,6 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 			sc_start(src,bl,SC_STRIPWEAPON,100,val1,tick);
 			sc_start(src,bl,SC_STRIPSHIELD,100,val1,tick);
 			break;
-			break;
 		case SC_GN_CARTBOOST:
 			if( val1 < 3 )
 				val2 = 50;
@@ -8413,13 +8442,9 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 			val_flag |= 1|2;
 			val3 = 0;
 			break;
-		case SC_WARMER:
-			status_change_end(bl, SC_FREEZE, INVALID_TIMER);
-			status_change_end(bl, SC_FREEZING, INVALID_TIMER);
-			status_change_end(bl, SC_CRYSTALIZE, INVALID_TIMER);
-			break;
 		case SC_STRIKING:
-			val1 = 6 - val1;//spcost = 6 - level (lvl1:5 ... lvl 5: 1)
+			//val2 = watk bonus already calc
+			val3 = 6 - val1;//spcost = 6 - level (lvl1:5 ... lvl 5: 1)
 			val4 = tick / 1000;
 			tick_time = 1000; // [GodLesZ] tick time
 			break;
@@ -9090,6 +9115,7 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 	if(sd && sd->pd)
 		pet_sc_check(sd, type); //Skotlex: Pet Status Effect Healing
 
+	 //1st thing to execute when loading status
     switch (type) {
 		case SC_BERSERK:
 			if (!(sce->val2)) { //don't heal if already set
@@ -9181,7 +9207,7 @@ int status_change_clear(struct block_list* bl, int type) {
 			continue;
 
 		if(type == 0)
-		switch (i) {	//Type 0: PC killed -> Place here statuses that do not dispel on death.
+			switch (i) {	//Type 0: PC killed -> Place here statuses that do not dispel on death.
 			case SC_ELEMENTALCHANGE://Only when its Holy or Dark that it doesn't dispell on death
 				if( sc->data[i]->val2 != ELE_HOLY && sc->data[i]->val2 != ELE_DARK )
 					break;
@@ -9230,16 +9256,18 @@ int status_change_clear(struct block_list* bl, int type) {
 			case SC_S_LIFEPOTION:
 			case SC_L_LIFEPOTION:
 			case SC_PUSH_CART:
+			case SC_STYLE_CHANGE:
 				continue;
 		}
 
 		if( type == 3 ) {
 			switch (i) {// TODO: This list may be incomplete
-				case SC_WEIGHT50:
-				case SC_WEIGHT90:
-				case SC_NOCHAT:
-				case SC_PUSH_CART:
-					continue;
+			case SC_WEIGHT50:
+			case SC_WEIGHT90:
+			case SC_NOCHAT:
+			case SC_PUSH_CART:
+			case SC_STYLE_CHANGE:
+				continue;
 			}
 		}
 
@@ -9740,7 +9768,7 @@ int status_change_end_(struct block_list* bl, enum sc_type type, int tid, const 
 			}
 			break;
 		case SC_VACUUM_EXTREME:
-			if(sc && sc->cant.move > 0) sc->cant.move--;
+			if(sc && sce->val2 && sc->cant.move > 0) sc->cant.move--;
 			break;
 		case SC_KYOUGAKU:
 			clif_status_load(bl, SI_KYOUGAKU, 0); // Avoid client crash
@@ -10506,7 +10534,7 @@ int status_change_timer(int tid, unsigned int tick, int id, intptr_t data)
 	case SC_ELECTRICSHOCKER:
 		if( --(sce->val4) >= 0 )
 		{
-			status_charge(bl, 0, status->max_sp / 100 * sce->val1 );
+			status_charge(bl, 0, status->max_sp / 100 * sce->val1 * 5 );
 			sc_timer_next(1000 + tick, status_change_timer, bl->id, data);
 			return 0;
 		}
@@ -10549,7 +10577,7 @@ int status_change_timer(int tid, unsigned int tick, int id, intptr_t data)
 	case SC_STRIKING:
 		if( --(sce->val4) >= 0 )
 		{
-			if( !status_charge(bl,0, sce->val1 ) )
+			if( !status_charge(bl,0, sce->val3 ) )
 				break;
 			sc_timer_next(1000 + tick, status_change_timer, bl->id, data);
 			return 0;
@@ -10959,6 +10987,7 @@ int status_change_clear_buffs (struct block_list* bl, int type)
 			case SC_CURSEDCIRCLE_ATKER:
 			case SC_CURSEDCIRCLE_TARGET:
 			case SC_PUSH_CART:
+			case SC_STYLE_CHANGE:
 				continue;
 
 		 //Debuffs that can be removed.
