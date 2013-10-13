@@ -140,7 +140,7 @@ T12: Restrict("RE");
 T13: Go("geffen",119,59);
 T14: Go("gonryun",160,120);
 T15: Go("hugel",96,145);
-T16: Go("izlude",128,(checkre(3)?146:114));
+T16: Go("izlude",128,114);
 T17: Go("jawaii",251,132);
 T18: Go("lighthalzen",158,92);
 T19: Go("louyang",217,100);
@@ -148,7 +148,7 @@ T20: Go("xmas",147,134);
 T21: Restrict("RE");
 	Go("malangdo",140,114);
 T22: Restrict("RE");
-	Go("malaya",231,200);
+	Go("malaya",212,206);
 T23: Go("manuk",282,138);
 T24: Go("mid_camp",210,288);
 T25: Restrict("RE");
@@ -255,8 +255,8 @@ F28: Restrict("Pre-RE",5,10);
 	Dungeons:
 // --------------------------------------------------
 menu	"Abyss Lakes",D1, "Amatsu Dungeon",D2, "Anthell",D3,
-	"Ayothaya Dungeon",D4, "Beach Dungeon",D5, "Bifrost Tower",D41,
-	"Bio Labs",D6, "Brasilis Dungeon",D7, "Byalan Dungeon",D8, "Clock Tower",D9,
+	"Ayothaya Dungeon",D4, "Beach Dungeon",D5, "Bio Labs",D6,
+	"Brasilis Dungeon",D7, "Byalan Dungeon",D8, "Clock Tower",D9,
 	"Coal Mines",D10, "Culvert",D11, "Cursed Abbey",D12, "Dewata Dungeon",D13,
 	"Einbroch Dungeon",D14, "Gefenia",D15, "Geffen Dungeon",D16,
 	"Glast Heim",D17, "Gonryun Dungeon",D18, "Hidden Dungeon",D19,
@@ -335,10 +335,8 @@ D29: setarray @c[2],32,170,21,185;
 	Disp("Orc Dungeon",1,2); Pick("orcsdun");
 D30: setarray @c[0],21,183,19,33,19,63,155,159,201,204;
 	Disp("Payon Dungeon",1,5); Pick("pay_dun",1);
-D31: Restrict("RE",7,8);
-	setarray @c[2],192,9,10,192,100,92,181,11,94,96,192,8,94,96,192,8;
-	Disp("Pyramids 1:Pyramids 2:Pyramids 3:Pyramids 4:Basement 1:Basement 2:Basement 1 - Nightmare Mode:Basement 2 - Nightmare Mode");
-	Pick("","moc_pryd01","moc_pryd02","moc_pryd03","moc_pryd04","moc_pryd05","moc_pryd06","moc_prydn1","moc_prydn2");
+D31: setarray @c[2],192,9,10,192,100,92,181,11,94,96,192,8;
+	Disp("Pyramids 1:Pyramids 2:Pyramids 3:Pyramids 4:Basement 1:Basement 2"); Pick("moc_pryd");
 D32: setarray @c[2],140,11,32,21,4,149,204,218,150,9;
 	Disp("Rachel Sanctuary",1,5); Pick("ra_san");
 D33: Restrict("RE");
@@ -360,9 +358,6 @@ D40: Restrict("Pre-RE",1,2);
 	setarray @c[2],42,31,48,30,204,78;
 	Disp("Carpenter's Shop in the Tree:Passage to a Foreign World:Hvergermil's Fountain");
 	Pick("","um_dun01","um_dun02","yggdrasil01");
-D41: Restrict("RE");
-	setarray @c[2],57,13,64,88,45,14,26,23;
-	Disp("Bifrost Tower",1,4); Pick("ecl_tdun");
 
 // --------------------------------------------------
 	Castles:
@@ -420,7 +415,7 @@ G6: Go("schg_dun01",200,124);
 
 menu	"Bakonawa Lake",I1, "Bangungot Hospital 2F",I2, "Buwaya Cave",I3,
 	"Endless Tower",I4, "Hazy Forest",I5, "Malangdo Culvert",I6, "Nidhoggur's Nest",I7,
-	"Octopus Cave",I8, "Old Glast Heim",I9, "Orc's Memory",I10, "Sealed Shrine",I11;
+	"Octopus Cave",I8, "Old Glast Heim",I9, "Orc's Memory",I10, "Sealed Shrine",I111;
 
 I1: Restrict("RE");
 	Go("ma_scene01",172,175);
@@ -475,7 +470,7 @@ glast_01,372,308,4	duplicate(Warper)	Warper#glh	811
 gonryun,162,122,4	duplicate(Warper)	Warper#gon	811
 hugel,101,151,4	duplicate(Warper)	Warper#hug	811
 izlu2dun,110,92,4	duplicate(Warper)	Warper#izd	811
-izlude,134,150,4	duplicate(Warper)	Warper#izl	811	//Pre-RE: (132,120)
+izlude,132,120,4	duplicate(Warper)	Warper#izl	811
 jawaii,253,138,4	duplicate(Warper)	Warper#jaw	811
 lighthalzen,162,102,4	duplicate(Warper)	Warper#lhz	811
 louyang,208,103,6	duplicate(Warper)	Warper#lou	811
@@ -507,5 +502,5 @@ dewata,204,186,6	duplicate(Warper)	Warper#dew	811
 dicastes01,194,194,6	duplicate(Warper)	Warper#dic	811
 ecl_in01,51,60,4	duplicate(Warper)	Warper#ecl	811
 malangdo,134,117,6	duplicate(Warper)	Warper#mal	811
-malaya,231,204,4	duplicate(Warper)	Warper#ma	811
+malaya,210,205,4	duplicate(Warper)	Warper#ma	811
 mora,57,152,4	duplicate(Warper)	Warper#mora	811
