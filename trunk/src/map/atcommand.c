@@ -65,6 +65,7 @@ struct AtCommandInfo {
 	AtCommandFunc func;
 	char* at_groups;/* quick @commands "can-use" lookup */
 	char* char_groups;/* quick @charcommands "can-use" lookup */
+	int restriction; //prevent : 1 console, 2 script...
 };
 
 struct AliasInfo {
@@ -1117,18 +1118,19 @@ ACMD_FUNC(heal)
 }
 
 /*==========================================
- * @item command (usage: @item <name/id_of_item> <quantity>) (modified by [Yor] for pet_egg)
+ * @item command (usage: @item <itemdid1:itemid2:itemname:..> <quantity>) (modified by [Yor] for pet_egg)
  * @itembound command (usage: @itembound <name/id_of_item> <quantity> <bound_type>)
  *------------------------------------------*/
 ACMD_FUNC(item)
 {
 	char item_name[100];
-	int number = 0, item_id, flag = 0, bound = 0;
+	int number = 0, flag = 0, bound = 0;
 	struct item item_tmp;
-	struct item_data *item_data;
-	int get_count, i;
-	nullpo_retr(-1, sd);
+	struct item_data *item_data[10];
+	int get_count, i, j=0;
+	char *itemlist;
 
+	nullpo_retr(-1, sd);
 	memset(item_name, '\0', sizeof(item_name));
 
 	if (!strcmpi(command+1,"itembound") && (!message || !*message || (
@@ -1144,15 +1146,15 @@ ACMD_FUNC(item)
 		clif_displaymessage(fd, msg_txt(sd,983)); // Please enter an item name or ID (usage: @item <item name/ID> <quantity>).
 		return -1;
 	}
-
-	if (number <= 0)
-		number = 1;
-
-	if ((item_data = itemdb_searchname(item_name)) == NULL &&
-	    (item_data = itemdb_exists(atoi(item_name))) == NULL)
-	{
-		clif_displaymessage(fd, msg_txt(sd,19)); // Invalid item ID or name.
-		return -1;
+	itemlist = strtok(item_name, ":");
+	while (itemlist != NULL && j<10) {
+		if ((item_data[j] = itemdb_searchname(itemlist)) == NULL &&
+		    (item_data[j] = itemdb_exists(atoi(itemlist))) == NULL){
+			clif_displaymessage(fd, msg_txt(sd,19)); // Invalid item ID or name.
+			return -1;
+		}
+		itemlist = strtok(NULL, ":"); //next itemline
+		j++;
 	}
 
 	if( bound < 0 || bound > 4 ) {
@@ -1160,22 +1162,27 @@ ACMD_FUNC(item)
 		return -1;
 	}
 
-	item_id = item_data->nameid;
+	if (number <= 0)
+		number = 1;
 	get_count = number;
-	//Check if it's stackable.
-	if (!itemdb_isstackable2(item_data))
-		get_count = 1;
 
-	for (i = 0; i < number; i += get_count) {
-		// if not pet egg
-		if (!pet_create_egg(sd, item_id)) {
-			memset(&item_tmp, 0, sizeof(item_tmp));
-			item_tmp.nameid = item_id;
-			item_tmp.identify = 1;
-			item_tmp.bound = bound;
+	for(j--; j>=0; j--){ //produce items in list
+		int16 item_id = item_data[j]->nameid;
+		//Check if it's stackable.
+		if (!itemdb_isstackable2(item_data[j]))
+			get_count = 1;
 
-			if ((flag = pc_additem(sd, &item_tmp, get_count, LOG_TYPE_COMMAND)))
-				clif_additem(sd, 0, 0, flag);
+		for (i = 0; i < number; i += get_count) {
+			// if not pet egg
+			if (!pet_create_egg(sd, item_id)) {
+				memset(&item_tmp, 0, sizeof(item_tmp));
+				item_tmp.nameid = item_id;
+				item_tmp.identify = 1;
+				item_tmp.bound = bound;
+
+				if ((flag = pc_additem(sd, &item_tmp, get_count, LOG_TYPE_COMMAND)))
+					clif_additem(sd, 0, 0, flag);
+			}
 		}
 	}
 
@@ -3839,6 +3846,38 @@ ACMD_FUNC(mapinfo) {
 		sprintf(atcmd_output, msg_txt(sd,1045),map[m_id].flag.battleground); // Battlegrounds ON (type %d)
 		clif_displaymessage(fd, atcmd_output);
 	}
+
+	/* Skill damage adjustment info [Cydh] */
+#ifdef ADJUST_SKILL_DAMAGE
+	if (map[m_id].flag.skill_damage) {
+		int j;
+		clif_displaymessage(fd,msg_txt(sd,1052));	// Skill Damage Adjustments:
+		sprintf(atcmd_output," > [Map] %d%%, %d%%, %d%%, %d%% | Caster:%d"
+			,map[m_id].adjust.damage.pc
+			,map[m_id].adjust.damage.mob
+			,map[m_id].adjust.damage.boss
+			,map[m_id].adjust.damage.other
+			,map[m_id].adjust.damage.caster);
+		clif_displaymessage(fd, atcmd_output);
+		if (map[m_id].skill_damage[0].skill_id) {
+			clif_displaymessage(fd," > [Map Skill] Name : Player, Monster, Boss Monster, Other | Caster");
+			for (j = 0; j < MAX_MAP_SKILL_MODIFIER; j++) {
+				if (map[m_id].skill_damage[j].skill_id) {
+					sprintf(atcmd_output,"     %d. %s : %d%%, %d%%, %d%%, %d%% | %d"
+						,j+1
+						,skill_db[skill_get_index(map[m_id].skill_damage[j].skill_id)].name
+						,map[m_id].skill_damage[j].pc
+						,map[m_id].skill_damage[j].mob
+						,map[m_id].skill_damage[j].boss
+						,map[m_id].skill_damage[j].other
+						,map[m_id].skill_damage[j].caster);
+					clif_displaymessage(fd,atcmd_output);
+				}
+			}
+		}
+	}
+#endif
+
 	strcpy(atcmd_output,msg_txt(sd,1046)); // PvP Flags:
 	if (map[m_id].flag.pvp)
 		strcat(atcmd_output, " Pvp ON |");
@@ -3856,7 +3895,7 @@ ACMD_FUNC(mapinfo) {
 	if (map[m_id].flag.gvg)
 		strcat(atcmd_output, " GvG ON |");
 	if (map[m_id].flag.gvg_dungeon)
-		strcat(atcmd_output, " GvG Dungeon |"); 
+		strcat(atcmd_output, " GvG Dungeon |");
 	if (map[m_id].flag.gvg_castle)
 		strcat(atcmd_output, " GvG Castle |");
 	if (map[m_id].flag.gvg_noparty)
@@ -3875,7 +3914,7 @@ ACMD_FUNC(mapinfo) {
 	if (map[m_id].flag.noreturn)
 		strcat(atcmd_output, " NoReturn |");
 	if (map[m_id].flag.nogo)
-		strcat(atcmd_output, " NoGo |"); // 
+		strcat(atcmd_output, " NoGo |"); //
 	if (map[m_id].flag.nomemo)
 		strcat(atcmd_output, "  NoMemo |");
 	clif_displaymessage(fd, atcmd_output);
@@ -3923,9 +3962,9 @@ ACMD_FUNC(mapinfo) {
 	if (map[m_id].flag.notrade)
 		strcat(atcmd_output, " NoTrade |");
 	if (map[m_id].flag.novending)
-		strcat(atcmd_output, " NoVending |"); 
+		strcat(atcmd_output, " NoVending |");
 	if (map[m_id].flag.nodrop)
-		strcat(atcmd_output, " NoDrop |"); 
+		strcat(atcmd_output, " NoDrop |");
 	if (map[m_id].flag.noskill)
 		strcat(atcmd_output, " NoSkill |");
 	if (map[m_id].flag.noicewall)
@@ -3933,7 +3972,7 @@ ACMD_FUNC(mapinfo) {
 	if (map[m_id].flag.allowks)
 		strcat(atcmd_output, " AllowKS |");
 	if (map[m_id].flag.reset)
-		strcat(atcmd_output, " Reset |"); 
+		strcat(atcmd_output, " Reset |");
 	clif_displaymessage(fd, atcmd_output);
 
 	strcpy(atcmd_output,msg_txt(sd,1051)); // Other Flags2:
@@ -7670,13 +7709,16 @@ ACMD_FUNC(mapflag) {
 		checkflag(partylock);			checkflag(guildlock);			checkflag(reset);				checkflag(chmautojoin);
 		checkflag(nousecart);			checkflag(noitemconsumption);	checkflag(nosumstarmiracle);	checkflag(nomineeffect);
 		checkflag(nolockon);			checkflag(notomb);
+#ifdef ADJUST_SKILL_DAMAGE
+		checkflag(skill_damage);
+#endif
 		clif_displaymessage(sd->fd," ");
 		clif_displaymessage(sd->fd,msg_txt(sd,1312)); // Usage: "@mapflag monster_noteleport 1" (0=Off | 1=On)
 		clif_displaymessage(sd->fd,msg_txt(sd,1313)); // Type "@mapflag available" to list the available mapflags.
 		return 1;
 	}
 	for (i = 0; flag_name[i]; i++) flag_name[i] = (char)tolower(flag_name[i]); //lowercase
-	
+
 	setflag(town);				setflag(autotrade);			setflag(allowks);				setflag(nomemo);
 	setflag(noteleport);		setflag(noreturn);			setflag(monster_noteleport);	setflag(nosave);
 	setflag(nobranch);			setflag(noexppenalty);		setflag(pvp);					setflag(pvp_noparty);
@@ -7691,6 +7733,9 @@ ACMD_FUNC(mapflag) {
 	setflag(partylock);			setflag(guildlock);			setflag(reset);					setflag(chmautojoin);
 	setflag(nousecart);			setflag(noitemconsumption);	setflag(nosumstarmiracle);		setflag(nomineeffect);
 	setflag(nolockon);			setflag(notomb);
+#ifdef ADJUST_SKILL_DAMAGE
+	setflag(skill_damage);
+#endif
 
 	clif_displaymessage(sd->fd,msg_txt(sd,1314)); // Invalid flag name or flag.
 	clif_displaymessage(sd->fd,msg_txt(sd,1312)); // Usage: "@mapflag monster_noteleport 1" (0=Off | 1=On)
@@ -7703,6 +7748,9 @@ ACMD_FUNC(mapflag) {
 	clif_displaymessage(sd->fd,"fog, fireworks, sakura, leaves, nogo, nobaseexp, nojobexp, nomobloot, nomvploot,");
 	clif_displaymessage(sd->fd,"nightenabled, restricted, nodrop, novending, loadevent, nochat, partylock, guildlock,");
 	clif_displaymessage(sd->fd,"reset, chmautojoin, nousecart, noitemconsumption, nosumstarmiracle, nolockon, notomb");
+#ifdef ADJUST_SKILL_DAMAGE
+	clif_displaymessage(sd->fd,"skill_damage");
+#endif
 
 #undef checkflag
 #undef setflag
@@ -9036,14 +9084,18 @@ ACMD_FUNC(langtype)
 /**
  * Fills the reference of available commands in atcommand DBMap
  **/
-#define ACMD_DEF(x) { #x, atcommand_ ## x, NULL, NULL }
-#define ACMD_DEF2(x2, x) { x2, atcommand_ ## x, NULL, NULL }
+#define ACMD_DEF(x) { #x, atcommand_ ## x, NULL, NULL, 0 }
+#define ACMD_DEF2(x2, x) { x2, atcommand_ ## x, NULL, NULL, 0 }
+//define with restriction
+#define ACMD_DEFR(x, r) { #x, atcommand_ ## x, NULL, NULL, r }
+#define ACMD_DEF2R(x2, x, r) { x2, atcommand_ ## x, NULL, NULL, r }
 void atcommand_basecommands(void) {
 	/**
 	 * Command reference list, place the base of your commands here
+	 * TODO : all restricted command are crashing case, please look into it
 	 **/
 	AtCommandInfo atcommand_base[] = {
-		ACMD_DEF2("warp", mapmove),
+		ACMD_DEF2R("warp", mapmove, 1),
 		ACMD_DEF(where),
 		ACMD_DEF(jumpto),
 		ACMD_DEF(jump),
@@ -9061,7 +9113,7 @@ void atcommand_basecommands(void) {
 		ACMD_DEF(guildstorage),
 		ACMD_DEF(option),
 		ACMD_DEF(hide), // + /hide
-		ACMD_DEF(jobchange),
+		ACMD_DEFR(jobchange, 1),
 		ACMD_DEF(kill),
 		ACMD_DEF(alive),
 		ACMD_DEF(kami),
@@ -9077,7 +9129,7 @@ void atcommand_basecommands(void) {
 		ACMD_DEF(clearstorage),
 		ACMD_DEF(cleargstorage),
 		ACMD_DEF(clearcart),
-		ACMD_DEF2("blvl", baselevelup),
+		ACMD_DEF2R("blvl", baselevelup, 1),
 		ACMD_DEF2("jlvl", joblevelup),
 		ACMD_DEF(help),
 		ACMD_DEF(pvpoff),
@@ -9085,7 +9137,7 @@ void atcommand_basecommands(void) {
 		ACMD_DEF(gvgoff),
 		ACMD_DEF(gvgon),
 		ACMD_DEF(model),
-		ACMD_DEF(go),
+		ACMD_DEFR(go, 1),
 		ACMD_DEF(monster),
 		ACMD_DEF2("monstersmall", monster),
 		ACMD_DEF2("monsterbig", monster),
@@ -9134,11 +9186,11 @@ void atcommand_basecommands(void) {
 		ACMD_DEF(broadcast), // + /b and /nb
 		ACMD_DEF(localbroadcast), // + /lb and /nlb
 		ACMD_DEF(recallall),
-		ACMD_DEF(reload),
+		ACMD_DEFR(reload,2),
 		ACMD_DEF2("reloaditemdb", reload),
 		ACMD_DEF2("reloadmobdb", reload),
 		ACMD_DEF2("reloadskilldb", reload),
-		ACMD_DEF2("reloadscript", reload),
+		ACMD_DEF2R("reloadscript", reload,2),
 		ACMD_DEF2("reloadatcommand", reload),
 		ACMD_DEF2("reloadbattleconf", reload),
 		ACMD_DEF2("reloadstatusdb", reload),
@@ -9317,6 +9369,7 @@ void atcommand_basecommands(void) {
 		CREATE(atcommand, AtCommandInfo, 1);
 		safestrncpy(atcommand->command, atcommand_base[i].command, sizeof(atcommand->command));
 		atcommand->func = atcommand_base[i].func;
+		atcommand->restriction = atcommand_base[i].restriction;
 		strdb_put(atcommand_db, atcommand->command, atcommand);
 	}
 	return;
@@ -9417,7 +9470,14 @@ static void atcommand_get_suggestions(struct map_session_data* sd, const char *n
 	dbi_destroy(alias_iter);
 }
 
-/// Executes an at-command.
+/*
+ *  Executes an at-command
+ * \param type :
+ *  0 : script call (atcommand)
+ *  1 : normal player @atcommand
+ *  2 : console
+ *  3 : script call (useatcmd)
+ */
 bool is_atcommand(const int fd, struct map_session_data* sd, const char* message, int type)
 {
 	char charname[NAME_LENGTH], params[100];
@@ -9449,9 +9509,8 @@ bool is_atcommand(const int fd, struct map_session_data* sd, const char* message
 	if ( *message != atcommand_symbol && *message != charcommand_symbol )
 		return false;
 
-	// type value 0 = server invoked: bypass restrictions
-	// 1 = player invoked
-	if ( type == 1) {
+	// type value 0|2 = script|console invoked: bypass restrictions
+	if ( type == 1 || type == 3) {
 		//Commands are disabled on maps flagged as 'nocommand'
 		if ( map[sd->bl.m].nocommand && pc_get_group_level(sd) < map[sd->bl.m].nocommand ) {
 			clif_displaymessage(fd, msg_txt(sd,143));
@@ -9518,7 +9577,7 @@ bool is_atcommand(const int fd, struct map_session_data* sd, const char* message
 		params[0] = '\0';
 
 	// @commands (script based)
-	if(type == 1 && atcmd_binding_count > 0) {
+	if((type == 1 || type == 3) && atcmd_binding_count > 0) {
 		struct atcmd_binding_data * binding;
 
 		// Check if the command initiated is a character command
@@ -9554,6 +9613,14 @@ bool is_atcommand(const int fd, struct map_session_data* sd, const char* message
 			return true;
 		} else
 			return false;
+	}
+
+	//check restriction
+	if(info->restriction){
+		if(info->restriction&1 && type == 2) //console prevent
+			return true;
+		if(info->restriction&2 && (type == 0 || type == 3) ) //scripts prevent
+			return true;
 	}
 
 	// type == 1 : player invoked

@@ -425,7 +425,8 @@ enum _sp {
 	SP_ADD_SKILL_BLOW, SP_SP_VANISH_RATE, SP_MAGIC_SP_GAIN_VALUE, SP_MAGIC_HP_GAIN_VALUE, SP_ADD_CLASS_DROP_ITEM, //2041-2045
 	SP_EMATK, SP_SP_GAIN_RACE_ATTACK, SP_HP_GAIN_RACE_ATTACK, SP_SKILL_USE_SP_RATE, //2046-2049
 	SP_SKILL_COOLDOWN,SP_SKILL_FIXEDCAST, SP_SKILL_VARIABLECAST, SP_FIXCASTRATE, SP_VARCASTRATE, //2050-2054
-	SP_SKILL_USE_SP,SP_MAGIC_ATK_ELE, SP_ADD_FIXEDCAST, SP_ADD_VARIABLECAST  //2055-2058
+	SP_SKILL_USE_SP,SP_MAGIC_ATK_ELE, SP_ADD_FIXEDCAST, SP_ADD_VARIABLECAST,  //2055-2058
+	SP_DEF_SET,SP_MDEF_SET  //2059-2060
 };
 
 enum _look {
@@ -515,6 +516,19 @@ struct iwall_data {
 	bool shootable;
 };
 
+#ifdef ADJUST_SKILL_DAMAGE
+struct s_skill_damage {
+	uint16 map, skill_id;
+	/* additional rates */
+	int pc,
+		mob,
+		boss,
+		other;
+	uint8 caster;	/* caster type */
+};
+#define MAX_MAP_SKILL_MODIFIER 5
+#endif
+
 struct map_data {
 	char name[MAP_NAME_LENGTH];
 	uint16 index; // The map index used by the mapindex* functions.
@@ -584,6 +598,9 @@ struct map_data {
 		unsigned nomineeffect : 1; //allow /mineeffect
 		unsigned nolockon : 1;
 		unsigned notomb : 1;
+#ifdef ADJUST_SKILL_DAMAGE
+		unsigned skill_damage : 1;
+#endif
 	} flag;
 	struct point save;
 	struct npc_data *npc[MAX_NPC_PER_MAP];
@@ -596,9 +613,17 @@ struct map_data {
 	struct spawn_data *moblist[MAX_MOB_LIST_PER_MAP]; // [Wizputer]
 	int mob_delete_timer;	// [Skotlex]
 	int zone;	// zone number (for item/skill restrictions)
-	int jexp;	// map experience multiplicator
-	int bexp;	// map experience multiplicator
 	int nocommand; //Blocks @/# commands for non-gms. [Skotlex]
+	struct {
+		int jexp;	// map experience multiplicator
+		int bexp;	// map experience multiplicator
+#ifdef ADJUST_SKILL_DAMAGE
+		struct s_skill_damage damage;
+#endif
+	} adjust;
+#ifdef ADJUST_SKILL_DAMAGE
+	struct s_skill_damage skill_damage[MAX_MAP_SKILL_MODIFIER];
+#endif
 	/**
 	 * Ice wall reference counter for bugreport:3574
 	 * - since there are a thounsand mobs out there in a lot of maps checking on,

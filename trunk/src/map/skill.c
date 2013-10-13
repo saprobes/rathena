@@ -1450,6 +1450,12 @@ int skill_additional_effect (struct block_list* src, struct block_list *bl, uint
 			if( rate )
 				skill_break_equip(src,bl, EQP_ARMOR, rate, BCT_ENEMY);
 		}
+		if( sd && sd->def_set_race[tstatus->race].rate )
+				status_change_start(src,bl, SC_DEFSET, sd->def_set_race[tstatus->race].rate, sd->def_set_race[tstatus->race].value, 
+				0, 0, 0, sd->def_set_race[tstatus->race].tick, 2);
+		if( sd && sd->def_set_race[tstatus->race].rate )
+				status_change_start(src,bl, SC_MDEFSET, sd->mdef_set_race[tstatus->race].rate, sd->mdef_set_race[tstatus->race].value, 
+				0, 0, 0, sd->mdef_set_race[tstatus->race].tick, 2);
 	}
 
 	if( sd && sd->ed && sc && !status_isdead(bl) && !skill_id ){
@@ -2299,13 +2305,14 @@ void skill_combo(struct block_list* src,struct block_list *dsrc, struct block_li
  * flag&0x2000 is used to signal that the skill_lv should be passed as -1 to the
  *      client (causes player characters to not scream skill name)
  *-------------------------------------------------------------------------*/
-int skill_attack (int attack_type, struct block_list* src, struct block_list *dsrc, struct block_list *bl, uint16 skill_id, uint16 skill_lv, unsigned int tick, int flag)
+int64 skill_attack (int attack_type, struct block_list* src, struct block_list *dsrc, struct block_list *bl, uint16 skill_id, uint16 skill_lv, unsigned int tick, int flag)
 {
 	struct Damage dmg;
 	struct status_data *sstatus, *tstatus;
 	struct status_change *tsc;
 	struct map_session_data *sd, *tsd;
-	int type,damage,rdamage=0;
+	int64 damage;
+	int type;
 	int8 rmdamage=0;//magic reflected
 	bool additional_effects = true;
 
@@ -2435,11 +2442,6 @@ int skill_attack (int attack_type, struct block_list* src, struct block_list *ds
 		skill_id == CASH_BLESSING || skill_id == CASH_INCAGI ||
 		skill_id == MER_INCAGI || skill_id == MER_BLESSING) && tsd->sc.data[SC_CHANGEUNDEAD] )
 		damage = 1;
-
-	if( damage > 0 && (( dmg.flag&BF_WEAPON && src != bl && ( src == dsrc || ( dsrc->type == BL_SKILL &&
-		( skill_id == SG_SUN_WARM || skill_id == SG_MOON_WARM || skill_id == SG_STAR_WARM ) ) ))
-		|| ((tsc && tsc->data[SC_REFLECTDAMAGE]) && !(dmg.flag&(BF_MAGIC|BF_LONG)) && !(skill_get_inf2(skill_id)&INF2_TRAP)) ) )
-		rdamage = battle_calc_return_damage(bl,src, &damage, dmg.flag, skill_id);
 
 	if( damage && tsc && tsc->data[SC_GENSOU] && dmg.flag&BF_MAGIC ){
 		struct block_list *nbl;
@@ -2814,22 +2816,6 @@ int skill_attack (int attack_type, struct block_list* src, struct block_list *ds
 			battle_drain(sd, bl, dmg.damage, dmg.damage2, tstatus->race, tstatus->mode&MD_BOSS);
 	}
 
-	if( rdamage > 0 ) {
-		if( tsc && tsc->data[SC_REFLECTDAMAGE] ) {
-			if( src != bl )// Don't reflect your own damage (Grand Cross)
-				map_foreachinshootrange(battle_damage_area,bl,skill_get_splash(LG_REFLECTDAMAGE,1),BL_CHAR,tick,bl,dmg.amotion,sstatus->dmotion,rdamage,tstatus->race);
-		} else {
-			if( dmg.amotion )
-				battle_delay_damage(tick, dmg.amotion,bl,src,0,CR_REFLECTSHIELD,0,rdamage,ATK_DEF,0,additional_effects);
-			else
-				status_fix_damage(bl,src,rdamage,0);
-			clif_damage(src,src,tick, dmg.amotion,0,rdamage,1,4,0); // in aegis damage reflected is shown in single hit.
-			//Use Reflect Shield to signal this kind of skill trigger. [Skotlex]
-			if( tsd && src != bl )
-				battle_drain(tsd, src, rdamage, rdamage, sstatus->race, is_boss(src));
-			skill_additional_effect(bl, src, CR_REFLECTSHIELD, 1, BF_WEAPON|BF_SHORT|BF_NORMAL,ATK_DEF,tick);
-		}
-	}
 	if( damage > 0 ) {
 		/**
 		 * Post-damage effects
@@ -3879,7 +3865,7 @@ int skill_castend_damage_id (struct block_list* src, struct block_list *bl, uint
 			if( skill_area_temp[1] != bl->id && !(skill_get_inf2(skill_id)&INF2_NPC_SKILL) )
 				sflag |= SD_ANIMATION; // original target gets no animation (as well as all NPC skills)
 
-			heal = skill_attack(skill_get_type(skill_id), src, src, bl, skill_id, skill_lv, tick, sflag);
+			heal = (int)skill_attack(skill_get_type(skill_id), src, src, bl, skill_id, skill_lv, tick, sflag);
 			if( skill_id == NPC_VAMPIRE_GIFT && heal > 0 ) {
 				clif_skill_nodamage(NULL, src, AL_HEAL, heal, 1);
 				status_heal(src,heal,0,0);
@@ -4241,7 +4227,7 @@ int skill_castend_damage_id (struct block_list* src, struct block_list *bl, uint
 	case NPC_BLOODDRAIN:
 	case NPC_ENERGYDRAIN:
 		{
-			int heal = skill_attack( (skill_id == NPC_BLOODDRAIN) ? BF_WEAPON : BF_MAGIC,
+			int heal = (int)skill_attack( (skill_id == NPC_BLOODDRAIN) ? BF_WEAPON : BF_MAGIC,
 					src, src, bl, skill_id, skill_lv, tick, flag);
 			if (heal > 0){
 				clif_skill_nodamage(NULL, src, AL_HEAL, heal, 1);
@@ -4351,7 +4337,7 @@ int skill_castend_damage_id (struct block_list* src, struct block_list *bl, uint
 		break;
 	case WL_DRAINLIFE:
 		{
-		    int heal = skill_attack(skill_get_type(skill_id), src, src, bl, skill_id, skill_lv, tick, flag);
+		    int heal = (int)skill_attack(skill_get_type(skill_id), src, src, bl, skill_id, skill_lv, tick, flag);
 		    int rate = 70 + 5 * skill_lv;
 
 		    heal = heal * (5 + 5 * skill_lv) / 100;
@@ -12505,7 +12491,7 @@ static int skill_unit_effect (struct block_list* bl, va_list ap)
 /*==========================================
  *
  *------------------------------------------*/
-int skill_unit_ondamaged (struct skill_unit *src, struct block_list *bl, int damage, unsigned int tick)
+int64 skill_unit_ondamaged (struct skill_unit *src, struct block_list *bl, int64 damage, unsigned int tick)
 {
 	struct skill_unit_group *sg;
 
@@ -12526,7 +12512,7 @@ int skill_unit_ondamaged (struct skill_unit *src, struct block_list *bl, int dam
 	case UNT_ICEWALL:
 	case UNT_REVERBERATION:
 	case UNT_WALLOFTHORN:
-		src->val1-=damage;
+		src->val1-=(int)cap_value(damage,INT_MIN,INT_MAX);
 		break;
 	default:
 		damage = 0;
@@ -14921,7 +14907,7 @@ int skill_attack_area (struct block_list *bl, va_list ap)
 
 
 	if (skill_area_temp[1] == bl->id) //This is the target of the skill, do a full attack and skip target checks.
-		return skill_attack(atk_type,src,dsrc,bl,skill_id,skill_lv,tick,flag);
+		return (int)skill_attack(atk_type,src,dsrc,bl,skill_id,skill_lv,tick,flag);
 
 	if(battle_check_target(dsrc,bl,type) <= 0 ||
 		!status_check_skilluse(NULL, bl, skill_id, 2))
@@ -14935,10 +14921,10 @@ int skill_attack_area (struct block_list *bl, va_list ap)
 	case NPC_FIREBREATH:
 	case NPC_ICEBREATH:
 	case NPC_THUNDERBREATH:
-		return skill_attack(atk_type,src,dsrc,bl,skill_id,skill_lv,tick,flag);
+		return (int)skill_attack(atk_type,src,dsrc,bl,skill_id,skill_lv,tick,flag);
 	default:
 		//Area-splash, disable skill animation.
-		return skill_attack(atk_type,src,dsrc,bl,skill_id,skill_lv,tick,flag|SD_ANIMATION);
+		return (int)skill_attack(atk_type,src,dsrc,bl,skill_id,skill_lv,tick,flag|SD_ANIMATION);
 	}
 }
 /*==========================================
@@ -18298,6 +18284,33 @@ static bool skill_parse_row_changematerialdb(char* split[], int columns, int cur
 	return true;
 }
 
+/*==========================================
+ * Manage Skill Damage database
+ * Credits:
+		[Lilith]
+ *------------------------------------------*/
+#ifdef ADJUST_SKILL_DAMAGE
+static bool skill_parse_row_skilldamage(char* split[], int columns, int current)
+{
+	uint16 skill_id = skill_name2id(split[0]), idx;
+	if ((idx = skill_get_index(skill_id)) < 0) { // invalid skill id
+		ShowWarning("skill_parse_row_skilldamage: Invalid skill '%s'. Skipping..",split[0]);
+		return false;
+	}
+	memset(&skill_db[idx].damage,0,sizeof(struct s_skill_damage));
+	skill_db[idx].damage.caster |= atoi(split[1]);
+	skill_db[idx].damage.map |= atoi(split[2]);
+	skill_db[idx].damage.pc = cap_value(atoi(split[3]),-100,MAX_SKILL_DAMAGE_RATE);
+	if (split[3])
+		skill_db[idx].damage.mob = cap_value(atoi(split[4]),-100,MAX_SKILL_DAMAGE_RATE);
+	if (split[4])
+		skill_db[idx].damage.boss = cap_value(atoi(split[5]),-100,MAX_SKILL_DAMAGE_RATE);
+	if (split[5])
+		skill_db[idx].damage.other = cap_value(atoi(split[6]),-100,MAX_SKILL_DAMAGE_RATE);
+	return true;
+}
+#endif
+
 /*===============================
  * DB reading.
  * skill_db.txt
@@ -18350,7 +18363,9 @@ static void skill_readdb(void)
 	sv_readdb(db_path, "skill_reproduce_db.txt", ',',   1,  1, MAX_SKILL_DB, skill_parse_row_reproducedb);
 	sv_readdb(db_path, "skill_improvise_db.txt"      , ',',   2,  2, MAX_SKILL_IMPROVISE_DB, skill_parse_row_improvisedb);
 	sv_readdb(db_path, "skill_changematerial_db.txt"      , ',',   4,  4+2*5, MAX_SKILL_PRODUCE_DB, skill_parse_row_changematerialdb);
-
+#ifdef ADJUST_SKILL_DAMAGE
+	sv_readdb(db_path, "skill_damage_db.txt"      , ',',   4,  7, MAX_SKILL_DB, skill_parse_row_skilldamage);
+#endif
 }
 
 void skill_reload (void) {
