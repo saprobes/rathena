@@ -647,15 +647,14 @@ typedef enum sc_type {
 	SC_PYROCLASTIC,
 	SC_PARALYSIS,
 	SC_PAIN_KILLER,
-
-#ifdef RENEWAL
-	SC_EXTREMITYFIST2,
-#endif
+	SC_HANBOK,
 	//Vellum Weapon reductions
 	SC_DEFSET,
 	SC_MDEFSET,
 
-	SC_HANBOK,
+#ifdef RENEWAL
+	SC_EXTREMITYFIST2,
+#endif
 
 	SC_MAX, //Automatically updated max, used in for's to check we are within bounds.
 } sc_type;
@@ -1627,6 +1626,7 @@ struct status_data {
 		batk,
 #ifdef RENEWAL
 		watk,
+		watk2,
 		eatk,
 #endif
 		matk_min, matk_max,
