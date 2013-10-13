@@ -233,7 +233,7 @@ OnEnable:
 		select("The Ymir's Heart. Himmelmez...");
 		mes "["+strcharinfo(0)+"]";
 		mes "Himmelmez, the Valkyrie of the dead is looking to get a piece of the Ymir's heart hidden in the castle!";
-		unittalk getcharid(3),"Himmelmez, the Valkyrie of the dead is looking to get a piece of the Ymir's heart hidden in the castle!";
+		unittalk getcharid(3),"Himmelmez, the Valkyrie of the dead is looking to get a piece of the Ymir's heart hidden in the castle";
 		next;
 		mes "[Heinrich]";
 		mes "Haha. That's a nice joke. Now tell me what brings you here.";
@@ -1213,7 +1213,7 @@ OnTalk1:
 	npctalk "Himmelmez! I won't let you take even a single more step here.";
 	end;
 OnTalk2:
-	npctalk "What... is this?!";
+	npctalk "What.. is this!";
 	end;
 OnTalk3:
 	npctalk "Varmunt Sir! Help the adventurers and I'll chase Himmelmez!";
@@ -1387,7 +1387,7 @@ OnTalk15:
 	npctalk "You guys are of a great help. Try to follow us.";
 	end;
 OnTalk16:
-	npctalk "There can be a tough fight. Hold on, and it would be nice to eat something.";
+	npctalk "There can be a tough fight. Hold on and it would be nice to eat something";
 	end;
 OnTalk17:
 	npctalk "Guys. It is time to depart, Heinrich Sir.";
@@ -1876,16 +1876,16 @@ OnTalk3:
 	npctalk "Even if you defile my body, I won't let you take my soul, Himmelmez!";
 	end;
 OnEffect1:
-	specialeffect EF_BARRIER;
+	misceffect EF_BARRIER;
 	end;
 OnEffect2:
-	specialeffect EF_CHAINCOMBO;
+	misceffect EF_CHAINCOMBO;
 	end;
 OnEffect3:
-	specialeffect EF_MAPPILLAR2;
+	misceffect EF_MAPPILLAR2;
 	end;
 OnEffect4:
-	specialeffect EF_MAPPILLAR;
+	misceffect EF_MAPPILLAR;
 	end;
 OnEffect5:
 	specialeffect EF_LORD;
