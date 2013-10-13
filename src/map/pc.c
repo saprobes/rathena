@@ -1246,20 +1246,20 @@ int pc_reg_received(struct map_session_data *sd)
 	}
 
 	if ((i = pc_checkskill(sd,RG_PLAGIARISM)) > 0) {
-		sd->cloneskill_id = pc_readglobalreg(sd,"CLONE_SKILL");
+		sd->cloneskill_id = pc_readglobalreg(sd,SKILL_VAR_PLAGIARISM);
 		if (sd->cloneskill_id > 0) {
 			sd->status.skill[sd->cloneskill_id].id = sd->cloneskill_id;
-			sd->status.skill[sd->cloneskill_id].lv = pc_readglobalreg(sd,"CLONE_SKILL_LV");
+			sd->status.skill[sd->cloneskill_id].lv = pc_readglobalreg(sd,SKILL_VAR_PLAGIARISM_LV);
 			if (sd->status.skill[sd->cloneskill_id].lv > i)
 				sd->status.skill[sd->cloneskill_id].lv = i;
 			sd->status.skill[sd->cloneskill_id].flag = SKILL_FLAG_PLAGIARIZED;
 		}
 	}
 	if ((i = pc_checkskill(sd,SC_REPRODUCE)) > 0) {
-		sd->reproduceskill_id = pc_readglobalreg(sd,"REPRODUCE_SKILL");
+		sd->reproduceskill_id = pc_readglobalreg(sd,SKILL_VAR_REPRODUCE);
 		if( sd->reproduceskill_id > 0) {
 			sd->status.skill[sd->reproduceskill_id].id = sd->reproduceskill_id;
-			sd->status.skill[sd->reproduceskill_id].lv = pc_readglobalreg(sd,"REPRODUCE_SKILL_LV");
+			sd->status.skill[sd->reproduceskill_id].lv = pc_readglobalreg(sd,SKILL_VAR_REPRODUCE_LV);
 			if( i < sd->status.skill[sd->reproduceskill_id].lv)
 				sd->status.skill[sd->reproduceskill_id].lv = i;
 			sd->status.skill[sd->reproduceskill_id].flag = SKILL_FLAG_PLAGIARIZED;
@@ -4548,7 +4548,7 @@ int pc_cart_additem(struct map_session_data *sd,struct item *item_data,int amoun
 	if( i < MAX_CART )
 	{// item already in cart, stack it
 		if( amount > MAX_AMOUNT - sd->status.cart[i].amount || ( data->stack.cart && amount > data->stack.amount - sd->status.cart[i].amount ) )
-			return 1; // no room
+			return 2; // no slot
 
 		sd->status.cart[i].amount+=amount;
 		clif_cart_additem(sd,i,amount,0);
@@ -4557,7 +4557,7 @@ int pc_cart_additem(struct map_session_data *sd,struct item *item_data,int amoun
 	{// item not stackable or not present, add it
 		ARR_FIND( 0, MAX_CART, i, sd->status.cart[i].nameid == 0 );
 		if( i == MAX_CART )
-			return 1; // no room
+			return 2; // no slot
 
 		memcpy(&sd->status.cart[i],item_data,sizeof(sd->status.cart[0]));
 		sd->status.cart[i].amount=amount;
@@ -4612,6 +4612,7 @@ int pc_cart_delitem(struct map_session_data *sd,int n,int amount,int type,e_log_
 int pc_putitemtocart(struct map_session_data *sd,int idx,int amount)
 {
 	struct item *item_data;
+	short flag;
 
 	nullpo_ret(sd);
 
@@ -4623,10 +4624,10 @@ int pc_putitemtocart(struct map_session_data *sd,int idx,int amount)
 	if( item_data->nameid == 0 || amount < 1 || item_data->amount < amount || sd->state.vending )
 		return 1;
 
-	if( pc_cart_additem(sd,item_data,amount,LOG_TYPE_NONE) == 0 )
+	if( (flag = pc_cart_additem(sd,item_data,amount,LOG_TYPE_NONE)) == 0 )
 		return pc_delitem(sd,idx,amount,0,5,LOG_TYPE_NONE);
 
-	return 1;
+	return flag;
 }
 
 /*==========================================
@@ -7549,8 +7550,8 @@ int pc_jobchange(struct map_session_data *sd,int job, int upper)
 			clif_deleteskill(sd,sd->cloneskill_id);
 		}
 		sd->cloneskill_id = 0;
-		pc_setglobalreg(sd, "CLONE_SKILL", 0);
-		pc_setglobalreg(sd, "CLONE_SKILL_LV", 0);
+		pc_setglobalreg(sd,SKILL_VAR_PLAGIARISM, 0);
+		pc_setglobalreg(sd,SKILL_VAR_PLAGIARISM_LV, 0);
 	}
 
 	if(sd->reproduceskill_id) {
@@ -7561,8 +7562,8 @@ int pc_jobchange(struct map_session_data *sd,int job, int upper)
 			clif_deleteskill(sd,sd->reproduceskill_id);
 		}
 		sd->reproduceskill_id = 0;
-		pc_setglobalreg(sd, "REPRODUCE_SKILL",0);
-		pc_setglobalreg(sd, "REPRODUCE_SKILL_LV",0);
+		pc_setglobalreg(sd,SKILL_VAR_REPRODUCE,0);
+		pc_setglobalreg(sd,SKILL_VAR_REPRODUCE_LV,0);
 	}
 
 	// Give or reduce transcendent status points
