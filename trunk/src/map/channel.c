@@ -70,14 +70,11 @@ struct Channel* channel_create(char *name, char *pass, unsigned char color, enum
  * return
  *  0 : success
  *  -1 : invalid channel
- *  -2 : can't delete now
  */
 int channel_delete(struct Channel *channel) {
 	if(!channel)
 		return -1;
-	if(channel->type == CHAN_TYPE_PUBLIC && runflag != MAPSERVER_ST_RUNNING) //only delete those serv stop
-		return -2;
-	if( db_size(channel->users)) {
+	else if( db_size(channel->users)) {
 		struct map_session_data *sd;
 		DBIterator *iter = db_iterator(channel->users);
 		for( sd = dbi_first(iter); dbi_exists(iter); sd = dbi_next(iter) ) { //for all users
@@ -273,8 +270,7 @@ int channel_clean(struct Channel *channel, struct map_session_data *sd, int flag
 	}
 
 	idb_remove(channel->users,sd->status.char_id); //remove user for channel user list
-	//auto delete when no more user in
-	if( !db_size(channel->users) && !(flag&1) )
+	if( !db_size(channel->users) && !(flag&1) && channel->type != CHAN_TYPE_PUBLIC )
 		channel_delete(channel);
 
 	return 0;
