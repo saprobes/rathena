@@ -3,7 +3,7 @@
 //===== By: ==================================================
 //= Gennosuke Kouga, Muad_Dib
 //===== Current Version: =====================================
-//= 2.3
+//= 2.1
 //===== Compatible With: =====================================
 //= rAthena SVN
 //===== Description: =========================================
@@ -31,8 +31,6 @@
 //= 1.9a Minor fix. [Joseph]
 //= 2.0 Fixed variables. [Joseph]
 //= 2.1 Added reset option to "Kareka". [Euphy]
-//= 2.2 Added Izlude duplicates. [Euphy]
-//= 2.3 Added GM management NPCs. [Euphy]
 //============================================================
 
 // Entrance
@@ -174,20 +172,6 @@ dic_dun01,266,113,5	script	Curious Sapha#ep13_3_	449,{
 			close;
 		}
 	}
-}
-
-sec_in02,16,43,5	script	Scaraba Dungeon Entrance	449,{
-	callfunc "F_GM_NPC";
-	mes "Setting you for dungeon entry.";
-	mes "You will be able to go through if the password is correct.";
-	if (callfunc("F_GM_NPC",1854,0) == 1) {
-		set ep13_3_secret,6;
-		getitem 2782,1; //Ring_Of_Wise_King
-		getitem 6437,2; //Scaraba_Perfume
-		mes "Setting Complete";
-	} else
-		mes "Wrong Password";
-	close;
 }
 
 // Vigilantes
@@ -436,19 +420,6 @@ dic_in01,254,119,0	script	Item Storage#01	844,{
 	close2;
 	openstorage;
 	end;
-}
-
-sec_in02,10,42,1	script	13.3 Related Reset	449,{
-	callfunc "F_GM_NPC";
-	mes "[Reset]";
-	mes "Resets all quest windows including daily and map quests for 13.3.";
-	freeloop(1);
-	for(set .@i,12099; .@i<=12216; set .@i,.@i+1) {
-		if (checkquest(.@i) > -1)
-			erasequest .@i;
-	}
-	freeloop(0);
-	close;
 }
 
 // Civil Services
@@ -1146,11 +1117,7 @@ pay_fild02,105,113,0	script	Pointed Scales	844,{ unknown_d(12170,906); }
 pay_fild01,152,171,0	script	Resin	844,{ unknown_d(12171,907); }
 gef_fild01,104,111,0	script	Spawn	844,{ unknown_d(12172,908); }
 prt_fild08,299,332,0	script	Jellopy	844,{ unknown_d(12173,909); }
-izlude,136,160,0	script	Fish Tails	844,{ unknown_d(12174,1023); }	// Old coordinates: (132,136)
-izlude_a,136,160,0	script	Fish Tails#a	844,{ unknown_d(12174,1023); }
-izlude_b,136,160,0	script	Fish Tails#b	844,{ unknown_d(12174,1023); }
-izlude_c,136,160,0	script	Fish Tails#c	844,{ unknown_d(12174,1023); }
-izlude_d,136,160,0	script	Fish Tails#d	844,{ unknown_d(12174,1023); }
+izlude,136,160,0	script	Fish Tails	844,{ unknown_d(12174,1023); }	// Pre-RE: izlude (132,136)
 prt_fild05,303,169,0	script	Worm Peelings	844,{ unknown_d(12175,955); }
 iz_dun03,155,165,0	script	Gills	844,{ unknown_d(12176,956); }
 mjo_dun01,222,226,0	script	Tooth of Bat	844,{ unknown_d(12177,913); }
