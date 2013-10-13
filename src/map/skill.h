@@ -52,21 +52,42 @@ enum e_skill_nk {
 //A skill with 3 would be no damage + splash: area of effect.
 //Constants to identify a skill's inf2 value.
 enum e_skill_inf2 {
-	INF2_QUEST_SKILL    = 0x0001,
-	INF2_NPC_SKILL      = 0x0002, //NPC skills are those that players can't have in their skill tree.
-	INF2_WEDDING_SKILL  = 0x0004,
-	INF2_SPIRIT_SKILL   = 0x0008,
-	INF2_GUILD_SKILL    = 0x0010,
-	INF2_SONG_DANCE     = 0x0020,
-	INF2_ENSEMBLE_SKILL = 0x0040,
-	INF2_TRAP           = 0x0080,
-	INF2_TARGET_SELF    = 0x0100, //Refers to ground placed skills that will target the caster as well (like Grandcross)
-	INF2_NO_TARGET_SELF = 0x0200,
-	INF2_PARTY_ONLY     = 0x0400,
-	INF2_GUILD_ONLY     = 0x0800,
-	INF2_NO_ENEMY       = 0x1000,
-	INF2_NOLP           = 0x2000, // Spells that can ignore Land Protector
-	INF2_CHORUS_SKILL	= 0x4000, // Chorus skill
+	INF2_QUEST_SKILL    = 0x00001,
+	INF2_NPC_SKILL      = 0x00002, //NPC skills are those that players can't have in their skill tree.
+	INF2_WEDDING_SKILL  = 0x00004,
+	INF2_SPIRIT_SKILL   = 0x00008,
+	INF2_GUILD_SKILL    = 0x00010,
+	INF2_SONG_DANCE     = 0x00020,
+	INF2_ENSEMBLE_SKILL = 0x00040,
+	INF2_TRAP           = 0x00080,
+	INF2_TARGET_SELF    = 0x00100, //Refers to ground placed skills that will target the caster as well (like Grandcross)
+	INF2_NO_TARGET_SELF = 0x00200,
+	INF2_PARTY_ONLY     = 0x00400,
+	INF2_GUILD_ONLY     = 0x00800,
+	INF2_NO_ENEMY       = 0x01000,
+	INF2_NOLP           = 0x02000, // Spells that can ignore Land Protector
+	INF2_CHORUS_SKILL	= 0x04000, // Chorus skill
+	INF2_NO_BG_DMG		= 0x08000, // spell that ignore bg reduction
+	INF2_NO_GVG_DMG		= 0x10000, // spell that ignore gvg reduction
+};
+
+enum e_skill_inf3 {
+	INF3_NOLP			= 0x0001,	// Spells that can ignore Land Protector
+	INF3_NOENDCAMOUFLAGE		= 0x0002,	// spell that doesn't end camouflage
+	INF3_USABLE_HIDING		= 0x0004,	// spell that can be use in hiding
+	INF3_USABLE_DANCE		= 0x0008,	// spell that can be use while in dancing state
+	INF3_HIT_EMP			= 0x0010,	// spell that could hit emperium
+	INF3_STATIS_BL			= 0x0020,	// spell blocked by statis
+	INF3_KAGEHUMI_BL		= 0x0040,	// spell blocked by kagehumi
+	INF3_EFF_VULTURE		= 0x0080,	// spell range affected by AC_VULTURE
+	INF3_EFF_SNAKEEYE		= 0x0100,	// spell range affected by GS_SNAKEEYE
+	INF3_EFF_SHADOWJUMP		= 0x0200,	// spell range affected by NJ_SHADOWJUMP
+	INF3_EFF_RADIUS			= 0x0400,	// spell range affected by WL_RADIUS
+	INF3_EFF_RESEARCHTRAP		= 0x0800,	// spell range affected by RA_RESEARCHTRAP
+	INF3_DIS_PLAGIA			= 0x1000,	// spell that can't be copied
+	INF3_USABLE_WARG		= 0x2000,	// spell that can be use while riding warg
+	INF3_DIS_MADO			= 0x4000,	// spell that can't be used while in mado
+	//... add other spell list option here
 };
 
 //Walk intervals at which chase-skills are attempted to be triggered.
@@ -99,7 +120,7 @@ struct s_skill_db {
 #endif
 	int upkeep_time[MAX_SKILL_LEVEL],upkeep_time2[MAX_SKILL_LEVEL],cooldown[MAX_SKILL_LEVEL];
 	int castcancel,cast_def_rate;
-	int inf2,maxcount[MAX_SKILL_LEVEL],skill_type;
+	int inf2,maxcount[MAX_SKILL_LEVEL],skill_type,inf3;
 	int blewcount[MAX_SKILL_LEVEL];
 	int hp[MAX_SKILL_LEVEL],sp[MAX_SKILL_LEVEL],mhp[MAX_SKILL_LEVEL],hp_rate[MAX_SKILL_LEVEL],sp_rate[MAX_SKILL_LEVEL],zeny[MAX_SKILL_LEVEL];
 	int weapon,ammo,ammo_qty[MAX_SKILL_LEVEL],state,spiritball[MAX_SKILL_LEVEL];
@@ -112,6 +133,9 @@ struct s_skill_db {
 	int unit_interval;
 	int unit_target;
 	int unit_flag;
+#ifdef ADJUST_SKILL_DAMAGE
+	struct s_skill_damage damage;
+#endif
 };
 extern struct s_skill_db skill_db[MAX_SKILL_DB];
 
@@ -269,6 +293,7 @@ int	skill_get_blewcount( uint16 skill_id ,uint16 skill_lv );
 int	skill_get_unit_flag( uint16 skill_id );
 int	skill_get_unit_target( uint16 skill_id );
 int	skill_tree_get_max( uint16 skill_id, int b_class );	// Celest
+int	skill_get_inf3( uint16 skill_id );
 const char*	skill_get_name( uint16 skill_id ); 	// [Skotlex]
 const char*	skill_get_desc( uint16 skill_id ); 	// [Skotlex]
 
@@ -300,7 +325,7 @@ int skill_clear_unitgroup(struct block_list *src);
 int skill_clear_group(struct block_list *bl, int flag);
 void ext_skill_unit_onplace(struct skill_unit *src, struct block_list *bl, unsigned int tick);
 
-int skill_unit_ondamaged(struct skill_unit *src,struct block_list *bl,int damage,unsigned int tick);
+int64 skill_unit_ondamaged(struct skill_unit *src,struct block_list *bl,int64 damage,unsigned int tick);
 
 int skill_castfix( struct block_list *bl, uint16 skill_id, uint16 skill_lv);
 int skill_castfix_sc( struct block_list *bl, int time);
@@ -375,7 +400,7 @@ int skill_blockmerc_start (struct mercenary_data*,uint16 skill_id,int);
 	((id) >= CG_LONGINGFREEDOM && (id) <= CG_TAROTCARD)     || ((id) >= WA_SWING_DANCE && (id) <= WM_UNLIMITED_HUMMING_VOICE))
 
 // Skill action, (return dmg,heal)
-int skill_attack( int attack_type, struct block_list* src, struct block_list *dsrc,struct block_list *bl,uint16 skill_id,uint16 skill_lv,unsigned int tick,int flag );
+int64 skill_attack( int attack_type, struct block_list* src, struct block_list *dsrc,struct block_list *bl,uint16 skill_id,uint16 skill_lv,unsigned int tick,int flag );
 
 void skill_reload(void);
 
@@ -1901,5 +1926,20 @@ int skill_get_elemental_type(uint16 skill_id, uint16 skill_lv);
 
 void skill_combo_toogle_inf(struct block_list* bl, uint16 skill_id, int inf);
 void skill_combo(struct block_list* src,struct block_list *dsrc, struct block_list *bl, uint16 skill_id, uint16 skill_lv, int tick);
+
+/**
+ * Skill Damage target
+ **/
+#ifdef ADJUST_SKILL_DAMAGE
+enum e_skill_damage_caster {
+	SDC_PC   = 0x01,
+	SDC_MOB  = 0x02,
+	SDC_PET  = 0x04,
+	SDC_HOM  = 0x08,
+	SDC_MER  = 0x10,
+	SDC_ELEM = 0x20,
+	SDC_ALL  = SDC_PC|SDC_MOB|SDC_PET|SDC_HOM|SDC_MER|SDC_ELEM,
+};
+#endif
 
 #endif /* _SKILL_H_ */
