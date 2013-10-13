@@ -977,8 +977,10 @@ void initChangeTables(void) {
 	StatusChangeFlagTable[SC_EXTRACT_WHITE_POTION_Z] |= SCB_REGEN;
 	StatusChangeFlagTable[SC_VITATA_500] |= SCB_REGEN;
 	StatusChangeFlagTable[SC_EXTRACT_SALAMINE_JUICE] |= SCB_ASPD;
+	StatusChangeFlagTable[SC_DEFSET] |= SCB_DEF;
+	StatusChangeFlagTable[SC_MDEFSET] |= SCB_MDEF;
 
-#ifdef RENEWAL_EDP
+#ifdef RENEWAL
 	// renewal EDP increases your weapon atk
 	StatusChangeFlagTable[SC_EDP] |= SCB_WATK;
 #endif
@@ -1117,10 +1119,10 @@ int status_set_sp(struct block_list *bl, unsigned int sp, int flag)
 	return status_zap(bl, 0, status->sp - sp);
 }
 
-int status_charge(struct block_list* bl, int hp, int sp)
+int64 status_charge(struct block_list* bl, int64 hp, int64 sp)
 {
 	if(!(bl->type&BL_CONSUME))
-		return hp+sp; //Assume all was charged so there are no 'not enough' fails.
+		return (int)hp+sp; //Assume all was charged so there are no 'not enough' fails.
 	return status_damage(NULL, bl, hp, sp, 0, 3);
 }
 
@@ -1129,10 +1131,12 @@ int status_charge(struct block_list* bl, int hp, int sp)
 //If flag&2, fail if target does not has enough to substract.
 //If flag&4, if killed, mob must not give exp/loot.
 //flag will be set to &8 when damaging sp of a dead character
-int status_damage(struct block_list *src,struct block_list *target,int hp, int sp, int walkdelay, int flag)
+int status_damage(struct block_list *src,struct block_list *target,int64 dhp, int64 dsp, int walkdelay, int flag)
 {
 	struct status_data *status;
 	struct status_change *sc;
+	int hp = (int)cap_value(dhp,INT_MIN,INT_MAX);
+	int sp = (int)cap_value(dsp,INT_MIN,INT_MAX);
 
 	if(sp && !(target->type&BL_CONSUME))
 		sp = 0; //Not a valid SP target.
@@ -1148,7 +1152,7 @@ int status_damage(struct block_list *src,struct block_list *target,int hp, int s
 	}
 
 	if (target->type == BL_SKILL)
-		return skill_unit_ondamaged((struct skill_unit *)target, src, hp, gettick());
+		return (int)skill_unit_ondamaged((struct skill_unit *)target, src, hp, gettick());
 
 	status = status_get_status_data(target);
 	if( status == &dummy_status )
@@ -1250,7 +1254,7 @@ int status_damage(struct block_list *src,struct block_list *target,int hp, int s
 	if( status->hp || (flag&8) ) { //Still lives or has been dead before this damage.
 		if (walkdelay)
 			unit_set_walkdelay(target, gettick(), walkdelay, 0);
-		return hp+sp;
+		return (int)(hp+sp);
 	}
 
 	status->hp = 0;
@@ -1271,7 +1275,7 @@ int status_damage(struct block_list *src,struct block_list *target,int hp, int s
 	}
 
 	if(!flag) //Death cancelled.
-		return hp+sp;
+		return (int)(hp+sp);
 
 	//Normal death
 	if (battle_config.clear_unit_ondeath &&
@@ -1303,7 +1307,7 @@ int status_damage(struct block_list *src,struct block_list *target,int hp, int s
 		if( target->type == BL_MOB )
 			((TBL_MOB*)target)->state.rebirth = 1;
 
-		return hp+sp;
+		return (int)(hp+sp);
 	}
 	if(target->type == BL_PC) {
 		TBL_PC *sd = BL_CAST(BL_PC,target);
@@ -1313,7 +1317,7 @@ int status_damage(struct block_list *src,struct block_list *target,int hp, int s
 			clif_skillcasting(&hd->bl, hd->bl.id, target->id, 0,0, MH_LIGHT_OF_REGENE, skill_get_ele(MH_LIGHT_OF_REGENE, 1), 10); //just to display usage
 			clif_skill_nodamage(&sd->bl, target, ALL_RESURRECTION, 1, status_revive(&sd->bl,hd->sc.data[SC_LIGHT_OF_REGENE]->val2,0));
 			status_change_end(&sd->hd->bl,SC_LIGHT_OF_REGENE,INVALID_TIMER);
-			return hp + sp;
+			return (int)(hp+sp);
 		}
 	}
 	if (target->type == BL_MOB && sc && sc->data[SC_REBIRTH] && !((TBL_MOB*) target)->state.rebirth) { // Ensure the monster has not already rebirthed before doing so.
@@ -1321,7 +1325,7 @@ int status_damage(struct block_list *src,struct block_list *target,int hp, int s
 		status_change_clear(target,0);
 		((TBL_MOB*)target)->state.rebirth = 1;
 
-		return hp+sp;
+		return (int)(hp+sp);
 	}
 
 	status_change_clear(target,0);
@@ -1351,15 +1355,17 @@ int status_damage(struct block_list *src,struct block_list *target,int hp, int s
 		npc_script_event(sd,NPCE_DIE);
 	}
 
-	return hp+sp;
+	return (int)(hp+sp);
 }
 
 //Heals a character. If flag&1, this is forced healing (otherwise stuff like Berserk can block it)
 //If flag&2, when the player is healed, show the HP/SP heal effect.
-int status_heal(struct block_list *bl,int hp,int sp, int flag)
+int status_heal(struct block_list *bl,int64 hhp,int64 hsp, int flag)
 {
 	struct status_data *status;
 	struct status_change *sc;
+	int hp = (int)cap_value(hhp,INT_MIN,INT_MAX);
+	int sp = (int)cap_value(hsp,INT_MIN,INT_MAX);
 
 	status = status_get_status_data(bl);
 
@@ -1414,14 +1420,14 @@ int status_heal(struct block_list *bl,int hp,int sp, int flag)
 
 	// send hp update to client
 	switch(bl->type) {
-	case BL_PC:  pc_heal((TBL_PC*)bl,hp,sp,flag&2?1:0); break;
-	case BL_MOB: mob_heal((TBL_MOB*)bl,hp); break;
-	case BL_HOM: merc_hom_heal((TBL_HOM*)bl); break;
-	case BL_MER: mercenary_heal((TBL_MER*)bl,hp,sp); break;
-	case BL_ELEM: elemental_heal((TBL_ELEM*)bl,hp,sp); break;
+		case BL_PC:  pc_heal((TBL_PC*)bl,hp,sp,flag&2?1:0); break;
+		case BL_MOB: mob_heal((TBL_MOB*)bl,hp); break;
+		case BL_HOM: merc_hom_heal((TBL_HOM*)bl); break;
+		case BL_MER: mercenary_heal((TBL_MER*)bl,hp,sp); break;
+		case BL_ELEM: elemental_heal((TBL_ELEM*)bl,hp,sp); break;
 	}
 
-	return hp+sp;
+	return (int)hp+sp;
 }
 
 //Does percentual non-flinching damage/heal. If mob is killed this way,
@@ -1628,19 +1634,10 @@ int status_check_skilluse(struct block_list *src, struct block_list *target, uin
 			} else if(sc->data[SC_LONGING]) { //Allow everything except dancing/re-dancing. [Skotlex]
 				if (skill_id == BD_ENCORE ||
 					skill_get_inf2(skill_id)&(INF2_SONG_DANCE|INF2_ENSEMBLE_SKILL)
-				)
+					)
 					return 0;
-			} else {
-				switch (skill_id) {
-					case BD_ADAPTATION:
-					case CG_LONGINGFREEDOM:
-					case BA_MUSICALSTRIKE:
-					case DC_THROWARROW:
-						break;
-					default:
-						return 0;
-				}
-			}
+			} else if(!(skill_get_inf3(skill_id)&INF3_USABLE_DANCE)) //skills that can be used in dancing state
+				return 0;
 			if ((sc->data[SC_DANCING]->val1&0xFFFF) == CG_HERMODE && skill_id == BD_ADAPTATION)
 				return 0;	//Can't amp out of Wand of Hermode :/ [Skotlex]
 		}
@@ -1681,21 +1678,8 @@ int status_check_skilluse(struct block_list *src, struct block_list *target, uin
 	}
 
 	if (sc && sc->option) {
-		if (sc->option&OPTION_HIDE) {
-			switch (skill_id) { //Usable skills while hiding.
-				case TF_HIDING:
-				case AS_GRIMTOOTH:
-				case RG_BACKSTAP:
-				case RG_RAID:
-				case NJ_SHADOWJUMP:
-				case NJ_KIRIKAGE:
-				case KO_YAMIKUMO:
-					break;
-				default:
-					//Non players can use all skills while hidden.
-					if (!skill_id || src->type == BL_PC)
-						return 0;
-			}
+		if ((sc->option&OPTION_HIDE) && src->type == BL_PC &&( !skill_id || !(skill_get_inf3(skill_id)&INF3_USABLE_HIDING))){  //Non players can use all skills while hidden.
+			return 0;
 		}
 		if (sc->option&OPTION_CHASEWALK && skill_id != ST_CHASEWALK)
 			return 0;
@@ -1911,12 +1895,12 @@ static unsigned short status_base_atk(const struct block_list *bl, const struct 
 #ifdef RENEWAL
 unsigned int status_weapon_atk(struct weapon_atk wa, struct status_data *status)
 {
-	short str = status->str;
+	float str = status->str;
 
 	if (wa.range > 1)
 		str = status->dex;
 
-	return wa.atk + wa.atk2 + wa.atk * (str/200);
+	return wa.atk + wa.atk2 + (int)(wa.atk * (str/200));
 }
 #endif
 
@@ -2477,18 +2461,8 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 		if(!sd->inventory_data[index])
 			continue;
 
-		if(sd->inventory_data[index]->flag.no_equip) { // Items may be equipped, their effects however are nullified.
-			if(map[sd->bl.m].flag.restricted && sd->inventory_data[index]->flag.no_equip&(8*map[sd->bl.m].zone))
-				continue;
-			if(!map_flag_vs(sd->bl.m) && sd->inventory_data[index]->flag.no_equip&1)
-				continue;
-			if(map[sd->bl.m].flag.pvp && sd->inventory_data[index]->flag.no_equip&2)
-				continue;
-			if(map_flag_gvg(sd->bl.m) && sd->inventory_data[index]->flag.no_equip&4)
-				continue;
-			if(map[sd->bl.m].flag.battleground && sd->inventory_data[index]->flag.no_equip&8)
-				continue;
-		}
+		if(!pc_has_permission(sd,PC_PERM_USE_ALL_EQUIPMENT) && itemdb_isNoEquip(sd->inventory_data[index],sd->bl.m)) // Items may be equipped, their effects however are nullified.
+			continue;
 
 		status->def += sd->inventory_data[index]->def;
 
@@ -2631,18 +2605,8 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 				}
 				if(!data->script)
 					continue;
-				if(data->flag.no_equip) { //Card restriction checks.
-					if(map[sd->bl.m].flag.restricted && data->flag.no_equip&(8*map[sd->bl.m].zone))
-						continue;
-					if(!map_flag_vs(sd->bl.m) && data->flag.no_equip&1)
-						continue;
-					if(map[sd->bl.m].flag.pvp && data->flag.no_equip&2)
-						continue;
-					if(map_flag_gvg(sd->bl.m) && data->flag.no_equip&4)
-						continue;
-					if(map[sd->bl.m].flag.battleground && data->flag.no_equip&8)
-						continue;
-				}
+				if(!pc_has_permission(sd,PC_PERM_USE_ALL_EQUIPMENT) && itemdb_isNoEquip(data,sd->bl.m)) //Card restriction checks.
+					continue;
 				if(i == EQI_HAND_L && sd->status.inventory[index].equip == EQP_HAND_L)
 				{	//Left hand status.
 					sd->state.lr_flag = 1;
@@ -2760,7 +2724,8 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 	if((skill=pc_checkskill(sd,BS_HILTBINDING))>0)
 		status->batk += 4;
 #else
-	status->watk = (status_weapon_atk(status->lhw, status) >= 0) ? status_weapon_atk(status->lhw, status) : 0;
+	status->watk = status_weapon_atk(status->rhw, status);
+	status->watk2 = status_weapon_atk(status->lhw, status);
 	status->eatk = (sd->bonus.eatk >= 0) ? sd->bonus.eatk : 0;
 #endif
 
@@ -3735,14 +3700,6 @@ void status_calc_bl_main(struct block_list *bl, /*enum scb_flag*/int flag)
 				status->lhw.atk2= status_calc_watk(bl, sc, b_status->lhw.atk2);
 			}
 		}
-
-		if( bl->type&BL_HOM )
-		{
-			status->rhw.atk += (status->dex - b_status->dex);
-			status->rhw.atk2 += (status->str - b_status->str);
-			if( status->rhw.atk2 < status->rhw.atk )
-				status->rhw.atk2 = status->rhw.atk;
-		}
 	}
 
 	if(flag&SCB_HIT) {
@@ -3954,7 +3911,7 @@ void status_calc_bl_main(struct block_list *bl, /*enum scb_flag*/int flag)
 		if( bl->type&BL_PC ){
 			int wMatk = 0;
 			int variance = 0;
-			
+
 			//  Any +MATK you get from skills and cards, including cards in weapon, is added here.
 			if( sd->bonus.ematk > 0 ){
 				status->matk_max += sd->bonus.ematk;
@@ -3963,7 +3920,7 @@ void status_calc_bl_main(struct block_list *bl, /*enum scb_flag*/int flag)
 			status->matk_min = status_calc_ematk(bl, sc, status->matk_min);
 			status->matk_max = status_calc_ematk(bl, sc, status->matk_max);
 			//This is the only portion in MATK that varies depending on the weapon level and refinement rate.
-			
+
 			if(b_status->lhw.matk) {
 				if (sd) {
 					sd->state.lr_flag = 1;
@@ -3973,21 +3930,21 @@ void status_calc_bl_main(struct block_list *bl, /*enum scb_flag*/int flag)
 					status->lhw.matk = b_status->lhw.matk;
 				}
 			}
-						
+
 			if(b_status->rhw.matk) {
 				status->rhw.matk = b_status->rhw.matk;
 			}
-			
+
 			if(status->rhw.matk) {
 				wMatk += status->rhw.matk;
 				variance += wMatk * status->rhw.wlv / 10;
 			}
-			
+
 			if(status->lhw.matk) {
 				wMatk += status->lhw.matk;
 				variance += status->lhw.matk * status->lhw.wlv / 10;
 			}
-			
+
 			status->matk_min += wMatk - variance;
 			status->matk_max += wMatk + variance;
 		}
@@ -4180,7 +4137,8 @@ void status_calc_bl_(struct block_list* bl, enum scb_flag flag, bool first)
 
 		if(b_status.rhw.atk2 != status->rhw.atk2 || b_status.lhw.atk2 != status->lhw.atk2
 #ifdef RENEWAL
-		|| b_status.rhw.atk != status->rhw.atk || b_status.lhw.atk != status->lhw.atk
+			|| b_status.rhw.atk != status->rhw.atk || b_status.lhw.atk != status->lhw.atk
+			|| b_status.eatk != status->eatk
 #endif
 			)
 			clif_updatestatus(sd,SP_ATK2);
@@ -4980,7 +4938,9 @@ static defType status_calc_def(struct block_list *bl, struct status_change *sc, 
 
 	if(!sc || !sc->count)
 		return (defType)cap_value(def,DEFTYPE_MIN,DEFTYPE_MAX);
-
+	
+	if(sc->data[SC_DEFSET]) //FIXME: Find out if this really overrides all other SCs
+		return sc->data[SC_DEFSET]->val1;
 	if(sc->data[SC_BERSERK])
 		return 0;
 	if(sc->data[SC_SKA])
@@ -5120,7 +5080,9 @@ static defType status_calc_mdef(struct block_list *bl, struct status_change *sc,
 
 	if(!sc || !sc->count)
 		return (defType)cap_value(mdef,DEFTYPE_MIN,DEFTYPE_MAX);
-
+	
+	if(sc->data[SC_MDEFSET]) //FIXME: Find out if this really overrides all other SCs
+		return sc->data[SC_MDEFSET]->val1;
 	if(sc->data[SC_BERSERK])
 		return 0;
 	if(sc->data[SC_BARRIER])
@@ -5752,7 +5714,7 @@ static unsigned int status_calc_maxsp(struct block_list *bl, struct status_chang
 static unsigned char status_calc_element(struct block_list *bl, struct status_change *sc, int element)
 {
 	if(!sc || !sc->count)
-		return element;
+		return cap_value(element, 0, UCHAR_MAX);
 
 	if(sc->data[SC_FREEZE])
 		return ELE_WATER;
@@ -5773,7 +5735,7 @@ static unsigned char status_calc_element(struct block_list *bl, struct status_ch
 static unsigned char status_calc_element_lv(struct block_list *bl, struct status_change *sc, int lv)
 {
 	if(!sc || !sc->count)
-		return lv;
+		return cap_value(lv, 1, 4);
 
 	if(sc->data[SC_FREEZE])
 		return 1;
@@ -5797,20 +5759,20 @@ static unsigned char status_calc_element_lv(struct block_list *bl, struct status
 unsigned char status_calc_attack_element(struct block_list *bl, struct status_change *sc, int element)
 {
 	if(!sc || !sc->count)
-		return element;
+		return cap_value(element, 0, UCHAR_MAX);
 	if(sc->data[SC_ENCHANTARMS])
 		return sc->data[SC_ENCHANTARMS]->val2;
 	if(sc->data[SC_WATERWEAPON]
-                || (sc->data[SC_WATER_INSIGNIA] && sc->data[SC_WATER_INSIGNIA]->val1 == 2) )
+		|| (sc->data[SC_WATER_INSIGNIA] && sc->data[SC_WATER_INSIGNIA]->val1 == 2) )
 		return ELE_WATER;
 	if(sc->data[SC_EARTHWEAPON]
-                || (sc->data[SC_EARTH_INSIGNIA] && sc->data[SC_EARTH_INSIGNIA]->val1 == 2) )
+		|| (sc->data[SC_EARTH_INSIGNIA] && sc->data[SC_EARTH_INSIGNIA]->val1 == 2) )
 		return ELE_EARTH;
 	if(sc->data[SC_FIREWEAPON]
-                || (sc->data[SC_FIRE_INSIGNIA] && sc->data[SC_FIRE_INSIGNIA]->val1 == 2) )
+		|| (sc->data[SC_FIRE_INSIGNIA] && sc->data[SC_FIRE_INSIGNIA]->val1 == 2) )
 		return ELE_FIRE;
 	if(sc->data[SC_WINDWEAPON]
-                || (sc->data[SC_WIND_INSIGNIA] && sc->data[SC_WIND_INSIGNIA]->val1 == 2) )
+		|| (sc->data[SC_WIND_INSIGNIA] && sc->data[SC_WIND_INSIGNIA]->val1 == 2) )
 		return ELE_WIND;
 	if(sc->data[SC_ENCPOISON])
 		return ELE_POISON;
@@ -5822,15 +5784,15 @@ unsigned char status_calc_attack_element(struct block_list *bl, struct status_ch
 		return ELE_GHOST;
 	if(sc->data[SC_TIDAL_WEAPON_OPTION] || sc->data[SC_TIDAL_WEAPON] )
 		return ELE_WATER;
-    if(sc->data[SC_PYROCLASTIC])
-        return ELE_FIRE;
+	if(sc->data[SC_PYROCLASTIC])
+		return ELE_FIRE;
 	return (unsigned char)cap_value(element,0,UCHAR_MAX);
 }
 
 static unsigned short status_calc_mode(struct block_list *bl, struct status_change *sc, int mode)
 {
 	if(!sc || !sc->count)
-		return mode;
+		return cap_value(mode, 0, USHRT_MAX);
 	if(sc->data[SC_MODECHANGE]) {
 		if (sc->data[SC_MODECHANGE]->val2)
 			mode = sc->data[SC_MODECHANGE]->val2; //Set mode
@@ -6475,6 +6437,9 @@ int status_get_sc_def(struct block_list *src, struct block_list *bl, enum sc_typ
 			break;
 		case SC_PARALYSIS:
 			tick_def2 = (status->vit + status->luk)*50;
+			break;
+		case SC_VOICEOFSIREN:
+			tick_def2 = (status_get_lv(bl) * 100) + ((bl->type == BL_PC)?((TBL_PC*)bl)->status.job_level : 0);
 			break;
 		default:
 			//Effect that cannot be reduced? Likely a buff.
@@ -7419,7 +7384,7 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 			break;
 		case SC_EDP:	// [Celest]
 			val2 = val1 + 2; //Chance to Poison enemies.
-#ifndef RENEWAL_EDP
+#ifndef RENEWAL
 			val3 = 50*(val1+1); //Damage increase (+50 +50*lv%)
 #endif
 			if( sd )//[Ind] - iROwiki says each level increases its duration by 3 seconds
