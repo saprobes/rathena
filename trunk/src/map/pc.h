@@ -115,22 +115,10 @@ struct s_autobonus {
 	unsigned short pos;
 };
 
-struct skill_cooldown_entry {
-    unsigned short skill_id;
-    int timer;
-};
-
 enum npc_timeout_type {
 	NPCT_INPUT = 0,
 	NPCT_MENU  = 1,
 	NPCT_WAIT  = 2,
-};
-
-/*
- * Combo's items
- */
-struct s_combo_pair {
-	uint16 nameid[MAX_ITEMS_PER_COMBO];
 };
 
 struct map_session_data {
@@ -249,7 +237,7 @@ struct map_session_data {
 	uint16 skill_id_old,skill_lv_old;
 	uint16 skill_id_dance,skill_lv_dance;
 	short cook_mastery; // range: [0,1999] [Inkfish]
-	struct skill_cooldown_entry * scd[MAX_SKILLCOOLDOWN]; // Skill Cooldown
+	unsigned char blockskill[MAX_SKILL];
 	int cloneskill_id, reproduceskill_id;
 	int menuskill_id, menuskill_val, menuskill_val2;
 
@@ -326,10 +314,6 @@ struct map_session_data {
 		short flag, rate;
 		unsigned char ele;
 	} subele2[MAX_PC_BONUS];
-	struct {
-		short value;
-		int rate, tick;
-	} def_set_race[RC_MAX], mdef_set_race[RC_MAX];
 	// zeroed structures end here
 	// manually zeroed structures start here.
 	struct s_autobonus autobonus[MAX_PC_BONUS], autobonus2[MAX_PC_BONUS], autobonus3[MAX_PC_BONUS]; //Auto script on attack, when attacked, on skill usage
@@ -516,7 +500,6 @@ struct map_session_data {
 		struct script_code **bonus;/* the script */
 		unsigned short *id;/* array of combo ids */
 		unsigned char count;
-		struct s_combo_pair **pair;
 	} combos;
 
 	/**
@@ -710,7 +693,7 @@ struct {
 // clientside display macros (values to the left/right of the "+")
 #ifdef RENEWAL
 	#define pc_leftside_atk(sd) ((sd)->battle_status.batk)
-	#define pc_rightside_atk(sd) ((sd)->battle_status.watk + (sd)->battle_status.watk2 + (sd)->battle_status.eatk)
+	#define pc_rightside_atk(sd) ((sd)->battle_status.rhw.atk + (sd)->battle_status.lhw.atk + (sd)->battle_status.rhw.atk2 + (sd)->battle_status.lhw.atk2 + (sd)->battle_status.eatk)
 	#define pc_leftside_def(sd) ((sd)->battle_status.def2)
 	#define pc_rightside_def(sd) ((sd)->battle_status.def)
 	#define pc_leftside_mdef(sd) ((sd)->battle_status.mdef2)
@@ -767,7 +750,6 @@ int pc_setinventorydata(struct map_session_data *sd);
 int pc_checkskill(struct map_session_data *sd,uint16 skill_id);
 int pc_checkallowskill(struct map_session_data *sd);
 int pc_checkequip(struct map_session_data *sd,int pos);
-int pc_checkequip2(struct map_session_data *sd,int nameid);
 
 int pc_calc_skilltree(struct map_session_data *sd);
 int pc_calc_skilltree_normalize_job(struct map_session_data *sd);
