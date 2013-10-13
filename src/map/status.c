@@ -1628,19 +1628,10 @@ int status_check_skilluse(struct block_list *src, struct block_list *target, uin
 			} else if(sc->data[SC_LONGING]) { //Allow everything except dancing/re-dancing. [Skotlex]
 				if (skill_id == BD_ENCORE ||
 					skill_get_inf2(skill_id)&(INF2_SONG_DANCE|INF2_ENSEMBLE_SKILL)
-				)
+					)
 					return 0;
-			} else {
-				switch (skill_id) {
-					case BD_ADAPTATION:
-					case CG_LONGINGFREEDOM:
-					case BA_MUSICALSTRIKE:
-					case DC_THROWARROW:
-						break;
-					default:
-						return 0;
-				}
-			}
+			} else if(!(skill_get_inf3(skill_id)&INF3_USABLE_DANCE)) //skills that can be used in dancing state
+				return 0;
 			if ((sc->data[SC_DANCING]->val1&0xFFFF) == CG_HERMODE && skill_id == BD_ADAPTATION)
 				return 0;	//Can't amp out of Wand of Hermode :/ [Skotlex]
 		}
@@ -1681,21 +1672,8 @@ int status_check_skilluse(struct block_list *src, struct block_list *target, uin
 	}
 
 	if (sc && sc->option) {
-		if (sc->option&OPTION_HIDE) {
-			switch (skill_id) { //Usable skills while hiding.
-				case TF_HIDING:
-				case AS_GRIMTOOTH:
-				case RG_BACKSTAP:
-				case RG_RAID:
-				case NJ_SHADOWJUMP:
-				case NJ_KIRIKAGE:
-				case KO_YAMIKUMO:
-					break;
-				default:
-					//Non players can use all skills while hidden.
-					if (!skill_id || src->type == BL_PC)
-						return 0;
-			}
+		if ((sc->option&OPTION_HIDE) && src->type == BL_PC &&( !skill_id || !(skill_get_inf3(skill_id)&INF3_USABLE_HIDING))){  //Non players can use all skills while hidden.
+			return 0;
 		}
 		if (sc->option&OPTION_CHASEWALK && skill_id != ST_CHASEWALK)
 			return 0;
@@ -1894,7 +1872,7 @@ static unsigned short status_base_atk(const struct block_list *bl, const struct 
 	// [Skotlex]
 #ifdef RENEWAL
 	if (bl->type == BL_HOM)
-		str = floor((rstr + dex + status->luk) / 3) + floor(((TBL_HOM*)bl)->homunculus.level / 10);
+		str = (int)(floor((rstr + dex + status->luk) / 3) + floor(((TBL_HOM*)bl)->homunculus.level / 10));
 #endif
 	dstr = str/10;
 	str += dstr*dstr;
@@ -3735,14 +3713,6 @@ void status_calc_bl_main(struct block_list *bl, /*enum scb_flag*/int flag)
 				status->lhw.atk2= status_calc_watk(bl, sc, b_status->lhw.atk2);
 			}
 		}
-
-		if( bl->type&BL_HOM )
-		{
-			status->rhw.atk += (status->dex - b_status->dex);
-			status->rhw.atk2 += (status->str - b_status->str);
-			if( status->rhw.atk2 < status->rhw.atk )
-				status->rhw.atk2 = status->rhw.atk;
-		}
 	}
 
 	if(flag&SCB_HIT) {
@@ -3954,7 +3924,7 @@ void status_calc_bl_main(struct block_list *bl, /*enum scb_flag*/int flag)
 		if( bl->type&BL_PC ){
 			int wMatk = 0;
 			int variance = 0;
-			
+
 			//  Any +MATK you get from skills and cards, including cards in weapon, is added here.
 			if( sd->bonus.ematk > 0 ){
 				status->matk_max += sd->bonus.ematk;
@@ -3963,7 +3933,7 @@ void status_calc_bl_main(struct block_list *bl, /*enum scb_flag*/int flag)
 			status->matk_min = status_calc_ematk(bl, sc, status->matk_min);
 			status->matk_max = status_calc_ematk(bl, sc, status->matk_max);
 			//This is the only portion in MATK that varies depending on the weapon level and refinement rate.
-			
+
 			if(b_status->lhw.matk) {
 				if (sd) {
 					sd->state.lr_flag = 1;
@@ -3973,21 +3943,21 @@ void status_calc_bl_main(struct block_list *bl, /*enum scb_flag*/int flag)
 					status->lhw.matk = b_status->lhw.matk;
 				}
 			}
-						
+
 			if(b_status->rhw.matk) {
 				status->rhw.matk = b_status->rhw.matk;
 			}
-			
+
 			if(status->rhw.matk) {
 				wMatk += status->rhw.matk;
 				variance += wMatk * status->rhw.wlv / 10;
 			}
-			
+
 			if(status->lhw.matk) {
 				wMatk += status->lhw.matk;
 				variance += status->lhw.matk * status->lhw.wlv / 10;
 			}
-			
+
 			status->matk_min += wMatk - variance;
 			status->matk_max += wMatk + variance;
 		}
@@ -4180,7 +4150,8 @@ void status_calc_bl_(struct block_list* bl, enum scb_flag flag, bool first)
 
 		if(b_status.rhw.atk2 != status->rhw.atk2 || b_status.lhw.atk2 != status->lhw.atk2
 #ifdef RENEWAL
-		|| b_status.rhw.atk != status->rhw.atk || b_status.lhw.atk != status->lhw.atk
+			|| b_status.rhw.atk != status->rhw.atk || b_status.lhw.atk != status->lhw.atk
+			|| b_status.eatk != status->eatk
 #endif
 			)
 			clif_updatestatus(sd,SP_ATK2);
@@ -5752,7 +5723,7 @@ static unsigned int status_calc_maxsp(struct block_list *bl, struct status_chang
 static unsigned char status_calc_element(struct block_list *bl, struct status_change *sc, int element)
 {
 	if(!sc || !sc->count)
-		return element;
+		return cap_value(element, 0, UCHAR_MAX);
 
 	if(sc->data[SC_FREEZE])
 		return ELE_WATER;
@@ -5773,7 +5744,7 @@ static unsigned char status_calc_element(struct block_list *bl, struct status_ch
 static unsigned char status_calc_element_lv(struct block_list *bl, struct status_change *sc, int lv)
 {
 	if(!sc || !sc->count)
-		return lv;
+		return cap_value(lv, 1, 4);
 
 	if(sc->data[SC_FREEZE])
 		return 1;
@@ -5797,20 +5768,20 @@ static unsigned char status_calc_element_lv(struct block_list *bl, struct status
 unsigned char status_calc_attack_element(struct block_list *bl, struct status_change *sc, int element)
 {
 	if(!sc || !sc->count)
-		return element;
+		return cap_value(element, 0, UCHAR_MAX);
 	if(sc->data[SC_ENCHANTARMS])
 		return sc->data[SC_ENCHANTARMS]->val2;
 	if(sc->data[SC_WATERWEAPON]
-                || (sc->data[SC_WATER_INSIGNIA] && sc->data[SC_WATER_INSIGNIA]->val1 == 2) )
+		|| (sc->data[SC_WATER_INSIGNIA] && sc->data[SC_WATER_INSIGNIA]->val1 == 2) )
 		return ELE_WATER;
 	if(sc->data[SC_EARTHWEAPON]
-                || (sc->data[SC_EARTH_INSIGNIA] && sc->data[SC_EARTH_INSIGNIA]->val1 == 2) )
+		|| (sc->data[SC_EARTH_INSIGNIA] && sc->data[SC_EARTH_INSIGNIA]->val1 == 2) )
 		return ELE_EARTH;
 	if(sc->data[SC_FIREWEAPON]
-                || (sc->data[SC_FIRE_INSIGNIA] && sc->data[SC_FIRE_INSIGNIA]->val1 == 2) )
+		|| (sc->data[SC_FIRE_INSIGNIA] && sc->data[SC_FIRE_INSIGNIA]->val1 == 2) )
 		return ELE_FIRE;
 	if(sc->data[SC_WINDWEAPON]
-                || (sc->data[SC_WIND_INSIGNIA] && sc->data[SC_WIND_INSIGNIA]->val1 == 2) )
+		|| (sc->data[SC_WIND_INSIGNIA] && sc->data[SC_WIND_INSIGNIA]->val1 == 2) )
 		return ELE_WIND;
 	if(sc->data[SC_ENCPOISON])
 		return ELE_POISON;
@@ -5822,15 +5793,15 @@ unsigned char status_calc_attack_element(struct block_list *bl, struct status_ch
 		return ELE_GHOST;
 	if(sc->data[SC_TIDAL_WEAPON_OPTION] || sc->data[SC_TIDAL_WEAPON] )
 		return ELE_WATER;
-    if(sc->data[SC_PYROCLASTIC])
-        return ELE_FIRE;
+	if(sc->data[SC_PYROCLASTIC])
+		return ELE_FIRE;
 	return (unsigned char)cap_value(element,0,UCHAR_MAX);
 }
 
 static unsigned short status_calc_mode(struct block_list *bl, struct status_change *sc, int mode)
 {
 	if(!sc || !sc->count)
-		return mode;
+		return cap_value(mode, 0, USHRT_MAX);
 	if(sc->data[SC_MODECHANGE]) {
 		if (sc->data[SC_MODECHANGE]->val2)
 			mode = sc->data[SC_MODECHANGE]->val2; //Set mode
@@ -6476,6 +6447,9 @@ int status_get_sc_def(struct block_list *src, struct block_list *bl, enum sc_typ
 		case SC_PARALYSIS:
 			tick_def2 = (status->vit + status->luk)*50;
 			break;
+		case SC_VOICEOFSIREN:
+			tick_def2 = (status_get_lv(bl) * 100) + ((bl->type == BL_PC)?((TBL_PC*)bl)->status.job_level : 0);
+			break;
 		default:
 			//Effect that cannot be reduced? Likely a buff.
 			if (!(rnd()%10000 < rate))
@@ -6941,11 +6915,11 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 	case SC__STRIPACCESSORY:
 		if( sd ) {
 			int i = -1;
-			if( !(sd->bonus.unstripable_equip&EQI_ACC_L) ) {
+			if( !(sd->bonus.unstripable_equip&EQP_ACC_L) ) {
 				i = sd->equip_index[EQI_ACC_L];
 				if( i >= 0 && sd->inventory_data[i] && sd->inventory_data[i]->type == IT_ARMOR )
 					pc_unequipitem(sd,i,3); //L-Accessory
-			} if( !(sd->bonus.unstripable_equip&EQI_ACC_R) ) {
+			} if( !(sd->bonus.unstripable_equip&EQP_ACC_R) ) {
 				i = sd->equip_index[EQI_ACC_R];
 				if( i >= 0 && sd->inventory_data[i] && sd->inventory_data[i]->type == IT_ARMOR )
 					pc_unequipitem(sd,i,3); //R-Accessory
