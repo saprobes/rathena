@@ -7769,8 +7769,10 @@ BUILDIN_FUNC(delequip)
 	if (num > 0 && num <= ARRAYLENGTH(equip))
 		i=pc_checkequip(sd,equip[num-1]);
 	if(i >= 0) {
+		int ret;
 		pc_unequipitem(sd,i,3); //recalculate bonus
-		pc_delitem(sd,i,1,0,2,LOG_TYPE_SCRIPT);
+		ret=pc_delitem(sd,i,1,0,2,LOG_TYPE_SCRIPT);
+		script_pushint(st,ret==0);
 	}
 
 	return 0;
@@ -8809,11 +8811,11 @@ BUILDIN_FUNC(guildchangegm)
 BUILDIN_FUNC(monster)
 {
 	const char* mapn	= script_getstr(st,2);
-	int x			= script_getnum(st,3);
-	int y			= script_getnum(st,4);
+	int x				= script_getnum(st,3);
+	int y				= script_getnum(st,4);
 	const char* str		= script_getstr(st,5);
-	int class_		= script_getnum(st,6);
-	int amount		= script_getnum(st,7);
+	int class_			= script_getnum(st,6);
+	int amount			= script_getnum(st,7);
 	const char* event	= "";
 	unsigned int size	= SZ_SMALL;
 	unsigned int ai		= AI_NONE;
@@ -8927,7 +8929,7 @@ BUILDIN_FUNC(areamonster)
 
 	if (script_hasdata(st, 12)) {
 		ai = script_getnum(st, 12);
-		if (ai > 4) {
+		if (ai >= AI_MAX) {
 			ShowWarning("buildin_monster: Attempted to spawn non-existing ai %d for monster class %d\n", ai, class_);
 			return 1;
 		}
@@ -10568,6 +10570,108 @@ static void script_detach_rid(struct script_state* st)
 		script_detach_state(st, false);
 		st->rid = 0;
 	}
+}
+
+
+/*=========================================================================
+ * Attaches a set of RIDs to the current script. [digitalhamster]
+ * addrid(<type>{,<flag>{,<parameters>}});
+ * <type>:
+ *	0 : All players in the server.
+ *	1 : All players in the map of the invoking player, or the invoking NPC if no player is attached.
+ *	2 : Party members of a specified party ID.
+ *	    [ Parameters: <party id> ]
+ *	3 : Guild members of a specified guild ID.
+ *	    [ Parameters: <guild id> ]
+ *	4 : All players in a specified area of the map of the invoking player (or NPC).
+ *	    [ Parameters: <x0>,<y0>,<x1>,<y1> ]
+ *	Account ID: The specified account ID.
+ * <flag>:
+ *	0 : Players are always attached. (default)
+ *	1 : Players currently running another script will not be attached.
+ *-------------------------------------------------------------------------*/
+
+static int buildin_addrid_sub(struct block_list *bl,va_list ap)
+{
+	int forceflag;
+	struct map_session_data *sd = (TBL_PC *)bl;
+	struct script_state* st;
+
+	st=va_arg(ap,struct script_state*);
+	forceflag=va_arg(ap,int);
+	if(!forceflag||!sd->st)
+		if(sd->status.account_id!=st->rid)
+			run_script(st->script,st->pos,sd->status.account_id,st->oid);
+	return 0;
+}
+
+BUILDIN_FUNC(addrid)
+{
+	struct s_mapiterator* iter;
+	struct block_list *bl;
+	TBL_PC *sd;
+	if(st->rid<1){
+		st->state = END;
+		bl=map_id2bl(st->oid);
+	} else
+		bl=map_id2bl(st->rid); //if run without rid it'd error,also oid if npc, else rid for map
+	iter = mapit_getallusers();
+	switch(script_getnum(st,2)){
+		case 0:
+			for( sd = (TBL_PC*)mapit_first(iter); mapit_exists(iter); sd = (TBL_PC*)mapit_next(iter)){
+				if(!script_getnum(st,3)||!sd->st)
+					if(sd->status.account_id!=st->rid) //attached player already runs.
+						run_script(st->script,st->pos,sd->status.account_id,st->oid);
+			}
+			break;
+		case 1:
+			for( sd = (TBL_PC*)mapit_first(iter); mapit_exists(iter); sd = (TBL_PC*)mapit_next(iter)){
+				if(!script_getnum(st,3)||!sd->st)
+					if((sd->bl.m == bl->m)&&(sd->status.account_id!=st->rid))
+						run_script(st->script,st->pos,sd->status.account_id,st->oid);
+			}
+			break;
+		case 2:
+			if(script_getnum(st,4)==0){
+				script_pushint(st,0);
+				return 0;
+			}
+			for( sd = (TBL_PC*)mapit_first(iter); mapit_exists(iter); sd = (TBL_PC*)mapit_next(iter)){
+				if(!script_getnum(st,3)||!sd->st)
+					if((sd->status.account_id!=st->rid)&&(sd->status.party_id==script_getnum(st,4))) //attached player already runs.
+						run_script(st->script,st->pos,sd->status.account_id,st->oid);
+			}
+			break;
+		case 3:
+			if(script_getnum(st,4)==0){
+				script_pushint(st,0);
+				return 0;
+			}
+			for( sd = (TBL_PC*)mapit_first(iter); mapit_exists(iter); sd = (TBL_PC*)mapit_next(iter)){
+				if(!script_getnum(st,3)||!sd->st)
+					if((sd->status.account_id!=st->rid)&&(sd->status.guild_id==script_getnum(st,4))) //attached player already runs.
+						run_script(st->script,st->pos,sd->status.account_id,st->oid);
+			}
+			break;
+		case 4:
+			map_foreachinarea(buildin_addrid_sub,
+			bl->m,script_getnum(st,4),script_getnum(st,5),script_getnum(st,6),script_getnum(st,7),BL_PC,
+			st,script_getnum(st,3));//4-x0 , 5-y0 , 6-x1, 7-y1
+			break;
+		default:
+			if((map_id2sd(script_getnum(st,2)))==NULL){ // Player not found.
+				script_pushint(st,0);
+				return 0;
+			}
+			if(!script_getnum(st,3)||!map_id2sd(script_getnum(st,2))->st) {
+				run_script(st->script,st->pos,script_getnum(st,2),st->oid);
+				script_pushint(st,1);
+			}
+			return 0;
+	}
+	mapit_free(iter);
+	script_pushint(st,1);
+	return 0;
 }
 
 /*==========================================
@@ -16597,7 +16701,7 @@ BUILDIN_FUNC(instance_id)
 	instance_id = script_instancegetid(st);
 
 	if(!instance_id) {
-		ShowError("script:instance_id: No instance attached to NPC or player");
+		//ShowError("script:instance_id: No instance attached to NPC or player");
 		script_pushint(st, 0);
 		return 1;
 	}
@@ -16639,6 +16743,38 @@ BUILDIN_FUNC(instance_warpall)
 		if( (pl_sd = p->data[i].sd) && map[pl_sd->bl.m].instance_id == instance_id ) pc_setpos(pl_sd,map_id2index(m),x,y,CLR_TELEPORT);
 
 	return 0;
+}
+
+/*==========================================
+ * Broadcasts to all maps inside an instance
+ *
+ * instance_announce <instance id>,"<text>",<flag>{,<fontColor>{,<fontType>{,<fontSize>{,<fontAlign>{,<fontY>}}}}};
+ * Using -1 for <instance id> will auto-detect the id.
+ *------------------------------------------*/
+BUILDIN_FUNC(instance_announce) {
+	int         instance_id = script_getnum(st,2);
+	const char *mes         = script_getstr(st,3);
+	int         flag        = script_getnum(st,4);
+	const char *fontColor   = script_hasdata(st,5) ? script_getstr(st,5) : NULL;
+	int         fontType    = script_hasdata(st,6) ? script_getnum(st,6) : 0x190; // default fontType (FW_NORMAL)
+	int         fontSize    = script_hasdata(st,7) ? script_getnum(st,7) : 12;    // default fontSize
+	int         fontAlign   = script_hasdata(st,8) ? script_getnum(st,8) : 0;     // default fontAlign
+	int         fontY       = script_hasdata(st,9) ? script_getnum(st,9) : 0;     // default fontY
+
+	int i;
+
+	if( instance_id == -1 ) {
+		instance_id = script_instancegetid(st);
+	}
+
+	if( !instance_id && &instance_data[instance_id] != NULL)
+		return true;
+
+	for( i = 0; i < instance_data[instance_id].cnt_map; i++ )
+		map_foreachinmap(buildin_announce_sub, instance_data[instance_id].map[i].m, BL_PC,
+						 mes, strlen(mes)+1, flag&0xf0, fontColor, fontType, fontSize, fontAlign, fontY);
+
+	return true;
 }
 
 /*==========================================
@@ -17791,6 +17927,65 @@ BUILDIN_FUNC(party_destroy)
 	return 0;
 }
 
+/*==========================================
+* Checks if a player's client version meets a required version or date.
+* @type :
+*  0 - check by version number
+*  1 - check by date
+* @return true/false
+ *------------------------------------------*/
+BUILDIN_FUNC(is_clientver){
+	TBL_PC *sd = NULL;
+	int type = script_getnum(st,2);
+	int data = script_getnum(st,3);
+	int ret = 0;
+
+	if (script_hasdata(st,4))
+		sd = map_charid2sd(script_getnum(st,4));
+	else
+		sd = script_rid2sd(st);
+	if (sd == NULL) {
+		script_pushint(st,0);
+		return 0;
+	}
+
+	switch(type){
+		case 0:
+			ret = (sd->packet_ver >= data)?1:0;
+			break;
+		case 1:
+			ret = (sd->packet_ver >= date2version(data))?1:0;
+			break;
+	}
+	script_pushint(st,ret);
+	return 0;
+}
+
+/*==========================================
+* Retrieves server definitions.
+* (see @type in const.txt)
+ *------------------------------------------*/
+BUILDIN_FUNC(getserverdef){
+	int type = script_getnum(st,2);
+	switch(type){
+		case 0: script_pushint(st,PACKETVER); break;
+		case 1: script_pushint(st,MAX_LEVEL); break;
+		case 2: script_pushint(st,MAX_STORAGE); break;
+		case 3: script_pushint(st,MAX_INVENTORY); break;
+		case 4: script_pushint(st,MAX_ZENY); break;
+		case 5: script_pushint(st,MAX_PARTY); break;
+		case 6: script_pushint(st,MAX_GUILD); break;
+		case 7: script_pushint(st,MAX_GUILDLEVEL); break;
+		case 8: script_pushint(st,MAX_GUILD_STORAGE); break;
+		case 9: script_pushint(st,MAX_BG_MEMBERS); break;
+		default:
+			ShowWarning("buildin_getserverdef: unknown type %d.\n", type);
+			script_pushint(st,0);
+			break;
+	}
+	return 0;
+}
+
 // declarations that were supposed to be exported from npc_chat.c
 #ifdef PCRE_SUPPORT
 BUILDIN_FUNC(defpattern);
@@ -17974,6 +18169,7 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(getwaitingroomstate,"i?"),
 	BUILDIN_DEF(warpwaitingpc,"sii?"),
 	BUILDIN_DEF(attachrid,"i"),
+	BUILDIN_DEF(addrid,"i?????"),
 	BUILDIN_DEF(detachrid,""),
 	BUILDIN_DEF(isloggedin,"i?"),
 	BUILDIN_DEF(setmapflagnosave,"ssii"),
@@ -18211,6 +18407,7 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(instance_npcname,"s?"),
 	BUILDIN_DEF(instance_mapname,"s?"),
 	BUILDIN_DEF(instance_warpall,"sii?"),
+	BUILDIN_DEF(instance_announce,"isi?????"),
 	BUILDIN_DEF(instance_check_party,"i???"),
 	/**
 	 * 3rd-related
@@ -18264,5 +18461,8 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(party_changeleader,"ii"),
 	BUILDIN_DEF(party_changeoption,"iii"),
 	BUILDIN_DEF(party_destroy,"i"),
+	
+	BUILDIN_DEF(is_clientver,"ii?"),
+	BUILDIN_DEF(getserverdef,"i"),
 	{NULL,NULL,NULL},
 };
