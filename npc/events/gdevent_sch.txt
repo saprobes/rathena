@@ -904,7 +904,7 @@ schg_que01,100,81,3	script	Pierrot Pier#sch_gd	715,{
 				mes "When is that person coming? I am very bored~!";
 				close;
 			}
-			emotion e_heh;
+			emotion 18;
 			mes "[Pierrot Pier]";
 			mes "^3131FF<Although you're a weirdo, you seem to be very dedicated>^000000. Beep beep.";
 			next;
