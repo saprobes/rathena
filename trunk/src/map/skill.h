@@ -65,17 +65,17 @@ enum e_skill_inf2 {
 	INF2_PARTY_ONLY     = 0x00400,
 	INF2_GUILD_ONLY     = 0x00800,
 	INF2_NO_ENEMY       = 0x01000,
-	INF2_NOLP           = 0x02000, // Spells that can ignore Land Protector
+	//INF2_ = 0x02000, // free
 	INF2_CHORUS_SKILL	= 0x04000, // Chorus skill
 	INF2_NO_BG_DMG		= 0x08000, // spell that ignore bg reduction
 	INF2_NO_GVG_DMG		= 0x10000, // spell that ignore gvg reduction
-	INF2_NO_NEARNPC     = 0x20000, // disable cast skill if near with NPC [Cydh]
+	INF2_NO_NEARNPC     = 0x20000, // disable to cast skill if near with NPC [Cydh]
 };
 
 /// Skill info type 3
 enum e_skill_inf3 {
-	INF3_NOLP			= 0x0001,	// Spells that can ignore Land Protector
-	INF3_NOENDCAMOUFLAGE		= 0x0002,	// spell that doesn't end camouflage
+	INF3_NOLP				= 0x0001,	// Spells that can ignore Land Protector
+	INF3_NOENDCAMOUFLAGE	= 0x0002,	// spell that doesn't end camouflage
 	INF3_USABLE_HIDING		= 0x0004,	// spell that can be use in hiding
 	INF3_USABLE_DANCE		= 0x0008,	// spell that can be use while in dancing state
 	INF3_HIT_EMP			= 0x0010,	// spell that could hit emperium
@@ -85,7 +85,7 @@ enum e_skill_inf3 {
 	INF3_EFF_SNAKEEYE		= 0x0100,	// spell range affected by GS_SNAKEEYE
 	INF3_EFF_SHADOWJUMP		= 0x0200,	// spell range affected by NJ_SHADOWJUMP
 	INF3_EFF_RADIUS			= 0x0400,	// spell range affected by WL_RADIUS
-	INF3_EFF_RESEARCHTRAP		= 0x0800,	// spell range affected by RA_RESEARCHTRAP
+	INF3_EFF_RESEARCHTRAP	= 0x0800,	// spell range affected by RA_RESEARCHTRAP
 	INF3_DIS_PLAGIA			= 0x1000,	// spell that can't be copied
 	INF3_USABLE_WARG		= 0x2000,	// spell that can be use while riding warg
 	INF3_DIS_MADO			= 0x4000,	// spell that can't be used while in mado
@@ -429,11 +429,13 @@ int skill_castend_nodamage_id( struct block_list *src, struct block_list *bl,uin
 int skill_castend_damage_id( struct block_list* src, struct block_list *bl,uint16 skill_id,uint16 skill_lv,unsigned int tick,int flag );
 int skill_castend_pos2( struct block_list *src, int x,int y,uint16 skill_id,uint16 skill_lv,unsigned int tick,int flag);
 
-int skill_blockpc_start_(struct map_session_data*, uint16 skill_id, int, bool);
+int skill_blockpc_start(struct map_session_data*, int, int);
+int skill_blockpc_get(struct map_session_data *sd, int skillid);
+int skill_blockpc_clear(struct map_session_data *sd);
+int skill_blockpc_end(int tid, unsigned int tick, int id, intptr_t data);
 int skill_blockhomun_start (struct homun_data*,uint16 skill_id,int);
 int skill_blockmerc_start (struct mercenary_data*,uint16 skill_id,int);
 
-#define skill_blockpc_start(sd, skill_id, tick) skill_blockpc_start_( sd, skill_id, tick, false )
 
 // (Epoque:) To-do: replace this macro with some sort of skill tree check (rather than hard-coded skill names)
 #define skill_ischangesex(id) ( \
