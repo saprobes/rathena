@@ -647,26 +647,12 @@ typedef enum sc_type {
 	SC_PYROCLASTIC,
 	SC_PARALYSIS,
 	SC_PAIN_KILLER,
-	SC_HANBOK,
-	//Vellum Weapon reductions
-	SC_DEFSET,
-	SC_MDEFSET,
-	SC_DARKCROW,
-	SC_FULL_THROTTLE,
-	SC_REBOUND,
-	SC_UNLIMIT,
-	SC_KINGS_GRACE,
-	SC_TELEKINESIS_INTENSE,
-	SC_OFFERTORIUM,
-	SC_FRIGG_SONG,
-	SC_MONSTER_TRANSFORM,
-	SC_ANGEL_PROTECT,
-	SC_ILLUSIONDOPING,
-	SC_FLASHCOMBO,
 
 #ifdef RENEWAL
 	SC_EXTREMITYFIST2,
 #endif
+
+	SC_HANBOK,
 
 	SC_MAX, //Automatically updated max, used in for's to check we are within bounds.
 } sc_type;
@@ -988,7 +974,7 @@ enum si_type {
 	SI_INVINCIBLE = 311,
 	SI_CASH_PLUSONLYJOBEXP = 312,
 	SI_PARTYFLEE = 313,
-	SI_ANGEL_PROTECT = 314,
+//	SI_ANGEL_PROTECT = 314,
 	SI_ENDURE_MDEF = 315,
 	SI_ENCHANTBLADE = 316,
 	SI_DEATHBOUND = 317,
@@ -1399,7 +1385,7 @@ enum si_type {
 	SI_2013_VALENTINE1 = 731,
 	SI_2013_VALENTINE2 = 732,
 	SI_2013_VALENTINE3 = 733,
-	SI_ILLUSIONDOPING = 734,
+//	SI_ = 734,
 //	SI_ = 735,
 	SI_CHILL = 736,
 	SI_BURNT = 737,
@@ -1638,7 +1624,6 @@ struct status_data {
 		batk,
 #ifdef RENEWAL
 		watk,
-		watk2,
 		eatk,
 #endif
 		matk_min, matk_max,
@@ -1746,13 +1731,13 @@ int status_sc2skill(sc_type sc);
 unsigned int status_sc2scb_flag(sc_type sc);
 int status_type2relevant_bl_types(int type);
 
-int status_damage(struct block_list *src,struct block_list *target,int64 dhp,int64 dsp, int walkdelay, int flag);
+int status_damage(struct block_list *src,struct block_list *target,int64 hp,int64 sp, int walkdelay, int flag);
 //Define for standard HP damage attacks.
 #define status_fix_damage(src, target, hp, walkdelay) status_damage(src, target, hp, 0, walkdelay, 0)
 //Define for standard HP/SP damage triggers.
 #define status_zap(bl, hp, sp) status_damage(NULL, bl, hp, sp, 0, 1)
 //Define for standard HP/SP skill-related cost triggers (mobs require no HP/SP to use skills)
-int64 status_charge(struct block_list* bl, int64 hp, int64 sp);
+int status_charge(struct block_list* bl, int64 hp, int64 sp);
 int status_percent_change(struct block_list *src,struct block_list *target,signed char hp_rate, signed char sp_rate, int flag);
 //Easier handling of status_percent_change
 #define status_percent_heal(bl, hp_rate, sp_rate) status_percent_change(NULL, bl, -(hp_rate), -(sp_rate), 0)
@@ -1762,7 +1747,7 @@ int status_percent_change(struct block_list *src,struct block_list *target,signe
 //Used to set the hp/sp of an object to an absolute value (can't kill)
 int status_set_hp(struct block_list *bl, unsigned int hp, int flag);
 int status_set_sp(struct block_list *bl, unsigned int sp, int flag);
-int status_heal(struct block_list *bl,int64 hhp,int64 hsp, int flag);
+int status_heal(struct block_list *bl,int64 hp,int64 sp, int flag);
 int status_revive(struct block_list *bl, unsigned char per_hp, unsigned char per_sp);
 
 struct regen_data *status_get_regen_data(struct block_list *bl);
