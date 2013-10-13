@@ -133,6 +133,9 @@ struct s_skill_db {
 	int unit_interval;
 	int unit_target;
 	int unit_flag;
+#ifdef ADJUST_SKILL_DAMAGE
+	struct s_skill_damage damage;
+#endif
 };
 extern struct s_skill_db skill_db[MAX_SKILL_DB];
 
@@ -322,7 +325,7 @@ int skill_clear_unitgroup(struct block_list *src);
 int skill_clear_group(struct block_list *bl, int flag);
 void ext_skill_unit_onplace(struct skill_unit *src, struct block_list *bl, unsigned int tick);
 
-int skill_unit_ondamaged(struct skill_unit *src,struct block_list *bl,int damage,unsigned int tick);
+int64 skill_unit_ondamaged(struct skill_unit *src,struct block_list *bl,int64 damage,unsigned int tick);
 
 int skill_castfix( struct block_list *bl, uint16 skill_id, uint16 skill_lv);
 int skill_castfix_sc( struct block_list *bl, int time);
@@ -397,7 +400,7 @@ int skill_blockmerc_start (struct mercenary_data*,uint16 skill_id,int);
 	((id) >= CG_LONGINGFREEDOM && (id) <= CG_TAROTCARD)     || ((id) >= WA_SWING_DANCE && (id) <= WM_UNLIMITED_HUMMING_VOICE))
 
 // Skill action, (return dmg,heal)
-int skill_attack( int attack_type, struct block_list* src, struct block_list *dsrc,struct block_list *bl,uint16 skill_id,uint16 skill_lv,unsigned int tick,int flag );
+int64 skill_attack( int attack_type, struct block_list* src, struct block_list *dsrc,struct block_list *bl,uint16 skill_id,uint16 skill_lv,unsigned int tick,int flag );
 
 void skill_reload(void);
 
@@ -1923,5 +1926,20 @@ int skill_get_elemental_type(uint16 skill_id, uint16 skill_lv);
 
 void skill_combo_toogle_inf(struct block_list* bl, uint16 skill_id, int inf);
 void skill_combo(struct block_list* src,struct block_list *dsrc, struct block_list *bl, uint16 skill_id, uint16 skill_lv, int tick);
+
+/**
+ * Skill Damage target
+ **/
+#ifdef ADJUST_SKILL_DAMAGE
+enum e_skill_damage_caster {
+	SDC_PC   = 0x01,
+	SDC_MOB  = 0x02,
+	SDC_PET  = 0x04,
+	SDC_HOM  = 0x08,
+	SDC_MER  = 0x10,
+	SDC_ELEM = 0x20,
+	SDC_ALL  = SDC_PC|SDC_MOB|SDC_PET|SDC_HOM|SDC_MER|SDC_ELEM,
+};
+#endif
 
 #endif /* _SKILL_H_ */
