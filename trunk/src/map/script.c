@@ -258,6 +258,10 @@ static jmp_buf     error_jump;
 static char*       error_msg;
 static const char* error_pos;
 static int         error_report; // if the error should produce output
+// Used by disp_warning_message
+static const char* parser_current_src;
+static const char* parser_current_file;
+static int         parser_current_line;
 
 // for advanced scripting support ( nested if, switch, while, for, do-while, function, etc )
 // [Eoe / jA 1080, 1081, 1094, 1164]
@@ -639,6 +643,10 @@ static void disp_error_message2(const char *mes,const char *pos,int report)
 }
 #define disp_error_message(mes,pos) disp_error_message2(mes,pos,1)
 
+static void disp_warning_message(const char *mes, const char *pos) {
+	script_warning(parser_current_src,parser_current_file,parser_current_line,mes,pos);
+}
+
 /// Checks event parameter validity
 static void check_event(struct script_state *st, const char *evt)
 {
@@ -892,8 +900,10 @@ const char* skip_space(const char* p)
 			p += 2;
 			for(;;)
 			{
-				if( *p == '\0' )
-					return p;//disp_error_message("script:skip_space: end of file while parsing block comment. expected "CL_BOLD"*/"CL_NORM, p);
+				if( *p == '\0' ) {
+					disp_warning_message("script:script->skip_space: end of file while parsing block comment. expected "CL_BOLD"*/"CL_NORM, p);
+					return p;
+				}
 				if( *p == '*' && p[1] == '/' )
 				{// end of block comment
 					p += 2;
@@ -1225,7 +1235,7 @@ const char* parse_variable(const char* p) {
  *------------------------------------------*/
 const char* parse_simpleexpr(const char *p)
 {
-	int i;
+	long long i;
 	p=skip_space(p);
 
 	if(*p==';' || *p==',')
@@ -1250,8 +1260,15 @@ const char* parse_simpleexpr(const char *p)
 	} else if(ISDIGIT(*p) || ((*p=='-' || *p=='+') && ISDIGIT(p[1]))){
 		char *np;
 		while(*p == '0' && ISDIGIT(p[1])) p++;
-		i=strtoul(p,&np,0);
-		add_scripti(i);
+		i=strtoll(p,&np,0);
+		if( i < INT_MIN ) {
+			i = INT_MIN;
+			disp_warning_message("parse_simpleexpr: underflow detected, capping value to INT_MIN",p);
+		} else if( i > INT_MAX ) {
+			i = INT_MAX;
+			disp_warning_message("parse_simpleexpr: overflow detected, capping value to INT_MAX",p);
+		}
+		add_scripti((int)i);
 		p=np;
 	} else if(*p=='"'){
 		add_scriptc(C_STR);
@@ -2254,14 +2271,12 @@ static const char* script_print_line(StringBuf* buf, const char* p, const char* 
 	return p+i+(p[i] == '\n' ? 1 : 0);
 }
 
-void script_error(const char* src, const char* file, int start_line, const char* error_msg, const char* error_pos)
-{
+void script_errorwarning_sub(StringBuf *buf, const char* src, const char* file, int start_line, const char* error_msg, const char* error_pos) {
 	// Find the line where the error occurred
 	int j;
 	int line = start_line;
 	const char *p;
 	const char *linestart[5] = { NULL, NULL, NULL, NULL, NULL };
-	StringBuf buf;
 
 	for(p=src;p && *p;line++){
 		const char *lineend=strchr(p,'\n');
@@ -2275,18 +2290,37 @@ void script_error(const char* src, const char* file, int start_line, const char*
 		p=lineend+1;
 	}
 
+	StringBuf_Printf(buf, "script error on %s line %d\n", file, line);
+	StringBuf_Printf(buf, "    %s\n", error_msg);
+	for(j = 0; j < 5; j++ ) {
+		script_print_line(buf, linestart[j], NULL, line + j - 5);
+	}
+	p = script_print_line(buf, p, error_pos, -line);
+	for(j = 0; j < 5; j++) {
+		p = script_print_line(buf, p, NULL, line + j + 1 );
+	}
+}
+
+void script_error(const char* src, const char* file, int start_line, const char* error_msg, const char* error_pos) {
+	StringBuf buf;
+
 	StringBuf_Init(&buf);
 	StringBuf_AppendStr(&buf, "\a\n");
-	StringBuf_Printf(&buf, "script error on %s line %d\n", file, line);
-	StringBuf_Printf(&buf, "    %s\n", error_msg);
-	for(j = 0; j < 5; j++ ) {
-		script_print_line(&buf, linestart[j], NULL, line + j - 5);
-	}
-	p = script_print_line(&buf, p, error_pos, -line);
-	for(j = 0; j < 5; j++) {
-		p = script_print_line(&buf, p, NULL, line + j + 1 );
-	}
+
+	script_errorwarning_sub(&buf, src, file, start_line, error_msg, error_pos);
+
 	ShowError("%s", StringBuf_Value(&buf));
+	StringBuf_Destroy(&buf);
+}
+
+void script_warning(const char* src, const char* file, int start_line, const char* error_msg, const char* error_pos) {
+	StringBuf buf;
+
+	StringBuf_Init(&buf);
+
+	script_errorwarning_sub(&buf, src, file, start_line, error_msg, error_pos);
+
+	ShowWarning("%s", StringBuf_Value(&buf));
 	StringBuf_Destroy(&buf);
 }
 
@@ -2301,6 +2335,10 @@ struct script_code* parse_script(const char *src,const char *file,int line,int o
 	static int first=1;
 	char end;
 	bool unresolved_names = false;
+
+	parser_current_src = src;
+	parser_current_file = file;
+	parser_current_line = line;
 
 	if( src == NULL )
 		return NULL;// empty script
@@ -6079,22 +6117,22 @@ BUILDIN_FUNC(countitem)
 	} else { // For countitem2() function
 		int nameid, iden, ref, attr, c1, c2, c3, c4;
 
-		nameid = id->nameid; 
-		iden = script_getnum(st,3); 
-		ref  = script_getnum(st,4); 
-		attr = script_getnum(st,5); 
-		c1 = (short)script_getnum(st,6); 
-		c2 = (short)script_getnum(st,7); 
-		c3 = (short)script_getnum(st,8); 
+		nameid = id->nameid;
+		iden = script_getnum(st,3);
+		ref  = script_getnum(st,4);
+		attr = script_getnum(st,5);
+		c1 = (short)script_getnum(st,6);
+		c2 = (short)script_getnum(st,7);
+		c3 = (short)script_getnum(st,8);
 		c4 = (short)script_getnum(st,9);
 
 		for(i = 0; i < MAX_INVENTORY; i++)
-			if (sd->status.inventory[i].nameid > 0 && sd->inventory_data[i] != NULL && 
-				sd->status.inventory[i].amount > 0 && sd->status.inventory[i].nameid == nameid && 
-				sd->status.inventory[i].identify == iden && sd->status.inventory[i].refine == ref && 
-				sd->status.inventory[i].attribute == attr && sd->status.inventory[i].card[0] == c1 && 
-				sd->status.inventory[i].card[1] == c2 && sd->status.inventory[i].card[2] == c3 && 
-				sd->status.inventory[i].card[3] == c4 ) 
+			if (sd->status.inventory[i].nameid > 0 && sd->inventory_data[i] != NULL &&
+				sd->status.inventory[i].amount > 0 && sd->status.inventory[i].nameid == nameid &&
+				sd->status.inventory[i].identify == iden && sd->status.inventory[i].refine == ref &&
+				sd->status.inventory[i].attribute == attr && sd->status.inventory[i].card[0] == c1 &&
+				sd->status.inventory[i].card[1] == c2 && sd->status.inventory[i].card[2] == c3 &&
+				sd->status.inventory[i].card[3] == c4 )
 	 	                        count += sd->status.inventory[i].amount;
 	}
 
@@ -7769,8 +7807,10 @@ BUILDIN_FUNC(delequip)
 	if (num > 0 && num <= ARRAYLENGTH(equip))
 		i=pc_checkequip(sd,equip[num-1]);
 	if(i >= 0) {
+		int ret;
 		pc_unequipitem(sd,i,3); //recalculate bonus
-		pc_delitem(sd,i,1,0,2,LOG_TYPE_SCRIPT);
+		ret=pc_delitem(sd,i,1,0,2,LOG_TYPE_SCRIPT);
+		script_pushint(st,ret==0);
 	}
 
 	return 0;
@@ -8809,11 +8849,11 @@ BUILDIN_FUNC(guildchangegm)
 BUILDIN_FUNC(monster)
 {
 	const char* mapn	= script_getstr(st,2);
-	int x			= script_getnum(st,3);
-	int y			= script_getnum(st,4);
+	int x				= script_getnum(st,3);
+	int y				= script_getnum(st,4);
 	const char* str		= script_getstr(st,5);
-	int class_		= script_getnum(st,6);
-	int amount		= script_getnum(st,7);
+	int class_			= script_getnum(st,6);
+	int amount			= script_getnum(st,7);
 	const char* event	= "";
 	unsigned int size	= SZ_SMALL;
 	unsigned int ai		= AI_NONE;
@@ -8927,7 +8967,7 @@ BUILDIN_FUNC(areamonster)
 
 	if (script_hasdata(st, 12)) {
 		ai = script_getnum(st, 12);
-		if (ai > 4) {
+		if (ai >= AI_MAX) {
 			ShowWarning("buildin_monster: Attempted to spawn non-existing ai %d for monster class %d\n", ai, class_);
 			return 1;
 		}
@@ -12720,11 +12760,7 @@ BUILDIN_FUNC(nude)
 	return 0;
 }
 
-/*==========================================
- * gmcommand [MouseJstr]
- *------------------------------------------*/
-BUILDIN_FUNC(atcommand)
-{
+int atcommand_sub(struct script_state* st,int type){
 	TBL_PC dummy_sd;
 	TBL_PC* sd;
 	int fd;
@@ -12749,13 +12785,20 @@ BUILDIN_FUNC(atcommand)
 		}
 	}
 
-	if (!is_atcommand(fd, sd, cmd, 0)) {
+	if (!is_atcommand(fd, sd, cmd, type)) {
 		ShowWarning("script: buildin_atcommand: failed to execute command '%s'\n", cmd);
 		script_reportsrc(st);
 		return 1;
 	}
 
 	return 0;
+}
+
+/*==========================================
+ * gmcommand [MouseJstr]
+ *------------------------------------------*/
+BUILDIN_FUNC(atcommand) {
+	return atcommand_sub(st,0);
 }
 
 /*==========================================
@@ -12910,7 +12953,7 @@ BUILDIN_FUNC(recovery)
 /*==========================================
  * Get your pet info: getpetinfo(n)
  * n -> 0:pet_id 1:pet_class 2:pet_name
- * 3:friendly 4:hungry, 5: rename flag.
+ * 3:friendly 4:hungry, 5: rename flag.6:level
  *------------------------------------------*/
 BUILDIN_FUNC(getpetinfo)
 {
@@ -12933,6 +12976,7 @@ BUILDIN_FUNC(getpetinfo)
 		case 3: script_pushint(st,pd->pet.intimate); break;
 		case 4: script_pushint(st,pd->pet.hungry); break;
 		case 5: script_pushint(st,pd->pet.rename_flag); break;
+		case 6: script_pushint(st,(int)pd->pet.level); break;
 		default:
 			script_pushint(st,0);
 			break;
@@ -14882,35 +14926,6 @@ BUILDIN_FUNC(getd)
 	return 0;
 }
 
-// <--- [zBuffer] List of dynamic var commands
-// Pet stat [Lance]
-BUILDIN_FUNC(petstat)
-{
-	TBL_PC *sd = NULL;
-	struct pet_data *pd;
-	int flag = script_getnum(st,2);
-	sd = script_rid2sd(st);
-	if(!sd || !sd->status.pet_id || !sd->pd){
-		if(flag == 2)
-			script_pushconststr(st, "");
-		else
-			script_pushint(st,0);
-		return 0;
-	}
-	pd = sd->pd;
-	switch(flag){
-		case 1: script_pushint(st,(int)pd->pet.class_); break;
-		case 2: script_pushstrcopy(st, pd->pet.name); break;
-		case 3: script_pushint(st,(int)pd->pet.level); break;
-		case 4: script_pushint(st,(int)pd->pet.hungry); break;
-		case 5: script_pushint(st,(int)pd->pet.intimate); break;
-		default:
-			script_pushint(st,0);
-			break;
-	}
-	return 0;
-}
-
 BUILDIN_FUNC(callshop)
 {
 	TBL_PC *sd = NULL;
@@ -16556,7 +16571,7 @@ BUILDIN_FUNC(bg_get_data)
 //Checks NPC first, then if player is attached we check party
 int script_instancegetid(struct script_state* st)
 {
-	short instance_id = 0;	
+	short instance_id = 0;
 
 	struct npc_data *nd;
 	if( (nd = map_id2nd(st->oid)) && nd->instance_id > 0 )
@@ -16705,7 +16720,7 @@ BUILDIN_FUNC(instance_id)
 	}
 
 	script_pushint(st, instance_id);
-		
+
 	return 0;
 }
 
@@ -16741,6 +16756,38 @@ BUILDIN_FUNC(instance_warpall)
 		if( (pl_sd = p->data[i].sd) && map[pl_sd->bl.m].instance_id == instance_id ) pc_setpos(pl_sd,map_id2index(m),x,y,CLR_TELEPORT);
 
 	return 0;
+}
+
+/*==========================================
+ * Broadcasts to all maps inside an instance
+ *
+ * instance_announce <instance id>,"<text>",<flag>{,<fontColor>{,<fontType>{,<fontSize>{,<fontAlign>{,<fontY>}}}}};
+ * Using -1 for <instance id> will auto-detect the id.
+ *------------------------------------------*/
+BUILDIN_FUNC(instance_announce) {
+	int         instance_id = script_getnum(st,2);
+	const char *mes         = script_getstr(st,3);
+	int         flag        = script_getnum(st,4);
+	const char *fontColor   = script_hasdata(st,5) ? script_getstr(st,5) : NULL;
+	int         fontType    = script_hasdata(st,6) ? script_getnum(st,6) : 0x190; // default fontType (FW_NORMAL)
+	int         fontSize    = script_hasdata(st,7) ? script_getnum(st,7) : 12;    // default fontSize
+	int         fontAlign   = script_hasdata(st,8) ? script_getnum(st,8) : 0;     // default fontAlign
+	int         fontY       = script_hasdata(st,9) ? script_getnum(st,9) : 0;     // default fontY
+
+	int i;
+
+	if( instance_id == -1 ) {
+		instance_id = script_instancegetid(st);
+	}
+
+	if( !instance_id && &instance_data[instance_id] != NULL)
+		return true;
+
+	for( i = 0; i < instance_data[instance_id].cnt_map; i++ )
+		map_foreachinmap(buildin_announce_sub, instance_data[instance_id].map[i].m, BL_PC,
+						 mes, strlen(mes)+1, flag&0xf0, fontColor, fontType, fontSize, fontAlign, fontY);
+
+	return true;
 }
 
 /*==========================================
@@ -17328,45 +17375,8 @@ BUILDIN_FUNC(unbindatcmd) {
 	return 0;
 }
 
-BUILDIN_FUNC(useatcmd)
-{
-	TBL_PC dummy_sd;
-	TBL_PC* sd;
-	int fd;
-	const char* cmd;
-
-	cmd = script_getstr(st,2);
-
-	if( st->rid )
-	{
-		sd = script_rid2sd(st);
-		fd = sd->fd;
-	}
-	else
-	{ // Use a dummy character.
-		sd = &dummy_sd;
-		fd = 0;
-
-		memset(&dummy_sd, 0, sizeof(TBL_PC));
-		if( st->oid )
-		{
-			struct block_list* bl = map_id2bl(st->oid);
-			memcpy(&dummy_sd.bl, bl, sizeof(struct block_list));
-			if( bl->type == BL_NPC )
-				safestrncpy(dummy_sd.status.name, ((TBL_NPC*)bl)->name, NAME_LENGTH);
-		}
-	}
-
-	// compatibility with previous implementation (deprecated!)
-	if( cmd[0] != atcommand_symbol )
-	{
-		cmd += strlen(sd->status.name);
-		while( *cmd != atcommand_symbol && *cmd != 0 )
-			cmd++;
-	}
-
-	is_atcommand(fd, sd, cmd, 1);
-	return 0;
+BUILDIN_FUNC(useatcmd) {
+	return atcommand_sub(st,3);
 }
 
 BUILDIN_FUNC(checkre)
@@ -17411,13 +17421,6 @@ BUILDIN_FUNC(checkre)
 			#endif
 			break;
 		case 5:
-			#ifdef RENEWAL_EDP
-				script_pushint(st, 1);
-			#else
-				script_pushint(st, 0);
-			#endif
-			break;
-		case 6:
 			#ifdef RENEWAL_ASPD
 				script_pushint(st, 1);
 			#else
@@ -17677,7 +17680,7 @@ BUILDIN_FUNC(countbound)
 			j += sd->status.inventory[i].amount;
 		}
 	}
-	
+
 	script_pushint(st,j);
 	return 0;
 }
@@ -17890,6 +17893,65 @@ BUILDIN_FUNC(party_destroy)
 	}
 	else	//leader leave = party broken
 		script_pushint(st,party_leave(party->data[i].sd));
+	return 0;
+}
+
+/*==========================================
+* Checks if a player's client version meets a required version or date.
+* @type :
+*  0 - check by version number
+*  1 - check by date
+* @return true/false
+ *------------------------------------------*/
+BUILDIN_FUNC(is_clientver){
+	TBL_PC *sd = NULL;
+	int type = script_getnum(st,2);
+	int data = script_getnum(st,3);
+	int ret = 0;
+
+	if (script_hasdata(st,4))
+		sd = map_charid2sd(script_getnum(st,4));
+	else
+		sd = script_rid2sd(st);
+	if (sd == NULL) {
+		script_pushint(st,0);
+		return 0;
+	}
+
+	switch(type){
+		case 0:
+			ret = (sd->packet_ver >= data)?1:0;
+			break;
+		case 1:
+			ret = (sd->packet_ver >= date2version(data))?1:0;
+			break;
+	}
+	script_pushint(st,ret);
+	return 0;
+}
+
+/*==========================================
+* Retrieves server definitions.
+* (see @type in const.txt)
+ *------------------------------------------*/
+BUILDIN_FUNC(getserverdef){
+	int type = script_getnum(st,2);
+	switch(type){
+		case 0: script_pushint(st,PACKETVER); break;
+		case 1: script_pushint(st,MAX_LEVEL); break;
+		case 2: script_pushint(st,MAX_STORAGE); break;
+		case 3: script_pushint(st,MAX_INVENTORY); break;
+		case 4: script_pushint(st,MAX_ZENY); break;
+		case 5: script_pushint(st,MAX_PARTY); break;
+		case 6: script_pushint(st,MAX_GUILD); break;
+		case 7: script_pushint(st,MAX_GUILDLEVEL); break;
+		case 8: script_pushint(st,MAX_GUILD_STORAGE); break;
+		case 9: script_pushint(st,MAX_BG_MEMBERS); break;
+		default:
+			ShowWarning("buildin_getserverdef: unknown type %d.\n", type);
+			script_pushint(st,0);
+			break;
+	}
 	return 0;
 }
 
@@ -18212,8 +18274,6 @@ struct script_function buildin_func[] = {
 	// [zBuffer] List of dynamic var commands --->
 	BUILDIN_DEF(getd,"s"),
 	BUILDIN_DEF(setd,"sv"),
-	// <--- [zBuffer] List of dynamic var commands
-	BUILDIN_DEF(petstat,"i"),
 	BUILDIN_DEF(callshop,"s?"), // [Skotlex]
 	BUILDIN_DEF(npcshopitem,"sii*"), // [Lance]
 	BUILDIN_DEF(npcshopadditem,"sii*"),
@@ -18314,6 +18374,7 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(instance_npcname,"s?"),
 	BUILDIN_DEF(instance_mapname,"s?"),
 	BUILDIN_DEF(instance_warpall,"sii?"),
+	BUILDIN_DEF(instance_announce,"isi?????"),
 	BUILDIN_DEF(instance_check_party,"i???"),
 	/**
 	 * 3rd-related
@@ -18367,5 +18428,8 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(party_changeleader,"ii"),
 	BUILDIN_DEF(party_changeoption,"iii"),
 	BUILDIN_DEF(party_destroy,"i"),
+
+	BUILDIN_DEF(is_clientver,"ii?"),
+	BUILDIN_DEF(getserverdef,"i"),
 	{NULL,NULL,NULL},
 };
