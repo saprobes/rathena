@@ -32,7 +32,7 @@ CREATE TABLE `item_db` (
 # Items Database
 #
 # Structure of Database:
-#REPLACE INTO `item_db` VALUES ( ID,'AegisName','Name',Type,Buy,Sell,Weight,ATK,DEF,Range,Slots,Job,Class,Gender,Loc,wLV,eLV,Refineable,View,'Script','OnEquip_Script','OnUnequip_Script');
+#REPLACE INTO `item_db` VALUES ( ID,'AegisName','Name',Type,Buy,Sell,Weight,ATK,DEF,Range,Slots,Job,Upper,Gender,Loc,wLV,eLV,Refineable,View,'Script','OnEquip_Script','OnUnequip_Script');
 #
 # Healing Items
 #=============================================================
@@ -4715,7 +4715,7 @@ REPLACE INTO `item_db` VALUES (12132,'Red_Bag','Santa\'s Bag',2,0,NULL,200,NULL,
 REPLACE INTO `item_db` VALUES (12133,'Ice_Cream_','McDonald\'s Ice Cone',0,0,NULL,80,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,'if(gettime(5)!=MDiceCone) { set MDiceCone,gettime(5); percentheal 50,50; }',NULL,NULL);
 REPLACE INTO `item_db` VALUES (12134,'Red_Envelope','Red Envelope',2,1,NULL,10,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,'set Zeny,Zeny+rand(1000,10000);',NULL,NULL);
 REPLACE INTO `item_db` VALUES (12135,'Green_Ale','Green Ale',2,20,NULL,30,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,'percentheal 50,50; sc_start SC_Confusion,10000,0,1000,0;',NULL,NULL);
-REPLACE INTO `item_db` VALUES (12136,'Women\'s_Bundle','Women\'s Bundle',2,0,NULL,100,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,'getitem callfunc("F_Rand",558,529,2668,7518),1;',NULL,NULL);
+REPLACE INTO `item_db` VALUES (12136,'Women\'s_Bundle','Women\'s Bundle',2,0,NULL,100,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,'getitem callfunc("F_RandMes",4,558,529,2668,7518),1;',NULL,NULL);
 REPLACE INTO `item_db` VALUES (12137,'1st_Stage_Prize','First Stage Prize',2,0,NULL,0,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
 REPLACE INTO `item_db` VALUES (12138,'2nd_Stage_Prize','Second Stage Prize',2,0,NULL,0,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
 REPLACE INTO `item_db` VALUES (12139,'3rd_Stage_Prize','Third Stage Prize',2,0,NULL,0,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
@@ -5306,9 +5306,9 @@ REPLACE INTO `item_db` VALUES (12964,'Vesper_Core04_Box','Vesper Core 04 Box',18
 REPLACE INTO `item_db` VALUES (12965,'Emergency_Box1','Emergency Level 1 Scroll Box',18,20,NULL,10,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,'getitem 12968,1;',NULL,NULL);
 REPLACE INTO `item_db` VALUES (12966,'Emergency_Box2','Emergency Level 2 Scroll Box',18,20,NULL,10,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,'getitem 12969,1;',NULL,NULL);
 REPLACE INTO `item_db` VALUES (12967,'Emergency_Box3','Emergency Level 3 Scroll Box',18,20,NULL,10,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,'getitem 12970,1;',NULL,NULL);
-REPLACE INTO `item_db` VALUES (12968,'Emergency_Scroll1','Emergency Level 1 Scroll',11,2,NULL,10,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,'itemskill "GD_ITEMEMERGENCYCALL",1;',NULL,NULL);
-REPLACE INTO `item_db` VALUES (12969,'Emergency_Scroll2','Emergency Level 2 Scroll',11,2,NULL,10,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,'itemskill "GD_ITEMEMERGENCYCALL",2;',NULL,NULL);
-REPLACE INTO `item_db` VALUES (12970,'Emergency_Scroll3','Emergency Level 3 Scroll',11,2,NULL,10,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,'itemskill "GD_ITEMEMERGENCYCALL",3;',NULL,NULL);
+REPLACE INTO `item_db` VALUES (12968,'Emergency_Scroll1','Emergency Level 1 Scroll',11,2,NULL,10,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,'itemskill "GD_EMERGENCYCALL",1;',NULL,NULL);
+REPLACE INTO `item_db` VALUES (12969,'Emergency_Scroll2','Emergency Level 2 Scroll',11,2,NULL,10,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,'itemskill "GD_EMERGENCYCALL",1;',NULL,NULL);
+REPLACE INTO `item_db` VALUES (12970,'Emergency_Scroll3','Emergency Level 3 Scroll',11,2,NULL,10,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,'itemskill "GD_EMERGENCYCALL",1;',NULL,NULL);
 REPLACE INTO `item_db` VALUES (12971,'Teleport_Box1','Teleport Scroll Box 1',18,20,NULL,10,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,'getitem 12977,10;',NULL,NULL);
 REPLACE INTO `item_db` VALUES (12972,'Teleport_Box2','Teleport Scroll Box 2',18,20,NULL,10,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,'getitem 12978,10;',NULL,NULL);
 REPLACE INTO `item_db` VALUES (12973,'Teleport_Box3','Teleport Scroll Box 3',18,20,NULL,10,NULL,NULL,NULL,NULL,0xFFFFFFFF,7,2,NULL,NULL,NULL,NULL,NULL,'getitem 12979,10;',NULL,NULL);
