@@ -714,7 +714,7 @@ struct {
 // clientside display macros (values to the left/right of the "+")
 #ifdef RENEWAL
 	#define pc_leftside_atk(sd) ((sd)->battle_status.batk)
-	#define pc_rightside_atk(sd) ((sd)->battle_status.watk + (sd)->battle_status.watk2 + (sd)->battle_status.eatk)
+	#define pc_rightside_atk(sd) ((sd)->battle_status.rhw.atk + (sd)->battle_status.lhw.atk + (sd)->battle_status.rhw.atk2 + (sd)->battle_status.lhw.atk2 + (sd)->battle_status.eatk)
 	#define pc_leftside_def(sd) ((sd)->battle_status.def2)
 	#define pc_rightside_def(sd) ((sd)->battle_status.def)
 	#define pc_leftside_mdef(sd) ((sd)->battle_status.mdef2)
@@ -771,7 +771,6 @@ int pc_setinventorydata(struct map_session_data *sd);
 int pc_checkskill(struct map_session_data *sd,uint16 skill_id);
 int pc_checkallowskill(struct map_session_data *sd);
 int pc_checkequip(struct map_session_data *sd,int pos);
-int pc_checkequip2(struct map_session_data *sd,int nameid);
 
 int pc_calc_skilltree(struct map_session_data *sd);
 int pc_calc_skilltree_normalize_job(struct map_session_data *sd);
