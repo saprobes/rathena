@@ -4435,10 +4435,10 @@ lighthalzen,346,263,3	script	Elder#lhz	846,{
 				mes "you must search should";
 				mes "be clear to you now! Don't";
 				mes "forget these placemarks!";
-				viewpoint 1,104,282,1,0x99FF33;
-				viewpoint 1,105,282,2,0x99FF33;
-				viewpoint 1,104,281,3,0x99FF33;
-				viewpoint 1,105,281,4,0x99FF33;
+				viewpoint 1,104,282,1,0xFF99FF33;
+				viewpoint 1,105,282,2,0xFF99FF33;
+				viewpoint 1,104,281,3,0xFF99FF33;
+				viewpoint 1,105,281,4,0xFF99FF33;
 				next;
 				mes "[Elder]";
 				mes "Good luck, youngster.";
@@ -6396,7 +6396,8 @@ lighthalzen,179,170,4	script	Ordinary Man	98,{
 	}
 	else if(lhz_boss == 1)
 	{
-		if(rand(1,5) == 4)
+		set @weather,rand(1,5);
+		if(@weather == 4)
 		{
 			mes "[Ghalstein]";
 			mes "Hm? It's a little";
@@ -7947,7 +7948,8 @@ L_Mission:
 	}
 	else if(lhz_boss == 22)
 	{
-		if(rand(1,5) == 3)
+		set @read_pre,rand(1,5);
+		if(@read_pre == 3)
 		{
 			mes "[Karl]";
 			mes "Hm. After completely";
@@ -8170,7 +8172,8 @@ L_Mission:
 	}
 	else if(lhz_boss == 25)
 	{
-		if(rand(1,10) == 8)
+		set @talk_pre,rand(1,10);
+		if(@talk_pre == 8)
 		{
 			mes "[Karl]";
 			mes "Alright, I just";
