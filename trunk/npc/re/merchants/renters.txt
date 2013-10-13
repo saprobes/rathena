@@ -7,7 +7,6 @@
 //===== Compatible With: ===================================== 
 //= rAthena SVN
 //===== Description: ========================================= 
-//= [Official Conversion]
 //= Renewal-specific breeder NPCs.
 //===== Additional Comments: ================================= 
 //= 2.1 Moved some renters to a separate renewal file. [Daegaladh]
