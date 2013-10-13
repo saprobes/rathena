@@ -3,7 +3,7 @@
 //===== By: ==================================================
 //= Euphy
 //===== Current Version: =====================================
-//= 0.5
+//= 1.0
 //===== Compatible With: =====================================
 //= rAthena SVN
 //===== Description: =========================================
@@ -11,16 +11,16 @@
 //= Quest NPCs related to Port Malaya:
 //== Cautious Village, Port Malaya Daily Quests,
 //== Secret in the Woods, Bakonawa Extermination
+//== Nurse in Port Malaya, Pintados Festival
 //= Merchants:
 //== Traders, Upgrade Boss Equipment
-//= Not yet implemented:
-//== Nurse in Port Malaya, Pintados Festival
 //===== Additional Comments: =================================
 //= 0.1 Traders only. Adapted from Masao's conversion. [Euphy]
 //= 0.2 Added Tribe Blacksmith [DeadlySilence]
 //= 0.3 Added "Secret in the Woods" quest [DeadlySilence]
 //= 0.4 Added "Cautious Village" and subsequent quests [DeadlySilence]
 //= 0.5 Added "Bakonawa Extermination" quest. [Euphy]
+//= 1.0 Added "Nurse in Port Malaya" and "Pintados Festival" quests. [Euphy]
 //============================================================
 
 // Cautious Village & Daily Quests :: hi_malaya
@@ -152,9 +152,9 @@ malaya,266,76,3	script	Rodel the Guard#malaya	570,4,4,{
 				mes "[Rodel the Guard]";
 				mes "I think there will be more Jejeling hunts in the future. Please join us again next time.";
 //				if (IsPremiumPcCafe == 10)
-//					getitem 6497, 2; // Lesser_Agimat
+					getitem 6497, 2; // Lesser_Agimat
 //				else
-					getitem 6497, 1; // Lesser_Agimat
+//					getitem 6497, 1; // Lesser_Agimat
 				getexp 200000,200000;
 				erasequest 7404;
 				setquest 7405;
@@ -705,9 +705,9 @@ malaya,169,350,5	script	Imelda#malaya	475,{
 		erasequest 7379;
 		setquest 7375;
 //		if (IsPremiumPcCafe == 10)
-//			getitem 6497, 2; // Lesser_Agimat
+			getitem 6497, 2; // Lesser_Agimat
 //		else
-			getitem 6497, 1; // Lesser_Agimat
+//			getitem 6497, 1; // Lesser_Agimat
 		getexp 200000,200000;
 		if (rand(1))
 			$malayaNames$[0] = strcharinfo(0);
@@ -743,9 +743,9 @@ malaya,169,350,5	script	Imelda#malaya	475,{
 				erasequest 7380;
 				setquest 7381;
 //				if (IsPremiumPcCafe == 10)
-//					getitem 6497, 2; // Lesser_Agimat
+					getitem 6497, 2; // Lesser_Agimat
 //				else
-					getitem 6497, 1; // Lesser_Agimat
+//					getitem 6497, 1; // Lesser_Agimat
 				getexp 200000,200000;
 				close;
 			} else {
@@ -811,9 +811,9 @@ malaya,169,350,5	script	Imelda#malaya	475,{
 				erasequest 7374;
 				erasequest 7379;
 //				if (IsPremiumPcCafe == 10)
-//					getitem 6497, 2; // Lesser_Agimat
+					getitem 6497, 2; // Lesser_Agimat
 //				else
-					getitem 6497, 1; // Lesser_Agimat
+//					getitem 6497, 1; // Lesser_Agimat
 				getexp 200000,200000;
 				if (rand(1))
 					$malayaNames$[0] = strcharinfo(0);
@@ -1113,9 +1113,9 @@ malaya,181,353,5	script	Old Man Nardo#malaya	574,{
 					setquest 7378;
 					erasequest 7377;
 //					if (IsPremiumPcCafe == 10)
-//						getitem 6497, 2; // Lesser_Agimat
+						getitem 6497, 2; // Lesser_Agimat
 //					else
-						getitem 6497, 1; // Lesser_Agimat
+//						getitem 6497, 1; // Lesser_Agimat
 					getexp 200000,200000;
 					if (!rand(3))
 						$malayaNames$[2] = strcharinfo(0);
@@ -1727,9 +1727,9 @@ malaya,295,171,3	script	Collection Dealer Woeon	582,{
 					setquest 7392;
 					erasequest 7391;
 //					if (IsPremiumPcCafe == 10)
-//						getitem 6497, 2; // Lesser_Agimat
+						getitem 6497, 2; // Lesser_Agimat
 //					else
-						getitem 6497, 1; // Lesser_Agimat
+//						getitem 6497, 1; // Lesser_Agimat
 					getexp 200000,200000;
 					set .@memo_name, rand(1,3);
 					if (!rand(3))
@@ -1961,9 +1961,9 @@ malaya,119,217,3	script	Blacksmith Pandoi	538,{
 				setquest 7394;
 				erasequest 7393;
 //				if (IsPremiumPcCafe == 10)
-//					getitem 6497, 2; // Lesser_Agimat
+					getitem 6497, 2; // Lesser_Agimat
 //				else
-					getitem 6497, 1; // Lesser_Agimat
+//					getitem 6497, 1; // Lesser_Agimat
 				getexp 200000,200000;
 				if (!rand(3))
 					$malayaNames$[1] = strcharinfo(0);
@@ -2373,9 +2373,9 @@ malaya,326,68,2	script	Pedro the Sailor	100,{
 			erasequest 7399;
 			setquest 7401;
 //			if (IsPremiumPcCafe == 10)
-//				getitem 6497, 2; // Lesser_Agimat
+				getitem 6497, 2; // Lesser_Agimat
 //			else
-				getitem 6497, 1; // Lesser_Agimat
+//				getitem 6497, 1; // Lesser_Agimat
 			getexp 200000,200000;
 			if (!rand(3))
 				$malayaNames$[0] = strcharinfo(0);
@@ -2436,9 +2436,9 @@ malaya,326,68,2	script	Pedro the Sailor	100,{
 				setquest 7401;
 				erasequest 7403;
 //				if (IsPremiumPcCafe == 10)
-//					getitem 6497, 2; // Lesser_Agimat
+					getitem 6497, 2; // Lesser_Agimat
 //				else
-					getitem 6497, 1; // Lesser_Agimat
+//					getitem 6497, 1; // Lesser_Agimat
 				getexp 200000,200000;
 				if (!rand(3))
 					$malayaNames$[0] = strcharinfo(0);
@@ -2927,9 +2927,9 @@ ma_fild01,239,253,3	script	Dhong the Guard	570,{
 				setquest 7408;
 				erasequest 7407;
 //				if (IsPremiumPcCafe == 10)
-//					getitem 6497, 2; // Lesser_Agimat
+					getitem 6497, 2; // Lesser_Agimat
 //				else
-					getitem 6497, 1; // Lesser_Agimat
+//					getitem 6497, 1; // Lesser_Agimat
 				getexp 200000,200000;
 				if (!rand(0, 2))
 					$malayaNames$[2] = strcharinfo(0);
@@ -3023,9 +3023,9 @@ ma_fild01,200,190,3	script	Maries#malaya	579,{
 			setquest 7390;
 			erasequest 7389;
 //			if (IsPremiumPcCafe == 10)
-//				getitem 6497, 2; // Lesser_Agimat
+				getitem 6497, 2; // Lesser_Agimat
 //			else
-				getitem 6497, 1; // Lesser_Agimat
+//				getitem 6497, 1; // Lesser_Agimat
 			getexp 200000,200000;
 			if (!rand(3))
 				$malayaNames$[2] = strcharinfo(0);
@@ -3262,9 +3262,9 @@ ma_fild02,241,39,5	script	Good Capre Budidai	572,{
 					setquest 7410;
 					erasequest 7409;
 //					if (IsPremiumPcCafe == 10)
-//						getitem 6497, 2; // Lesser_Agimat
+						getitem 6497, 2; // Lesser_Agimat
 //					else
-						getitem 6497, 1; // Lesser_Agimat
+//						getitem 6497, 1; // Lesser_Agimat
 					getexp 200000,200000;
 					if (!rand(3))
 						$malayaNames$[1] = strcharinfo(0);
@@ -4235,9 +4235,9 @@ ma_in01,47,101,3	script	Totoy#buwaya	577,7,7,{
 		close;
 	} else if (malaya_buwaya == 13) {
 //		if (IsPremiumPcCafe == 10)
-//			.@amount = 10;
+			.@amount = 10;
 //		else
-			.@amount = 5;
+//			.@amount = 5;
 		if (checkweight(1201,1) == 0 || MaxWeight - Weight < 2000) {
 			mes "- Wait!! -";
 			mes "- You have too many items on you. -";
@@ -4688,9 +4688,9 @@ malaya,290,340,3	script	Guard Leader#buwaya	571,{
 			erasequest 2281;
 		} else if (.@hunting == 2) {
 //			if (IsPremiumPcCafe == 10)
-//				.@amount = 10;
+				.@amount = 10;
 //			else
-				.@amount = 5;
+//				.@amount = 5;
 			mes "[Guard Leader]";
 			mes "Can't believe you really got rid of Buwaya!";
 			mes "You aren't just any ordinary youth, aren't you? People of Port Malaya can now sleep at night.";
@@ -5220,1752 +5220,10 @@ malaya,285,332,4	script	Old Legend Teller#bako1	574,{
 			mes "Please get rid of this monster for us.";
 			erasequest 1179;
 			set malaya_bakona1,7;
-			getitem 6499,5; //Ancient_Grudge
-			getexp 500000,200000;
-			close;
-		}
-		close;
-	} else if (malaya_bakona1 == 7) {
-		if (malaya_bakona2 < 15) {
-			mes "[Old Legend Teller]";
-			mes "If you don't mind,";
-			mes "could you lend a hand to the Village Chief?";
-			mes "Nobody cares for each other anymore";
-			mes "because of Bakonawa...";
-			next;
-		}
-		mes "[Old Legend Teller]";
-		mes "The legend that";
-		mes "we believed for a hundred years,";
-		mes "all lies....";
-		mes "Please get rid of this monster for us.";
-		close;
-	}
-}
-
-ma_fild02,40,240,4	script	Malaya Immigrant#bako1	578,{
-	if (malaya_bakona1 < 3) {
-		mes "[Malaya Immigrant]";
-		mes "You must have a brave heart";
-		mes "to come to such a remote place.";
-		mes "How is Port Malaya these days?";
-		mes "I heard the monster that lives at the lake, Baknoawa";
-		mes "is threatening the villagers.";
-		mes "I am in the dark about what is going on because I'm here all the time.";
-		close;
-	} else if (malaya_bakona1 == 3) {
-		mes "[Malaya Immigrant]";
-		mes "You must have a brave heart";
-		mes "to come to such a remote place.";
-		mes "How is Port Malaya these days?";
-		mes "I heard the monster that lives at the lake, Baknoawa";
-		mes "is threatening the villagers.";
-		mes "I am in the dark about what is going on because I'm here all the time.";
-		next;
-		mes "[Malaya Immigrant]";
-		mes "Are you the traveling merchant who used to sell Wooden Doll, right?";
-		mes "I don't know about any traveling merchant, but by Wooden Doll";
-		mes "(going through things) do you mean this?";
-		mes "I don't know about the specifics, but";
-		mes "I think it's related to what I heard long time ago.";
-		next;
-		switch(select("What are you doing here?:Do you know about this Slate Piece?:Please tell me the story.:Who is the traveling merchant?")) {
-		case 1:
-			mes "[Malaya Immigrant]";
-			mes "I liked the environment here";
-			mes "so I decided to stay and live.";
-			mes "There is no obligation here.";
-			mes "To me, that's as good as heaven.";
-			close;
-		case 2:
-			mes "[Malaya Immigrant]";
-			mes "It is a very old Slate Piece.";
-			mes "I'm sorry but I never seen this before.";
-			mes "There is some kind of writing here";
-			mes "but I can't make it out.";
-			close;
-		case 3:
-			mes "[Malaya Immigrant]";
-			mes "It's a simple story.";
-			mes "^0000FFA wounded man who I had never seen before^000000";
-			mes "^0000FFcame to my house and asked for help.^000000";
-			mes "^0000FFOnce healed, he made a Wooden Doll^000000";
-			next;
-			mes "[Malaya Immigrant]";
-			mes "^0000FFthat is suppose to chase away evil spirits ^000000";
-			mes "^0000FFas a token of gratitude,^000000";
-			mes "^0000FFand left for Baryo Mahiwaga.^000000";
-			next;
-			select("He left for Baryo Mahiwaga?");
-			mes "[Malaya Immigrant]";
-			mes "According to what I've heard";
-			mes "that's correct. But the story has been";
-			mes "passed on from mouth to mouth for a";
-			mes "long time. I can't be sure.";
-			next;
-			mes "From Baryo Mahiwaga village, using keyword ^0000FFMalaya^000000,";
-			mes "or ^0000FFBakonawa^000000,";
-			mes "maybe I could find out the identity and whereabouts";
-			mes "of the traveling merchant.";
-			erasequest 1176;
-			setquest 1177;
-			set malaya_bakona1,4;
-			close;
-		case 4:
-			mes "[Malaya Immigrant]";
-			mes "Well, there is a lack of information";
-			mes "so I can't make say for sure but";
-			mes "I'm skeptical if he was in fact even a merchant.";
-			mes "Coming to a town with a";
-			mes "critical wound seems too suspicious...";
-			next;
-			mes "[Malaya Immigrant]";
-			mes "And craving a Wooden Doll";
-			mes "could be seen to have some kind of ritualistic meaning.";
-			mes "Protecting one from some evil force...";
-			mes "that kind of thing.";
-			next;
-			mes "Identity of the traveling merchant...";
-			mes "Looks like there is one more";
-			mes "mystery to be solved.";
-			mes "I suppose it will all come to light";
-			mes "soon enough.";
-			close;
-		}
-	} else {
-		mes "[Malaya Immigrant]";
-		mes "I will tell you again slowly";
-		mes "the story that has been passed on.";
-		mes "Listen carefully and repeat...";
-		mes "no, I mean, you don't have repeat it.";
-		next;
-		mes "[Orally Transmitted Story]";
-		mes "^0000FFA wounded man who I had never seen before^000000";
-		mes "^0000FFcame to my house and asked for help.^000000";
-		mes "^0000FFOnce healed, as a token of gratitude, he made a Wooden Doll^000000";
-		mes "^0000FFthat is suppose to chase away evil sprits.^000000";
-		mes "^0000FFThen he left for Baryo Mahiwaga.^000000";
-		next;
-		mes "From Baryo Mahiwaga village, using keyword ^0000FFMalaya^000000,";
-		mes "or ^0000FFBakonawa^000000,";
-		mes "maybe I could find out the identity and whereabouts";
-		mes "of the traveling merchant.";
-		close;
-	}
-}
-
-ma_fild01,165,237,4	script	Malaya Immigrant#bako2	582,{
-	if (malaya_bakona1 < 4) {
-		mes "[Malaya Immigrant]";
-		mes "Have you been to";
-		mes "Port Malaya?";
-		mes "I am curious to know";
-		mes "what is going on there";
-		mes "but I can't travel because there are monsters everywhere.";
-		close;
-	} else if (malaya_bakona1 == 4) {
-		mes "[Malaya Immigrant]";
-		mes "Wooden Doll?";
-		mes "There is a tale related to that,";
-		mes "but you didn't come all the way";
-		mes "just to hear some folktale right?";
-		next;
-		switch(select("I just came here to take a break.:Tell me the tale.")) {
-		case 1:
-			mes "[Malaya Immigrant]";
-			mes "You must have a lot of free time on your hands!";
-			mes "I'm no travel agent";
-			mes "so go bother someone else!";
-			close;
-		case 2:
-			mes "[Malaya Immigrant]";
-			mes "It's baloney";
-			mes "so I don't really remember the details.";
-			next;
-			mes "[Summary of the folktale]";
-			mes "Long time ago, 5 swordsmen fought";
-			mes "against the monster Bakonawa.";
-			mes "Four died and one left a critical wound";
-			mes "to the monster but in return";
-			mes "sustained a serious wound in his leg himself.";
-			next;
-			mes "[Summary of the folktale]";
-			mes "After escaping the scene, Bakonawa transformed into a human";
-			mes "and secretly pursued the swordsman.";
-			mes "The swordsman made a Wooden Doll that";
-			mes "can keep the monster from approaching.";
-			next;
-			mes "[Malaya Immigrant]";
-			mes "This is the end of story.";
-			mes "Without any conclusion...";
-			next;
-			mes "[Malaya Immigrant]";
-			mes "I heard there is a record that the swordsman left";
-			mes "but I don't understand why";
-			mes "he would leave it here in such a distant place";
-			mes "here instead of Malaya.";
-			next;
-			select("I wish to see the record.");
-			mes "[Malaya Immigrant]";
-			mes "The record is engraved on the stone ahead.";
-			mes "However, the stone is so badly";
-			mes "damaged and some pieces fell out that";
-			mes "it will be hard to make the words out.";
-			next;
-			mes "Investigate the stone ahead.";
-			erasequest 1177;
-			setquest 1178;
-			set malaya_bakona1,5;
-			close;
-		}
-	} else if (malaya_bakona1 == 5) {
-		mes "[Malaya Immigrant]";
-		mes "The stone ahead holds a record that";
-		mes "a swordsman from a long time ago left.";
-		next;
-		switch(select("Where did this swordsman go after?:Tell me the tale again.")) {
-		case 1:
-			mes "[Malaya Immigrant]";
-			mes "Well, there is no story after that so";
-			mes "I guess nobody would know what happened.";
-			close;
-		case 2:
-			mes "[Summary of the folktale]";
-			mes "Long time ago, 5 swordsmen fought";
-			mes "against the monster Bakonawa.";
-			mes "Four died and one left a critical wound";
-			mes "on the monster but in return";
-			mes "sustained a serious wound in his leg himself.";
-			next;
-			mes "[Summary of the folktale]";
-			mes "After escaping the scene, Bakonawa transformed into a human";
-			mes "and secretly pursued the swordsman.";
-			mes "The swordsman made a Wooden Doll that";
-			mes "can keep the monster from approaching.";
-			close;
-		}
-	} else {
-		mes "[Malaya Immigrant]";
-		mes "I suppose you wish to hear the story again right?";
-		mes "No problem! I can tell this story forever!";
-		next;
-		mes "[Summary of the folktale]";
-		mes "Long time ago, 5 swordsmen fought";
-		mes "against the monster Bakonawa.";
-		mes "Four died and one left a critical wound";
-		mes "on the monster but in return";
-		mes "sustained a serious wound in his leg himself.";
-		next;
-		mes "[Summary of the folktale]";
-		mes "After escaping the scene, Bakonawa transformed into a human";
-		mes "and secretly pursued the swordsman.";
-		mes "The swordsman made a Wooden Doll that";
-		mes "can keep the monster from approaching.";
-		close;
-	}
-}
-
-ma_fild01,171,235,0	script	#bako1	139,2,2,{
-	end;
-OnTouch:
-	if (malaya_bakona1 == 5) {
-		mes "The damage is so severe";
-		mes "that the record is unidentifiable.";
-		mes "When inserting the Slate Piece";
-		mes "to a hole on the wall, it fits perfectly like a piece of puzzle.";
-		mes "The letters are not clear but you can still read it.";
-		next;
-		callsub L_Record;
-		set malaya_bakona1,6;
-		erasequest 1178;
-		setquest 1179;
-		close;
-	} else if (malaya_bakona1 == 6) {
-		mes "Here is the record left by a swordsman";
-		mes "from a hundred years ago.";
-		next;
-		switch(select("I don't need to read it.:Read the record again.")) {
-		case 1:
-			mes "I remember the story clearly.";
-			mes "Let's tell the ^0000FFOld Legend Teller^000000 in Malaya";
-			mes "about what I discovered.";
-			close;
-		case 2:
-			callsub L_Record;
-			close;
-		}
-	}
-	end;
-
-L_Record:
-	mes "[Record left by a swordsman from a hundred years ago]";
-	mes "After fighting with Bakonawa, I sustained a critical wound";
-	mes "and came to this place.";
-	mes "Only thing I can do is";
-	mes "Place the Wooden Doll in one place";
-	mes "the monster would come.";
-	next;
-	mes "[Record left by a swordsman from a hundred years ago]";
-	mes "^0000FFSometimes transforming into a child, or even a old lady,^000000";
-	mes "I know that ^0000FFBakonawa^000000has been";
-	mes "chasing after me in secret to kill me.";
-	mes "Because of that critical injury the monster * sustained,";
-	next;
-	mes "[Record left by a swordsman from a hundred years ago]";
-	mes "** it will need nearly a hundred years";
-	mes "for Bakonawa to absorb the power of the moon";
-	mes "to fully recover its power.";
-	mes "Beware of the day the moon disappears.";
-	next;
-	mes "[Record left by a swordsman from a hundred years ago]";
-	mes "The day will come when Bakonawa";
-	mes "will run amuck.";
-	mes "But it will take nearly a hundred years to fully recover its power.";
-	mes "There will always be someone better than me";
-	mes "to defeat the vile creature.";
-	next;
-	mes "[Record left by a swordsman from a hundred years ago]";
-	mes "I will place my trust in the one that will replace me ages from now...";
-	next;
-	mes "How could this be...";
-	mes "Lie told by Bakonawa when it turned into an old lady";
-	mes "in order to take revenge on the swordsman";
-	mes "turned into a legend after all these years.";
-	next;
-	mes "I found out that Bakonawa";
-	mes "is nothing but a blood thirsty monster.";
-	mes "I must tell what I know to the ^0000FFOld Legend Teller^000000";
-	mes "in Malaya.";
-	return;
-}
-
-malaya,304,100,4	script	Old Man's Granddaughter	576,{
-	if (malaya_hi < 20) {
-		mes "- He seems cautious of you. -";
-		close;
-	}
-	if (malaya_bakona1 == 0) {
-		mes "[Old Man's Granddaughter]";
-		mes "Grandpa believes";
-		mes "Bakonawa can";
-		mes "turn good.";
-		mes "Do you think it's possible?";
-		close;
-	} else if (malaya_bakona1 == 1) {
-		mes "[Old Man's Granddaughter]";
-		mes "^FF0000Slate Piece^000000?";
-		mes "Why would you need something";
-		mes "that is barely recognizable?";
-		mes "I'll give it to you if you want.";
-		next;
-		mes "Let's go to the";
-		mes "^FF0000Old Legend Teller^000000";
-		mes "now that I have the Slate Piece.";
-		erasequest 1174;
-		setquest 1175;
-		set malaya_bakona1,2;
-		close;
-	} else if (malaya_bakona1 == 2) {
-		mes "[Old Man's Granddaughter]";
-		mes "Please take this Slate Piece";
-		mes "and deliver it to my grandpa.";
-		next;
-		mes "Let's go to the";
-		mes "^FF0000Old Legend Teller^000000";
-		mes "now that I have the Slate Piece.";
-		close;
-	} else {
-		mes "[Old Man's Granddaughter]";
-		mes "Because of Bakonawa,";
-		mes "the village is always unpeaceful.";
-		close;
-	}
-}
-
-malaya,286,269,4	script	Angry Man#bako2	578,{
-	if (malaya_hi < 20) {
-		mes "- He seems cautious of you. -";
-		close;
-	}
-	mes "[Angry Man]";
-	mes "Calm Bakonawa?";
-	mes "Do you know how many people have been";
-	mes "sacrificed by Bakonawa?";
-	mes "I will fight on my own if I have to!";
-	close;
-}
-
-malaya,276,269,5	script	Calm Woman#bako2	579,{
-	if (malaya_hi < 20) {
-		mes "- He seems cautious of you. -";
-		close;
-	}
-	mes "[Calm Little Girl]";
-	mes "It is too dangerous to fight against";
-	mes "Bakonawa. There is a chance";
-	mes "it will get more angry and put children and";
-	mes "elders in danger.";
-	close;
-}
-
-malaya,276,262,4	script	Angry Boy#bako2	577,{
-	if (malaya_hi < 20) {
-		mes "- He seems cautious of you. -";
-		close;
-	}
-	mes "[Angry Boy]";
-	mes "I lost my father and my friend";
-	mes "to that Bakonawa.";
-	mes "I will surely revenge them!";
-	close;
-}
-
-malaya,283,265,4	script	Village Chief#bako2	580,{
-	if (checkweight(1301,3) == 0) {
-		mes "You cannot start the conversation. You are carrying too many items. -";
-		close;
-	}
-	if (BaseLevel < 120) {
-		mes "[Village Chief]";
-		mes "I'm desperate for a helping hand";
-		mes "but you look";
-		mes "too weak and fragile.";
-		next;
-		mes "[Village Chief]";
-		mes "Please come back when";
-		mes "you grow strong enough";
-		mes "to match Incubus.";
-		close;
-	}
-	if (malaya_hi < 20) {
-		mes "- He seems cautious of you. -";
-		close;
-	}
-	if (malaya_bakona2 == 0) {
-		if (malaya_bakona1 <= 5) {
-			mes "[Village Chief]";
-			mes "I'm don't know what's the right decision.";
-			mes "To fight against Bakonawa,";
-			mes "or calm it by offering it a sacrificial gift.";
-		} else {
-			mes "[Village Chief]";
-			mes "The legend was all a lie?";
-			mes "It seems all the villagers up until now";
-			mes "were manipulated by that vile monster.";
-			next;
-			mes "[Village Chief]";
-		}
-		mes "Recently, there have been more people that have";
-		mes "been harmed by Bakonawa.";
-		next;
-		mes "[Village Chief]";
-		mes "There are some missing villagers";
-		mes "but I can't find out if";
-		mes "they are simply missing or if they have been";
-		mes "killed by Bakonawa.";
-		next;
-		mes "[Village Chief]";
-		mes "I heard that the belongings of the missing people";
-		mes "are being found at Baryo Mahiwaga Field.";
-		mes "Please go there to find ^0000FFLost Belongings^000000";
-		mes "and give them to the families of";
-		mes "the missing people";
-		mes "in whatever amount they want.";
-		next;
-		mes "[Village Chief]";
-		mes "^0000FFLost Belongings^000000";
-		mes "are said to be carried by";
-		mes "^FF0000Tiucknuc^000000 that roams Baryo Mahiwaga.";
-		next;
-		switch(select("Do it yourself.:I'm on my way.")) {
-		case 1:
-			mes "[Village Chief]";
-			mes "You give me a lot to think about.";
-			mes "Leave the village at once.";
-			close;
-		case 2:
-			mes "[Village Chief]";
-			mes "Let's start then. First,";
-			mes "retrieve two ^FF0000Lost Belongings^000000 from Tiucknuc";
-			mes "and take them to ^0000FFMissing Person's Father^000000";
-			mes "for me.";
-			set malaya_bakona2,1;
-			setquest 1180;
-			close;
-		}
-	} else if (malaya_bakona2 == 1) {
-		mes "[Village Chief]";
-		mes "From Tiucknuc that roams Baryo Mahiwaga Field,";
-		mes "retrieve two ^FF0000Lost Belongings^000000";
-		mes "and deliver them to ^0000FFMissing Person's Father^000000";
-		mes "for me.";
-		close;
-	} else if (malaya_bakona2 == 2) {
-		mes "[Village Chief]";
-		mes "Retrieve Seven ^FF0000Lost Belongings^000000 from Tiucknuc";
-		mes "and deliver them to ^0000FFMissing Person's Friend^000000";
-		mes "for me.";
-		close;
-	} else if (malaya_bakona2 == 3) {
-		mes "[Village Chief]";
-		mes "Retrieve three ^FF0000Lost Belongings^000000 from Tiucknuc";
-		mes "and deliver them to ^0000FFMissing Person's Son^000000";
-		mes "for me.";
-		close;
-	} else if (malaya_bakona2 == 4) {
-		mes "[Village Chief]";
-		mes "Retrieve five ^FF0000Lost Belongings^000000 from Tiucknuc";
-		mes "and deliver them to ^0000FFMissing Person's Mother^000000";
-		mes "for me.";
-		close;
-	} else if (malaya_bakona2 == 5) {
-		mes "[Village Chief]";
-		mes "So it's clear that all the missing people";
-		mes "have been killed by Bakonawa.";
-		next;
-		mes "[Villagers]";
-		mes "Kill Bakonawa!";
-		mes "Let's get rid of the monster ourselves!";
-		next;
-		mes "[Village Chief]";
-		mes "It seems we would no longer be able to";
-		mes "hold rituals to calm Bakonawa.";
-		next;
-		mes "[Village Chief]";
-		mes "Young Fortune Teller is looking for your help";
-		mes "saying that the energy of the moon seems strange.";
-		erasequest 1184;
-		setquest 1185;
-		set malaya_bakona2,6;
-		getitem 12700,7; //Insideout_Shirt
-		close;
-	} else if (malaya_bakona2 == 6) {
-		mes "[Village Chief]";
-		mes "Young Fortune Teller is looking for your help";
-		mes "saying that the energy of the moon seems strange.";
-		close;
-	} else if (malaya_bakona2 == 7) {
-		mes "[Village Chief]";
-		mes "I know that terrible things happened";
-		mes "long time ago when the moon disappeared.";
-		mes "I hope the moon recovers its strength";
-		mes "with your devoted effort.";
-		close;
-	} else if (malaya_bakona2 == 8) {
-		mes "[Village Chief]";
-		mes "I will tell the";
-		mes "Young Fortune Teller to help you.";
-		mes "But before that, there is";
-		mes "something you must do immediately.";
-		next;
-		mes "[Village Chief]";
-		mes "We never know when Bakonawa will attack";
-		mes "the village so we must set traps near the village";
-		mes "entrance and near the cave.";
-		next;
-		mes "[Village Chief]";
-		mes "I would be grateful if you help us.";
-		mes "I have dispatched workers";
-		mes "near where traps will be set up,";
-		mes "so you just have to visit about 5 places.";
-		next;
-		switch(select("Sounds like too much work.:Sure thing.")) {
-		case 1:
-			mes "[Village Chief]";
-			mes "This operation means life and death to us";
-			mes "yet you refuse it easily as if";
-			mes "it was some kind of a chore...";
-			next;
-			mes "[Village Chief]";
-			mes "What a hero!";
-			close;
-		case 2:
-			mes "[Village Chief]";
-			mes "The first trap will be set up at";
-			mes "Baryo Mahiwaga Field";
-			mes "near the village entrance. ^0000FFGruffy Worker^000000";
-			mes "will be waiting for you. He will be very helpful.";
-			erasequest 1187;
-			setquest 1188;
-			set malaya_bakona2,9;
-			close;
-		}
-	} else if (malaya_bakona2 == 9) {
-		mes "[Village Chief]";
-		mes "The first trap will be set up at";
-		mes "Baryo Mahiwaga Field";
-		mes "near the village entrance. ^0000FFGruffy Worker^000000";
-		mes "will be waiting for you. He will be very helpful.";
-		close;
-	} else if (malaya_bakona2 == 10) {
-		mes "[Village Chief]";
-		mes "The second trap will be set up";
-		mes "near a place where it connects from";
-		mes "Baryo Mahiwaga Field to Bakonawa Lake.";
-		mes "^0000FFGrumpy Worker^000000";
-		mes "will be waiting for you. He will be very helpful.";
-		close;
-	} else if (malaya_bakona2 == 11) {
-		mes "[Village Chief]";
-		mes "The third trap will be set up";
-		mes "near Bakonawa Lake Entrance.";
-		mes "^0000FFCowardly Worker^000000";
-		mes "will be waiting for you. He will be very helpful.";
-		close;
-	} else if (malaya_bakona2 == 12) {
-		mes "[Village Chief]";
-		mes "The fourth trap will be set up";
-		mes "near the entrance of Bakonawa Lake as well.";
-		mes "^0000FFGloomy Worker^000000 will be waiting for you.";
-		mes "He will be very helpful.";
-		close;
-	} else if (malaya_bakona2 == 13) {
-		mes "[Village Chief]";
-		mes "The fifth trap will be set up";
-		mes "near the entrance of Bakonawa Lake too.";
-		mes "^0000FFSentimental Worker^000000";
-		mes "will be waiting for you. He will be very helpful.";
-		close;
-	} else if (malaya_bakona2 == 14) {
-		mes "[Village Chief]";
-		mes "It looks like the traps are all set up.";
-		mes "We just finished our village meeting on";
-		mes "what to do about Bakonawa.";
-		next;
-		mes "[Village Chief]";
-		mes "We have concluded that";
-		mes "we will fight against Bakonawa.";
-		mes "Please help us by";
-		mes "attacking his lair.";
-		erasequest 1193;
-		set malaya_bakona2,15;
-		getexp 1000000,600000;
-		getitem 6497,7; //Lesser_Agimat
-		close;
-	} else if (malaya_bakona2 == 15) {
-		mes "[Village Chief]";
-		if (malaya_bakona1 < 7) {
-			mes "Would you visit ^0000FFOld Legend Teller^000000";
-			mes "when you have a chance?";
-			mes "I think you would be able to help him.";
-			next;
-			mes "[Village Chief]";
-			mes "Thank you.";
-		}
-		mes "Please think of the countless victims";
-		mes "and defeat Bakonawa";
-		mes "for their sake.";
-		close;
-	}
-}
-
-malaya,269,267,5	script	Missing Person's Father	582,{
-	if (malaya_hi < 20) {
-		mes "- He seems cautious of you. -";
-		close;
-	}
-	if (malaya_bakona2 == 0) {
-		mes "[Missing Person's Father]";
-		mes "Please find our";
-		mes "child.";
-		mes "Bakonawa would have not harmed our child.";
-		mes "He must be around here somewhere.";
-		close;
-	} else if (malaya_bakona2 == 1) {
-		if (countitem(6501) < 2) {
-			mes "[Missing Person's Father]";
-			mes "You are looking for two of his ^FF0000Lost Belongings^000000?";
-			mes "Are you confident that";
-			mes "he already died?";
-			close;
-		}
-		mes "[Missing Person's Father]";
-		mes "This... is our child's ^FF0000Lost Belongings^000000";
-		mes "for sure.";
-		mes "The monster got to him after all....";
-		next;
-		mes "The man is unable to continue as he tries to hold back his tears.";
-		mes "Let's continue to find the lost belongings of the missing people.";
-		mes "Let's retrieve them from Tiucknuc that roams Baryo Mahiwaga Field,";
-		mes "seven ^FF0000Lost Belongings^000000";
-		mes "and deliver them to ^0000FFMissing Person's Friend^000000.";
-		delitem 6501,2; //Lost_Belongings
-		erasequest 1180;
-		setquest 1181;
-		set malaya_bakona2,2;
-		close;
-	} else if (malaya_bakona2 == 2) {
-		mes "[Missing Person's Father]";
-		mes "My baby... my poor baby...";
-		next;
-		mes "The man is unable to continue as he tries to hold back his tears.";
-		mes "Let's continue to find the lost belongings of the missing people.";
-		mes "Retrieve seven ^FF0000Lost Belongings^000000 from Tiucknuc";
-		mes "and deliver them to ^0000FFMissing Person's Friend^000000.";
-		close;
-	} else {
-		mes "[Missing Person's Father]";
-		mes "My baby... my poor baby...";
-		close;
-	}
-}
-
-malaya,265,274,5	script	Missing Person's Friend	577,{
-	if (malaya_hi < 20) {
-		mes "- He seems cautious of you. -";
-		close;
-	}
-	if (malaya_bakona2 < 2) {
-		mes "[Missing Person's Friend]";
-		mes "Please find";
-		mes "my friend.";
-		mes "We were playing ball together";
-		mes "and suddenly my friend disappeared.";
-		next;
-		mes "[Missing Person's Friend]";
-		mes "I'm sure he is alive and well";
-		mes "somewhere.";
-		close;
-	} else if (malaya_bakona2 == 2) {
-		if (countitem(6501) < 7) {
-			mes "[Missing Person's Friend]";
-			mes "You are looking for seven ^FF0000Lost Belongings^000000";
-			mes "of my friend?";
-			mes "My friend is not dead!";
-			close;
-		}
-		mes "[Missing Person's Friend]";
-		mes "These are marbles and toys I gave him...";
-		mes "These are clearly ^FF0000Lost Belongings^000000";
-		mes "of my friend... Where is my friend?";
-		mes "Bring him here, bring him here now!";
-		callsub L_Quest;
-		delitem 6501,7; //Lost_Belongings
-		erasequest 1181;
-		setquest 1182;
-		set malaya_bakona2,3;
-		close;
-	} else {
-		mes "[Missing Person's Friend]";
-		mes "Bring back my friend!";
-		mes "Bring back my friend now!";
-		mes "My friend is alive,";
-		mes "It's all a lie, sob~";
-		if (malaya_bakona2 == 3)
-			callsub L_Quest;
-		close;
-	}
-
-L_Quest:
-	next;
-	mes "Leaving behind the crying boy,";
-	mes "let's continue to find the lost belongings of the missing people.";
-	mes "Retrieve three ^FF0000Lost Belongings^000000 from Tiucknuc";
-	mes "and deliver them to ^0000FFMissing Person's Son^000000.";
-	return;
-}
-
-malaya,270,278,4	script	Missing Person's Son	578,{
-	if (malaya_hi < 20) {
-		mes "- He seems cautious of you. -";
-		close;
-	}
-	if (malaya_bakona2 < 3) {
-		mes "[Missing Person's Son]";
-		mes "Bakonawa has hurt my father?";
-		mes "I can't believe this.";
-		mes "Please find my father!";
-		close;
-	} else if (malaya_bakona2 == 3) {
-		if (countitem(6501) < 3) {
-			mes "[Missing Person's Son]";
-			mes "You are looking for three ^FF0000Lost Belongings^000000";
-			mes "of my father? Why lost belongings and not my father?";
-			mes "No, that can't be it. He is alive somewhere!";
-			close;
-		}
-		mes "[Missing Person's Son]";
-		mes "These are clearly his clothes and shoes...";
-		mes "These are ^FF0000Lost Belongings^000000 of my father.";
-		mes "Oh dear lord... father!";
-		callsub L_Quest;
-		delitem 6501,3; //Lost_Belongings
-		erasequest 1182;
-		setquest 1183;
-		set malaya_bakona2,4;
-		close;
-	} else {
-		mes "[Missing Person's Son]";
-		mes "Why did such a thing happen....";
-		if (malaya_bakona2 == 4)
-			callsub L_Quest;
-		close;
-	}
-
-L_Quest:
-	next;
-	mes "Man crying in agony.";
-	mes "Let's continue to find the lost belongings of the missing people.";
-	mes "Retrieve five ^FF0000Lost Belongings^000000 from Tiucknuc";
-	mes "and deliver them to ^0000FFMissing Person's Mother^000000.";
-	return;
-}
-
-malaya,265,284,4	script	Missing Person's Mother	579,{
-	if (malaya_hi < 20) {
-		mes "- He seems cautious of you. -";
-		close;
-	}
-	if (malaya_bakona2 < 4) {
-		mes "[Missing Person's Mother]";
-		mes "Please find my child.";
-		mes "I sent her out to do a chore";
-		mes "and she still isn't back.";
-		close;
-	} else if (malaya_bakona2 == 4) {
-		if (countitem(6501) < 5) {
-			mes "[Missing Person's Mother]";
-			mes "You are looking for five ^FF0000Lost Belongings^000000 of my child?";
-			mes "What does this mean?";
-			mes "Are you saying my child is dead?";
-			close;
-		}
-		mes "[Missing Person's Mother]";
-		mes "This is my child's hair comb.";
-		mes "Why do you have five ^FF0000Lost Belongings^000000 of my child?";
-		mes "Why...? She's... dead?";
-		next;
-		mes "[Missing Person's Mother]";
-		mes "No wait... I think I hear her voice.";
-		mes "She's going to be home soon. I should go home now.";
-		mes "I should prepare a dinner for her. She must be starving.";
-		mes "Ha ha...";
-		next;
-		mes "A mother that has gone mad...";
-		mes "Now that I finished finding the missing people,";
-		mes "I should report back to the Village Chief.";
-		delitem 6501,5; //Lost_Belongings
-		erasequest 1183;
-		setquest 1184;
-		set malaya_bakona2,5;
-		close;
-	} else {
-		mes "[Missing Person's Mother]";
-		mes "Ha ha ha... I can hear my child's voice,";
-		mes "just listen closely.";
-		mes "Can't you hear her calling her mother?";
-		mes "Ha ha ha...";
-		next;
-		mes "A mother that has gone mad...";
-		if (malaya_bakona2 == 5) {
-			mes "Now that I finished finding the missing people,";
-			mes "I should report back to the Village Chief.";
-		}
-		close;
-	}
-}
-
-malaya,289,364,4	script	Young Fortune Teller	583,{
-	if (checkweight(1301,3) == 0) {
-		mes "You cannot start the conversation. You are carrying too many items. -";
-		close;
-	}
-	if (malaya_hi < 20) {
-		mes "- He seems cautious of you. -";
-		close;
-	}
-	if (malaya_bakona2 < 6) {
-		mes "[Young Fortune Teller]";
-		mes "The energy of the moon grew weak.";
-		mes "The reason there are more monsters,";
-		mes "and the reason there are more victims,";
-		mes "is all because of this.";
-		close;
-	} else if (malaya_bakona2 == 6) {
-		mes "[Young Fortune Teller]";
-		mes "The energy of the moon grew weak for a couple of days.";
-		mes "The reason there are more monsters,";
-		mes "and the reason there are more victims, is all because of this.";
-		next;
-		mes "[Young Fortune Teller]";
-		mes "I'm trying to hold a ritual";
-		mes "that will restore the moon's energy by sacrificing monsters' blood,";
-		mes "so I need you to hunt fifteen ^FF0000Tikbalang^000000";
-		mes "at Baryo Mahiwaga Field.";
-		next;
-		switch(select("It's none of my business.:You can count on me.")) {
-		case 1:
-			mes "[Young Fortune Teller]";
-			mes "You are so selfish!";
-			mes "During the ritual,";
-			mes "I will pray for your bad luck too.";
-			close;
-		case 2:
-			mes "[Young Fortune Teller]";
-			mes "Hurry.";
-			mes "If the moon completely disappears,";
-			mes "there will be a great disaster.";
-			erasequest 1185;
-			setquest 1186;
-			set malaya_bakona2,7;
-			close;
-		}
-	} else if (malaya_bakona2 == 7) {
-		if (checkquest(1186,HUNTING) == 2) {
-			mes "[Young Fortune Teller]";
-			mes "It looks like you took care of ^FF0000Tikbalang^000000";
-			mes "well enough.";
-			mes "I think I can start the ritual now.";
-			mes "There are some items that we need, please go to";
-			mes "the Village Chief for help.";
-			erasequest 1186;
-			setquest 1187;
-			set malaya_bakona2,8;
-			getitem 12699,7; //Tikbalang_Belt
-			close;
-		} else {
-			mes "[Young Fortune Teller]";
-			mes "I need you to hunt fifteen ^FF0000Tikbalang^000000";
-			mes "at Baryo Mahiwaga Field.";
-			next;
-			mes "[Young Fortune Teller]";
-			mes "Hurry.";
-			mes "If the moon completely disappears,";
-			mes "there will be a great disaster.";
-			close;
-		}
-	} else if (malaya_bakona2 == 8) {
-		mes "[Young Fortune Teller]";
-		mes "I think I can start the ritual now.";
-		mes "There are some items that we need, please go to";
-		mes "the Village Chief for help.";
-		close;
-	} else {
-		mes "[Young Fortune Teller]";
-		mes "On the day when the moon fully disappears,";
-		mes "the dragon will attack the village.";
-		mes "No one will be safe.";
-		close;
-	}
-	end;
-}
-
-ma_fild01,54,253,4	script	Gruffy Worker#bako2	582,{
-	if (malaya_bakona2 < 9) {
-		mes "[Gruffy Worker]";
-		mes "The Village Chief told me to";
-		mes "wait for you here.";
-		close;
-	} else if (malaya_bakona2 == 9) {
-		mes "[Gruffy Worker]";
-		mes "The trap will be set right in front.";
-		mes "Walk forward a little.";
-		close;
-	} else if (malaya_bakona2 == 10) {
-		mes "[Gruffy Worker]";
-		mes "You can find the";
-		mes "Grumpy Worker near where";
-		mes "Baryo Mahiwaga Field connects to Bakonawa Lake.";
-		mes "Go and set up the trap together.";
-		close;
-	} else {
-		mes "[Gruffy Worker]";
-		mes "Are you trying to advertise that";
-		mes "there is a trap here? Step aside.";
-		close;
-	}
-	end;
-}
-
-ma_fild01,54,244,0	script	#bako2	139,2,2,{
-	end;
-OnTouch:
-	if (malaya_bakona2 == 9) {
-		mes "I should set up the trap";
-		mes "right about here.";
-		next;
-		mes "[Gruffy Worker]";
-		mes "Using the tools like this";
-		mes "bang bang bang!";
-		next;
-		mes "bang bang bang!";
-		next;
-		mes "The trap is now set.";
-		next;
-		mes "[Gruffy Worker]";
-		mes "You can find the";
-		mes "Grumpy Worker near where";
-		mes "Baryo Mahiwaga Field connects to Bakonawa Lake.";
-		mes "Go and set up the trap together.";
-		erasequest 1188;
-		setquest 1189;
-		set malaya_bakona2,10;
-		close;
-	} else if (malaya_bakona2 == 10) {
-		mes "The trap has been set up here.";
-		next;
-		mes "[Gruffy Worker]";
-		mes "This trap is not meant to capture you,";
-		mes "so move.";
-		next;
-		mes "[Gruffy Worker]";
-		mes "You can find the";
-		mes "Grumpy Worker near where";
-		mes "Baryo Mahiwaga Field connects to Bakonawa Lake.";
-		mes "Go there to him.";
-		close;
-	}
-	end;
-}
-
-ma_fild01,236,119,5	script	Grumpy Worker#bako2	577,{
-	if (malaya_bakona2 < 10) {
-		mes "[Grumpy Worker]";
-		mes "Village Chief told me to";
-		mes "wait for you here.";
-		mes "Sooo boring!";
-		close;
-	} else if (malaya_bakona2 == 10) {
-		mes "[Grumpy Worker]";
-		mes "A hole needs to be dug up in front of here?";
-		mes "I have to dig too?";
-		mes "Says who?";
-		close;
-	} else if (malaya_bakona2 == 11) {
-		mes "[Grumpy Worker]";
-		mes "Go find the Cowardly Worker";
-		mes "near the entrance of Bakonawa Lake.";
-		mes "Come on, move it!";
-		close;
-	} else {
-		mes "[Grumpy Worker]";
-		mes "I set up the trap";
-		mes "and you are advertising that it's here.";
-		mes "Scram!";
-		close;
-	}
-}
-
-ma_fild01,242,116,0	script	#bako3	139,2,2,{
-	end;
-OnTouch:
-	if (malaya_bakona2 == 10) {
-		mes "I should set up the trap";
-		mes "right about here.";
-		next;
-		mes "[Grumpy Worker]";
-		mes "I really don't like it here!";
-		mes "...";
-		mes "With this pickax,";
-		mes "dig dig dig!";
-		next;
-		mes "dig dig dig!";
-		next;
-		mes "The trap is now set.";
-		next;
-		mes "[Grumpy Worker]";
-		mes "Go find the Cowardly Worker";
-		mes "near the entrance of Bakonawa Lake.";
-		mes "Come on, move it!";
-		erasequest 1189;
-		setquest 1190;
-		set malaya_bakona2,11;
-		close;
-	} else if (malaya_bakona2 == 11) {
-		mes "The trap has been set up here.";
-		next;
-		mes "[Grumpy Worker]";
-		mes "Are you trying to test";
-		mes "with your body if the trap works?";
-		mes "Move aside!";
-		next;
-		mes "[Grumpy Worker]";
-		mes "Go find the Cowardly Worker";
-		mes "near the entrance of Bakonawa Lake.";
-		mes "Come on, move it!";
-		close;
-	}
-	end;
-}
-
-ma_scene01,177,89,4	script	Cowardly Worker#bako2	578,{
-	if (malaya_bakona2 < 11) {
-		mes "[Cowardly Worker]";
-		mes "Village Chief told me to";
-		mes "wait for you here.";
-		mes "Why me? I have a bad feeling about this....";
-		close;
-	} else if (malaya_bakona2 == 11) {
-		mes "[Cowardly Worker]";
-		mes "set up a trap in front of here?";
-		mes "Village Chief said I have to help too?";
-		mes "Can you please do it by yourself?";
-		close;
-	} else if (malaya_bakona2 == 12) {
-		mes "[Cowardly Worker]";
-		mes "Go up and you will";
-		mes "find the Gloomy Worker.";
-		mes "Go! You scare me.";
-		mes "You look like you are going to beat me up.";
-		close;
-	} else {
-		set .@hunting, checkquest(2281,HUNTING);
-		if (.@hunting == -1) {
-			mes "[Guard Leader]";
-			mes "Hear Buwaya appeared from the depth of the Forest.";
-			mes "As everyone knows, all our manpower is dispatched to handle Bangungots servants attacking the hospital recently.";
-			next;
-			mes "[Guard Leader]";
-			mes "That is why we have no choice but to ask an outsider to help eliminate Buwaya.";
-			mes "They say Buwaya is a very strong and ugly monster with two heads.";
-			mes "Will you help us defeat Buwaya?";
-			next;
-			if (select("Of course.:Nope.") == 2) {
-				mes "[Guard Leader]";
-				mes "Buwaya is known to be a very dangerous monster.";
-				mes "There is no shame in rejecting this request.";
-				close;
-			}
-			if (BaseLevel < 130) {
-				mes "[Guard Leader]";
-				mes "This mission will be a dangerous one.";
-				mes "If you want to help get rid of Buwaya, you must be prepared.";
-				mes "Come back once you reach LV 130.";
-				close;
-			}
-			mes "[Guard Leader]";
-			mes "According to the legend, Buwaya kidnaps people and puts them in the sack on its back and then eats them later.";
-			next;
-			mes "[Guard Leader]";
-			mes "Keep this in mind and be cautious at all times.";
-			mes "I recommend asking trustful colleagues for help.";
-			setquest 2281;
-		} else if (.@hunting == 0 || .@hunting == 1) {
-			mes "[Guard Leader]";
-			mes "How is it going with the Buwaya situation?";
-			next;
-			if (select("I give up.:Still fighting.") == 2) {
-				mes "[Guard Leader]";
-				mes "Keep this in mind and be cautious at all times.";
-				mes "I recommend asking trustful colleagues for help.";
-				close;
-			}
-			mes "[Guard Leader]";
-			mes "Buwaya is known to be a very dangerous monster.";
-			mes "There is no shame in rejecting this request.";
-			erasequest 2281;
-		} else if (.@hunting == 2) {
 //			if (IsPremiumPcCafe == 10)
-//				.@amount = 10;
+				getitem 6499,5; //Ancient_Grudge
 //			else
-				.@amount = 5;
-			mes "[Guard Leader]";
-			mes "Can't believe you really got rid of Buwaya!";
-			mes "You aren't just any ordinary youth, aren't you? People of Port Malaya can now sleep at night.";
-			next;
-			mes "[Guard Leader]";
-			mes "Good work.";
-			erasequest 2281;
-			getitem 6497, .@amount; //Lesser_Agimat
-			getexp 0,600000;
-		} else {
-			mes "[Guard Leader]";
-			mes "I will not stand down until all of Port Malaya, including Baryo Mahiwaga, is safe from Buwaya. Promise to take care of yourself.";
-			erasequest 2281;
-		}
-	}
-	end;
-}
-
-ma_scene01,179,85,0	script	#bako4	139,2,2,{
-	end;
-OnTouch:
-	if (malaya_bakona2 == 11) {
-		mes "I should set up the trap";
-		mes "right about here.";
-		next;
-		mes "[Cowardly Worker]";
-		mes "There is nothing weird";
-		mes "buried here right?";
-		mes "...";
-		mes "Using the shovel, dig dig dig!";
-		next;
-		mes "dig dig dig!";
-		next;
-		mes "The trap is now set.";
-		next;
-		mes "[Cowardly Worker]";
-		mes "Go up and you will";
-		mes "find the Gloomy Worker.";
-		erasequest 1190;
-		setquest 1191;
-		set malaya_bakona2,12;
-		close;
-	} else if (malaya_bakona2 == 12) {
-		mes "The trap has been set up here.";
-		next;
-		mes "[Cowardly Worker]";
-		mes "Step aside immediately!";
-		mes "Bakonawa might find out this is a trap";
-		mes "and come for us.";
-		next;
-		mes "[Cowardly Worker]";
-		mes "Go up and you will";
-		mes "find the Gloomy Worker.";
-		emotion e_swt,1;
-		close;
-	}
-	end;
-}
-
-ma_scene01,141,118,4	script	Gloomy Worker#bako2	582,{
-	if (malaya_bakona2 < 12) {
-		mes "[Gloomy Worker]";
-		mes "Village Chief told me to wait for you here.";
-		mes "He must want me to do something.";
-		mes "Whew...";
-		close;
-	} else if (malaya_bakona2 == 12) {
-		mes "[Gloomy Worker]";
-		mes "set up a trap on the left side?";
-		mes "I don't think it will be much use...";
-		mes "Whew, I should've moved away or something...";
-		close;
-	} else if (malaya_bakona2 == 13) {
-		mes "[Gloomy Worker]";
-		mes "We are all gonna die anyway by Bakonawa.";
-		mes "This is pointless.";
-		mes "Just go up the path and you will find";
-		mes "Sentimental Worker.";
-		close;
-	} else {
-		mes "[Gloomy Worker]";
-		mes "Bakonawa is going to attack us anyway.";
-		mes "What pointless work...";
-		close;
-	}
-	end;
-}
-
-ma_scene01,138,122,0	script	#bako5	139,2,2,{
-	end;
-OnTouch:
-	if (malaya_bakona2 == 12) {
-		mes "I should set up the trap";
-		mes "right about here.";
-		next;
-		mes "[Gloomy Worker]";
-		mes "Just catch this net,";
-		mes "throw throw!";
-		next;
-		mes "throw throw!";
-		next;
-		mes "The trap is now set.";
-		next;
-		mes "[Gloomy Worker]";
-		mes "Just go up the path and you will find";
-		mes "Sentimental Worker.";
-		mes "Though I doubt it will be much help.";
-		erasequest 1191;
-		setquest 1192;
-		set malaya_bakona2,13;
-		close;
-	} else if (malaya_bakona2 == 13) {
-		mes "The trap has been set up here.";
-		next;
-		mes "[Gloomy Worker]";
-		mes "The trap is meaningless.";
-		mes "See? It doesn't even work.";
-		close;
-	}
-	end;
-}
-
-ma_scene01,175,170,5	script	Sentimental Worker#bako2	578,{
-	if (malaya_bakona2 < 13) {
-		mes "[Sentimental Worker]";
-		mes "Village Chief told me to wait for you here.";
-		mes "Is there a some kind of surprise event?";
-		mes "My heart is beating faster~";
-		close;
-	} else if (malaya_bakona2 == 13) {
-		mes "[Sentimental Worker]";
-		mes "Wow! So we are going to work together";
-		mes "to set up a trap behind this place?";
-		mes "This is sooo cool!";
-		mes "This is the coolest thing in the world!";
-		close;
-	} else if (malaya_bakona2 == 14) {
-		mes "[Sentimental Worker]";
-		mes "Now that the trap is set,";
-		mes "Are we going to report back to Village Chief?";
-		mes "Oh what fun!";
-		mes "It sounds so exiting!";
-		close;
-	} else {
-		mes "[Sentimental Worker]";
-		mes "More I think about it, more exited I get.";
-		mes "I'm secretly guarding the trap!";
-		mes "I want to hear out loud.";
-		mes "I have a trap in front of me! Ha ha ha ha~";
-		emotion e_swt2,1;
-		close;
-	}
-	end;
-}
-
-ma_scene01,171,174,0	script	#bako6	139,2,2,{
-	end;
-OnTouch:
-	if (malaya_bakona2 == 13) {
-		mes "I should set up the trap";
-		mes "right about here.";
-		next;
-		mes "[Sentimental Worker]";
-		mes "Wow! This really is a perfect place";
-		mes "to set up a trap.";
-		mes "I'm going to throw the rope!";
-		mes "Here goes the rope!";
-		next;
-		mes "Here goes the rope!";
-		next;
-		mes "The trap is now set.";
-		mes "Let's go to the Village Chief";
-		mes "now that the trap is set.";
-		erasequest 1192;
-		setquest 1193;
-		set malaya_bakona2,14;
-		close;
-	} else if (malaya_bakona2 == 14) {
-		mes "The trap is set here.";
-		next;
-		mes "[Sentimental Worker]";
-		mes "Try out the trap first!";
-		mes "I'm so curious";
-		mes "what would happen!";
-		mes "It's going to be so much fun!";
-		close;
-	}
-	end;
-}
-
-// Bakonawa Extermination :: bakonawa
-//============================================================
-malaya,280,331,4	script	Singing Man#bako1	578,{
-	if (malaya_bakona1 < 5) {
-		mes "[Singing Man]";
-		mes "Story of dragon that lives at a lake~";
-		mes "Story of an old lady";
-		mes "that became a dragon long ago~";
-		next;
-		mes "[Singing Man]";
-		mes "Waiting for the son that left for a foreign land,";
-		mes "my son will return";
-		mes "when that moon sets for the 90th time";
-		next;
-		mes "[Singing Man]";
-		mes "The moon sets for the 89th,";
-		mes "The moon sets for the 90th,";
-		mes "The moon sets for the 191st...";
-		next;
-		mes "[Singing Man]";
-		mes "That moon has taken my son away~";
-		mes "That horrible thing";
-		mes "has swallowed my son,";
-		mes "and I will punish that moon~";
-		next;
-		mes "[Singing Man]";
-		mes "The day the furious moon hides itself from sight,";
-		mes "the whole world will be flooded with rain";
-		mes "with all the villages and people facing death under water~";
-		next;
-		mes "[Singing Man]";
-		mes "The old lady's curse made the moon furious~";
-		mes "Get rid of the old lady to calm the moon~";
-		mes "If only the old lady wasn't here, If only the old lady wasn't here...";
-		next;
-		mes "[Singing Man]";
-		mes "I hear rumors~";
-		mes "The old lady threw herself into the lake~";
-		mes "the old lady, now turned into a dragon, will swallow the moon";
-		mes "and soon swallow the village too~";
-		close;
-	} else {
-		mes "[Singing Man]";
-		mes "You say the legend is all a lie?";
-		mes "You mean my ancestors are all liars";
-		mes "and swindlers?";
-		next;
-		mes "[Singing Man]";
-		mes "This village is built on an old legend";
-		mes "and history.";
-		mes "They are not the kind of people that will be shaken by";
-		mes "foolish words of an imbecile such as yourself.";
-		close;
-	}
-}
-
-malaya,275,333,5	script	Singing Woman#bako1	579,{
-	if (malaya_bakona1 < 5) {
-		mes "[Singing Woman]";
-		mes "Bakonawa that live at a lake,";
-		mes "story of an old lady that became a dragon.";
-		next;
-		mes "[Singing Woman]";
-		mes "The son that was suppose to return after the moon sets for the 90th time";
-		mes "never did come back even after the moon had set for a few hundred times~";
-		mes "The moon has swallowed the old lady's son~";
-		next;
-		mes "[Singing Woman]";
-		mes "The moon, the moon, you shall receive the old lady's curse~";
-		mes "The whole village was immersed in death";
-		mes "with rain and floods sent by the furious moon~";
-		next;
-		mes "[Singing Woman]";
-		mes "The moon, the moon, be still and be calm,";
-		mes "for the old lady is gone and she is no more~";
-		mes "The old lady has drowned in the lake~";
-		mes "She will transform into Bakonawa and come back...";
-		next;
-		mes "[Singing Woman]";
-		mes "...to swallow you and";
-		mes "punish the village soon~";
-		mes "The day the moon dies";
-		mes "is the day the village dies too~";
-		close;
-	} else {
-		mes "[Singing Woman]";
-		mes "The legends are all a lie?";
-		mes "Why do you say such nonsense?";
-		mes "Is there nothing";
-		mes "that is important for you to protect?";
-		next;
-		mes "[Singing Woman]";
-		mes "Poor Bakonawa...";
-		mes "I would be happy";
-		mes "if she took a big bite out of someone like you!";
-		close;
-	}
-}
-
-malaya,290,329,4	script	Frightened Boy#bako1	577,{
-	if (malaya_hi < 20) {
-		mes "- He seems cautious of you. -";
-		close;
-	}
-	if (malaya_bakona1 < 5) {
-		mes "[Frightened Boy]";
-		mes "The vicious monster Bakonawa will soon come";
-		mes "to swallow the moon and take vengeance upon the village.";
-		mes "I'm scared, please help...";
-		close;
-	} else {
-		mes "[Frightened Boy]";
-		mes "The legend of Bakonawa is all a lie?";
-		mes "So that means Bakonawa doesn't exist?";
-		mes "I'm going to play with my friends at the lake later.";
-		mes "You told me it was all a lie right?";
-		close;
-	}
-}
-
-malaya,264,338,4	script	Frightened Maiden#bako1	576,{
-	if (malaya_hi < 20) {
-		mes "- She seems cautious of you. -";
-		close;
-	}
-	if (malaya_bakona1 < 5) {
-		mes "[Frightened Maiden]";
-		mes "It is said that Bakonawa hates loud noises.";
-		mes "Pound the pot if you want to live!";
-		next;
-		switch(select("Hates loud noises?:What is Bakonawa?")) {
-		case 1:
-			mes "[Frightened Maiden]";
-			mes "You already heard that the old lady";
-			mes "died and became Bakonawa, right?";
-			next;
-			mes "[Frightened Maiden]";
-			mes "The legend has it that";
-			mes "the old lady had very keen hearing";
-			mes "because she was always focusing on";
-			mes "the returning of her traveling son.";
-			next;
-			mes "[Frightened Maiden]";
-			mes "So naturally, Bakonawa also";
-			mes "has very keen hearing.";
-			mes "The reason why everyone is banging";
-			mes "pots and pans is because of this.";
-			close;
-		case 2:
-			mes "[Frightened Maiden]";
-			mes "It is a terrible monster that lives at a lake.";
-			mes "We are all trembling with fear";
-			mes "because we don't know when it might attack the village.";
-			next;
-			mes "[Frightened Maiden]";
-			mes "Some say that it is more obsessed with swallowing the moon";
-			mes "than attacking the village.";
-			mes "if that's the case, I wish it would just swallow the moon";
-			mes "and leave us alone.";
-			close;
-		}
-	} else {
-		mes "[Frightened Maiden]";
-		mes "The villagers hate you now.";
-		mes "You've been saying that legend of Bakonawa";
-		mes "is a lie and they are saying you are more of a monster";
-		mes "than Bakonawa.";
-		close;
-	}
-}
-
-malaya,272,339,5	script	Old Fortune Teller#bako1	575,{
-	if (malaya_hi < 20) {
-		mes "- Old Fortune Teller seems cautious of you. -";
-		close;
-	}
-	if (malaya_bakona1 < 5) {
-		mes "[Old Fortune Teller]";
-		mes "You must not hate Bakonawa.";
-		mes "The hate against it is only feeding its rage";
-		mes "to grow bigger.";
-		next;
-		mes "[Old Fortune Teller]";
-		mes "To calm the dead lady's anger,";
-		mes "we annually hold a ceremony and prepare food.";
-		mes "But there seems to be no way to calm the";
-		mes "ever growing anger of the old lady.";
-		next;
-		mes "[Old Fortune Teller]";
-		mes "The day is nearing. I can sense it.";
-		mes "Bakonawa will soon swallow the moon";
-		mes "and come to punish the village.";
-		close;
-	} else {
-		mes "[Old Fortune Teller]";
-		mes "How can you say the legend is a lie!";
-		mes "Because of you, the fury of Bakonawa";
-		mes "grew even larger!";
-		mes "If the village perishes,";
-		mes "it is all your fault!";
-		close;
-	}
-}
-
-malaya,285,332,4	script	Old Legend Teller#bako1	574,{
-	if (checkweight(1301,3) == 0) {
-		mes "You cannot start the conversation. You are carrying too many items. -";
-		close;
-	}
-	if (BaseLevel < 120) {
-		mes "[Old Legend Teller]";
-		mes "There is something that needs to be done";
-		mes "but you look too fragile";
-		mes "to give me a hand.";
-		next;
-		mes "[Old Legend Teller]";
-		mes "Come back when";
-		mes "your strength grows strong enough";
-		mes "to match Incubus.";
-		close;
-	}
-	if (malaya_hi < 20) {
-		mes "- He seems cautious of you. -";
-		close;
-	}
-	if (malaya_bakona1 == 0) {
-		mes "[Old Legend Teller]";
-		mes "The old lady has come back";
-		mes "to life as Bakonawa.";
-		mes "Soon she will come to take vengeance on the village.";
-		mes "We must calm her";
-		mes "if to prevent further destruction...";
-		next;
-		switch(select("Calm Bakonawa?:Further destruction?")) {
-		case 1:
-			mes "[Old Legend Teller]";
-			mes "The old lady faced an unjust death";
-			mes "because of villagers' selfishness.";
-			mes "She was a caring mother who loved her";
-			mes "son dearly.";
-			next;
-			mes "[Old Legend Teller]";
-			mes "If we track the whereabouts of her son and hold a ritual";
-			mes "with her son's belongings,";
-			mes "her restless soul will be calmed";
-			mes "and she will spare us from destruction.";
-			next;
-			mes "[Villagers]";
-			mes "It is no use sir!!";
-			next;
-			mes "[Villagers]";
-			mes "You cannot stop the monster that way!";
-			next;
-			mes "[Old Legend Teller]";
-			mes "Of course, it will not be easy to track down the whereabouts of a person";
-			mes "who has been gone for a hundred years.";
-			mes "...";
-			next;
-			mes "[Old Legend Teller]";
-			mes "Still, don't you think";
-			mes "it is worth a try?";
-			mes "Please help us and save us from our misery.";
-			next;
-			switch(select("It is no use.:I'll help.")) {
-			case 1:
-				mes "[Old Legend Teller]";
-				mes "Yes, you are also right.";
-				mes "You are up against not a human,";
-				mes "but a monster.";
-				mes "Still, I trust in that old lady's";
-				mes "good heart.";
-				close;
-			case 2:
-				mes "[Old Legend Teller]";
-				mes "Will you do it?";
-				mes "According to the legend,";
-				mes "the old lady's son was limping";
-				mes "and was a traveling merchant that sold wooden dolls.";
-				next;
-				mes "[Old Legend Teller]";
-				mes "There is a ^FF0000Slate Piece^000000 he left.";
-				mes "But the piece is small and damaged,";
-				mes "its hard to identify it.";
-				next;
-				mes "[Old Legend Teller]";
-				mes "First, bring it to me.";
-				mes "Down along this path";
-				mes "you will meet my granddaughter near the port.";
-				mes "Get the Slate Piece from there.";
-				set malaya_bakona1,1;
-				setquest 1174;
-				close;
-			}
-		case 2:
-			mes "[Old Legend Teller]";
-			mes "The grudge against the people of";
-			mes "Bakonawa- I mean, the dead old lady.";
-			mes "The moon and this village...";
-			mes "She will try to destroy it.";
-			next;
-			select("Take vengeance? After all these years?");
-			mes "[Old Legend Teller]";
-			mes "For some time, she has";
-			mes "blamed the moon and";
-			mes "resented the villagers.";
-			mes "The feeling grew larger as the time passed.";
-			next;
-			mes "[Old Legend Teller]";
-			mes "Why do you think she became such a monster?";
-			mes "What do you think went through her head";
-			mes "for years and years?";
-			mes "Anger and vengeance.";
-			next;
-			mes "[Old Legend Teller]";
-			mes "Unforgettable grudge";
-			mes "that she was abandoned.";
-			mes "against the moon and the village.";
-			mes "This is why this grudge must be resolved.";
-			close;
-		}
-	} else if (malaya_bakona1 == 1) {
-		mes "[Old Legend Teller]";
-		mes "Please bring the ^FF0000Slate Piece^000000.";
-		mes "Down along this path";
-		mes "you will meet my granddaughter near the port.";
-		mes "Get the Slate Piece from there.";
-		close;
-	} else if (malaya_bakona1 == 2) {
-		mes "[Old Legend Teller]";
-		mes "Good, you have the Slate Piece.";
-		mes "Hold on to it and don't lose it.";
-		mes "It will be of helpful in tracking down the legend.";
-		next;
-		mes "[Old Legend Teller]";
-		mes "I heard there is a man that lives by himself";
-		mes "at the end of northwestern part of Forest Field.";
-		mes "I heard someone saw a wooden doll there.";
-		mes "It is such a remote place that people like us";
-		mes "simply cannot travel there.";
-		mes "Could you visit the place for us?";
-		next;
-		switch(select("Go there yourself!:Your explanation is too vague.:On my way!")) {
-		case 1:
-			mes "[Old Legend Teller]";
-			mes "You twisted youth!";
-			close;
-		case 2:
-			mes "[Old Legend Teller]";
-			mes "You have a point, but";
-			mes "this is the best I can do for now.";
-			mes "The place is at the end of northwestern part of the forest.";
-			mes "After you pass the bridge and travel west,";
-			mes "you will see a person.";
-			break;
-		case 3:
-			mes "[Old Legend Teller]";
-			mes "You have a good heart young man!";
-			mes "The place is at the end of northwestern part of the forest.";
-			mes "After you pass the bridge and travel west,";
-			mes "You will see a ^0000FFMalaya Immigrant^000000.";
-			break;
-		}
-		mes "Good luck to you... for our sake...";
-		erasequest 1175;
-		setquest 1176;
-		set malaya_bakona1,3;
-		close;
-	} else if (malaya_bakona1 == 3) {
-		mes "[Old Legend Teller]";
-		mes "The place is at the end of northwestern part of the forest.";
-		mes "After you pass the bridge and travel west,";
-		mes "you will see a person.";
-		mes "Good luck to you... for our sake...";
-		close;
-	} else if (malaya_bakona1 < 6) {
-		mes "[Old Legend Teller]";
-		mes "The track of the old lady's son";
-		mes "is connected all the way to";
-		mes "Baryo Mahiwaga?";
-		mes "There is a chance he wasn't a merchant...";
-		mes "I'm really curious about who he was...";
-		next;
-		mes "[Old Legend Teller]";
-		mes "Why did you come back here";
-		mes "instead of going straight to";
-		mes "Baryo Mahiwaga?";
-		close;
-	} else if (malaya_bakona1 == 6) {
-		mes "[Old Legend Teller]";
-		mes "Is that really true?";
-		mes "Bakonawa turning into an old lady";
-		mes "and fabricating the legend...";
-		mes "It seems all the villagers up until now";
-		mes "have been manipulated by that terrible monster.";
-		next;
-		mes "[Old Legend Teller]";
-		mes "There is no reason to hesitate then.";
-		mes "You must go into Bakonawa's lair";
-		mes "before it attacks first.";
-		mes "I believe we can trust you to do this, yes?";
-		next;
-		switch(select("Well...:Of course!")) {
-		case 1:
-			mes "[Old Legend Teller]";
-			mes "The atmosphere was really good";
-			mes "but suddenly it's all ruined.";
-			mes "I didn't expect you to be so shy...";
-			close;
-		case 2:
-			mes "[Old Legend Teller]";
-			mes "I will speak to";
-			mes "the village chief for you";
-			mes "so that you can enter the Bakonawa Lake.";
-			mes "Please get rid of this monster for us.";
-			erasequest 1179;
-			set malaya_bakona1,7;
-			getitem 6499,5; //Ancient_Grudge
+//				getitem 6499,3; //Ancient_Grudge
 			getexp 500000,200000;
 			close;
 		}
@@ -7482,7 +5740,10 @@ malaya,283,265,4	script	Village Chief#bako2	580,{
 		erasequest 1184;
 		setquest 1185;
 		set malaya_bakona2,6;
-		getitem 12700,7; //Insideout_Shirt
+//		if (IsPremiumPcCafe == 10)
+			getitem 12700,7; //Insideout_Shirt
+//		else
+//			getitem 12700,5; //Insideout_Shirt
 		close;
 	} else if (malaya_bakona2 == 6) {
 		mes "[Village Chief]";
@@ -7585,7 +5846,10 @@ malaya,283,265,4	script	Village Chief#bako2	580,{
 		erasequest 1193;
 		set malaya_bakona2,15;
 		getexp 1000000,600000;
-		getitem 6497,7; //Lesser_Agimat
+//		if (IsPremiumPcCafe == 10)
+			getitem 6497,7; //Lesser_Agimat
+//		else
+//			getitem 6497,5; //Lesser_Agimat
 		close;
 	} else if (malaya_bakona2 == 15) {
 		mes "[Village Chief]";
@@ -7866,7 +6130,10 @@ malaya,289,364,4	script	Young Fortune Teller	583,{
 			erasequest 1186;
 			setquest 1187;
 			set malaya_bakona2,8;
-			getitem 12699,7; //Tikbalang_Belt
+//			if (IsPremiumPcCafe == 10)
+				getitem 12699,7; //Tikbalang_Belt
+//			else
+//				getitem 12699,5; //Tikbalang_Belt
 			close;
 		} else {
 			mes "[Young Fortune Teller]";
@@ -8235,3 +6502,2568 @@ OnTouch:
 	}
 	end;
 }
+
+// Nurse in Port Malaya :: bang
+//============================================================
+function	script	F_Malaya_Nurse	{
+	if (malaya_bang == 30) {
+		mes "[Nurse Las]";
+		mes "A talisman?";
+		mes "I think you should search for something else.";
+		cutin "malaya_nurseA01",2;
+		callsub L_Warp, getarg(0);
+	} else if (malaya_bang == 31) {
+		mes "[Nurse Las]";
+		mes "A talisman and a person?";
+		cutin "malaya_nurseA01",2;
+		next;
+		mes "[Nurse Las]";
+		mes "I did see the talisman but I didn't go near it because I got a bad feeling about it.";
+		next;
+		mes "[Nurse Las]";
+		mes "Oh!";
+		mes "Speaking of talismans, wouldn't that old lady know about them, since she put some around the village?";
+		mes "I think it'll be a good idea to ask her.";
+		set malaya_bang,32;
+		changequest 11303,11304;
+		callsub L_Warp, getarg(0), 1;
+	} else if (malaya_bang == 32) {
+		mes "[Nurse Las]";
+		mes "Oh!";
+		mes "Speaking of talismans, wouldn't that old lady know about them, since she put some around the hospital?";
+		mes "I think it'll be a good idea to ask her.";
+		cutin "malaya_nurseA01",2;
+		callsub L_Warp, getarg(0), 1;
+	} else if (malaya_bang == 33) {
+		mes "[Nurse Las]";
+		mes "A shaman... Best if we met her.";
+		cutin "malaya_nurseA01",2;
+		callsub L_Warp, getarg(0), 1;
+	} else if (malaya_bang == 34) {
+		mes "[Nurse Las]";
+		mes "Oh!";
+		mes "You must have met her.";
+		mes "I feel something strong...";
+		cutin "malaya_nurseA01",2;
+		next;
+		select("Tell her about the talisman.");
+		mes "[Nurse Las]";
+		mes "Yes!";
+		mes "I have an idea.";
+		mes "How about we stick that one over the one we saw on the 2nd floor door?";
+		emotion e_ic;
+		next;
+		mes "[Nurse Las]";
+		mes "Maybe it will block the bad energy it's giving out.";
+		set malaya_bang,35;
+		changequest 11306,11307;
+		callsub L_Warp, getarg(0), 1;
+	} else if (malaya_bang == 35) {
+		mes "[Nurse Las]";
+		mes "Yes!";
+		mes "I have an idea.";
+		mes "How about we stick that one over the one we saw on the 2nd floor door?";
+		emotion e_ic;
+		cutin "malaya_nurseA01",2;
+		next;
+		mes "[Nurse Las]";
+		mes "Maybe it will block the bad energy it's giving out.";
+		callsub L_Warp, getarg(0), 1;
+	} else if (malaya_bang == 36) {
+		callsub L_Weight;
+		mes "[Nurse Maenne]";
+		mes "*Sigh*...";
+		mes "I thought it strange when you were standing behind me....";
+		cutin "malaya_nurseB",2;
+		next;
+		mes "[Nurse Maenne]";
+		mes "I didn't think you'd do something like this.";
+		emotion e_dots;
+		next;
+		mes "[Nurse Maenne]";
+		mes "We were just about to enter Bangungot's room, before we were thrown out...";
+		next;
+		switch(select("Bangungot?:Nurse Maenne?")) {
+		case 1:
+			callsub L_Bangungot;
+			select("Nurse Maenne");
+			callsub L_Maenne;
+			break;
+		case 2:
+			callsub L_Maenne;
+			select("Bangungot");
+			callsub L_Bangungot;
+			break;
+		}
+		callsub L_Incomplete;
+		set malaya_bang,42;
+		changequest 11308,11309;
+		callsub L_Reward;
+		callsub L_Warp, getarg(0), 1;
+	} else if (malaya_bang == 40) {
+		callsub L_Weight;
+		if (checkquest(11309,HUNTING) == 2) {
+			callsub L_Complete;
+			set malaya_bang,41;
+			completequest 11309;
+			callsub L_Reward;
+			callsub L_Warp, getarg(0), 1;
+		} else {
+			callsub L_Incomplete;
+			set malaya_bang,42;
+			callsub L_Reward;
+			callsub L_Warp, getarg(0);
+		}
+	} else if (malaya_bang > 40) {
+		if (malaya_bang == 42) {
+			if (checkquest(11309,HUNTING) == 2) {
+				callsub L_Complete;
+				set malaya_bang,41;
+				completequest 11309;
+				callsub L_Warp, getarg(0), 1;
+			} else {
+				callsub L_Incomplete;
+				callsub L_Warp, getarg(0);
+			}
+		}
+		callsub L_Incomplete;
+		switch(getarg(0)) {
+		case 1:
+			next;
+			switch(select("Enter the hospital.:Quit.")) {
+			case 1:
+				callsub L_Warp, getarg(0);
+			case 2:
+				mes "[Nurse Maenne]";
+				mes "Hmmm...";
+				close2;
+				cutin "",255;
+				end;
+			}
+		case 2:
+			callsub L_Warp, getarg(0);
+		}
+	}
+	return;
+
+L_Weight:
+	if (checkweight(1201,1) == 0) {
+		mes "- Wait !! -";
+		mes "- You have too many items. -";
+		mes "- Cannot receive item. -";
+		mes "- Please lighten your bag -";
+		mes "- and try again. -";
+		close;
+	}
+	if (MaxWeight - Weight < 1000) {
+		mes "- Wait !! -";
+		mes "- You are carrying too many items. -";
+		mes "- Cannot receive item. -";
+		mes "- Please lighten your bag -";
+		mes "- and try again. -";
+		close;
+	}
+	return;
+
+L_Warp:
+	switch(getarg(0)) {
+	case 1:
+		close2;
+		cutin "",255;
+		if (getarg(1,0) == 0)
+			warp "ma_dun01",33,110;
+		end;
+	case 2:
+		next;
+		switch(select("Go outside.:Quit.")) {
+		case 1:
+			close2;
+			cutin "",255;
+			warp "malaya",58,76;
+			end;
+		case 2:
+			mes "[Nurse Las]";
+			mes "Tsk...";
+			close2;
+			cutin "",255;
+			end;
+		}
+	}
+
+L_Reward:
+//	if (IsPremiumPcCafe == 10) {
+		getitem 6499,5; //Ancient_Grudge
+		getitem 6497,10; //Lesser_Agimat
+//	} else {
+//		getitem 6499,3; //Ancient_Grudge
+//		getitem 6497,5; //Lesser_Agimat
+//	}
+	getitem 617,1; //Old_Violet_Box
+	getexp 1000000,0;
+	return;
+
+L_Bangungot:
+	mes "[Nurse Maenne]";
+	mes "It's a vicious monster roaming this hospital.";
+	next;
+	mes "[Nurse Maenne]";
+	mes "Hmmmm...";
+	mes "It's not exactly a monster....";
+	mes "More like a curse or disease...";
+	next;
+	mes "[Nurse Maenne]";
+	mes "There's a story saying that it used to be a wood fairy.";
+	next;
+	mes "[Nurse Maenne]";
+	mes "Anyway, it doesnt change the fact that she killed the patients of this hospital and turned them into monsters.";
+	next;
+	return;
+
+L_Maenne:
+	mes "[Nurse Maenne]";
+	mes "Me?";
+	mes "As you can see, I'm the new nurse here.";
+	mes "I'm a nurse who specializes in 'this' kind of work, instead of looking after patients.";
+	cutin "malaya_nurseB",2;
+	next;
+	mes "[Nurse Maenne]";
+	mes "Oh!";
+	mes "The Bangungot pretended to be me?";
+	next;
+	mes "[Nurse Maenne]";
+	mes "Seeing how much it rattled you.";
+	mes "It's a rather smart one.";
+	next;
+	mes "[Nurse Maenne]";
+	mes "Simply said, I cure unnatural phenomenon around hospitals.";
+	next;
+	mes "[Nurse Maenne]";
+	mes "Many things happen in the world.";
+	next;
+	return;
+
+L_Complete:
+	mes "[Nurse Maenne]";
+	mes "She may have rooted here deeper than I thought.";
+	mes "I can still feel her presence.";
+	cutin "malaya_nurseB",2;
+	next;
+	mes "[Nurse Maenne]";
+	mes "What you killed was a part of her...";
+	mes "But, it was a big help since you confused and damaged her at the same time.";
+	next;
+	mes "[Nurse Maenne]";
+	mes "It makes things a lot easier.";
+	mes "Thank you.";
+	return;
+
+L_Incomplete:
+	mes "[Nurse Maenne]";
+	mes "It would've been easier if she was apart from her body, but now that she returned to her room, this is going to be a little tricky.";
+	cutin "malaya_nurseB",2;
+	next;
+	mes "[Nurse Maenne]";
+	mes "Of course, don't you dare walk away from this, since you disturbed my job and led her to her room.";
+	next;
+	mes "[Nurse Maenne]";
+	mes "If you make it to the 2nd floor door, I'll open a small door to her room for you.";
+	mes "After that, she's all yours.";
+	return;
+}
+
+malaya,55,72,4	script	Nurse#ma_n1	569,{
+	if (malaya_hi < 20) {
+		mes "[Nurse]";
+		mes "People of this town are too cautious of outsiders.";
+		emotion e_ag;
+		cutin "malaya_nurseA01",2;
+		next;
+		mes "[Nurse]";
+		mes "I'm sure they have their reasons, but I wish they'd tell me how to get closer...";
+		close2;
+		cutin "",255;
+		end;
+	}
+	if (BaseLevel < 100) {
+		mes "There's a nurse outside the hospital holding a large bag.";
+		mes "I don't think I can help her.";
+		close;
+	}
+	if (malaya_bang == 0) {
+		mes "[Nurse]";
+		mes "Hey, hold on.";
+		mes "Are you planning on going inside?";
+		cutin "malaya_nurseA01",2;
+		next;
+		switch(select("Yes.:No.")) {
+		case 1:
+			mes "[Nurse]";
+			mes "Oh~";
+			mes "I'm so glad!";
+			mes "I was literally waiting all day for someone to some by.";
+			cutin "malaya_nurseA02",2;
+			next;
+			switch(select("About the hospital:Reason for stalling me:Ignore.")) {
+			case 1:
+				mes "[Nurse]";
+				mes "This hospital is the only one in town.";
+				mes "And it's going to be my new job.";
+				cutin "malaya_nurseA03",2;
+				next;
+				mes "[Nurse]";
+				mes "I heard it was just built, but it seems so creepy....";
+				emotion e_swt;
+				next;
+				mes "[Nurse]";
+				mes "I was surprised when I got here too.";
+				mes "It says 'closed' all around it!";
+				next;
+				select("Reason for stalling me.");
+				mes "[Nurse]";
+				mes "I was told that they needed nurses in this town,";
+				mes "so I came here after turning down numerous proposals.";
+				next;
+				mes "[Nurse]";
+				mes "I'd heard they were really cautious of outsiders...";
+				next;
+				mes "[Nurse]";
+				mes "Not even a soul to welcome me, let alone a party!";
+				mes "Shocking!";
+				emotion e_sob;
+				next;
+				mes "[Nurse]";
+				mes "What's more, I made it here after being lost and now I'm facing a creepy and locked hospital!";
+				next;
+				break;
+			case 2:
+				mes "[Nurse]";
+				mes "I was told that they needed nurses in this town,";
+				mes "so I came here after turning down numerous proposals.";
+				cutin "malaya_nurseA03",2;
+				next;
+				mes "[Nurse]";
+				mes "I'd heard they were really cautious of outsiders...";
+				next;
+				mes "[Nurse]";
+				mes "Not even a soul to welcome me, let alone a party!";
+				mes "Shocking!";
+				emotion e_sob;
+				next;
+				mes "[Nurse]";
+				mes "What's more, I made it here after being lost and now I'm facing a creepy and locked hospital!";
+				next;
+				select("About the hospital");
+				mes "[Nurse]";
+				mes "This hospital is the only one in town.";
+				mes "And it's going to be my new job.";
+				next;
+				mes "[Nurse]";
+				mes "I heard it was just built, but it seems so creepy....";
+				emotion e_swt;
+				next;
+				mes "[Nurse]";
+				mes "I was surprised when I got here too.";
+				mes "It says 'closed' all around it!";
+				next;
+				break;
+			case 3:
+				mes "[Nurse]";
+				mes "Yes, you must be busy.";
+				mes "Oh, well.";
+				mes "I'll let you be on your way.";
+				mes "Don't mind me. *Sob*";
+				emotion e_sob;
+				cutin "malaya_nurseA03",2;
+				close2;
+				cutin "",255;
+				end;
+			}
+			break;
+		case 2:
+			mes "[Nurse]";
+			mes "Oh, I see...";
+			emotion e_sob;
+			close2;
+			cutin "",255;
+			end;
+		}
+		mes "[Nurse]";
+		mes "Now that you say it... If you're going inside, could you take me with you?";
+		cutin "malaya_nurseA04",2;
+		next;
+		mes "[Nurse]";
+		mes "Doors are locked!";
+		mes "My bags are heavy!";
+		mes "And my legs are killing me.";
+		cutin "malaya_nurseA03",2;
+		next;
+		mes "[Nurse]";
+		mes "If I knew this was going to happen, I would've worn ER night-shift shoes instead of first-day shoes... *sniff*";
+		emotion e_sob;
+		next;
+		switch(select("Help.:Don't help.")) {
+		case 1:
+			mes "[Nurse]";
+			mes "*Sob*";
+			mes "I guess this world is still worth living in.";
+			mes "You are too kind.";
+			emotion e_sob;
+			next;
+			mes "[Nurse Las]";
+			mes "I'm 'Las', who's supposed to work in this hospital.";
+			mes "By the looks of it, though, I may become jobless...";
+			next;
+			mes "[Nurse Las]";
+			mes "Let's start by getting inside.";
+			next;
+			mes "[Nurse Las]";
+			mes "Before that....";
+			mes "Could you get something to wrap my feet? I can't put my shoes on because I've got blisters.";
+			emotion e_hlp;
+			cutin "malaya_nurseA04",2;
+			next;
+			mes "[Nurse Las]";
+			mes "2 Rotten Bandages should do to wrap both my feet. They may look dirty, but they have special liquid on them that have amazing effects.";
+			set malaya_bang,1;
+			setquest 11284;
+			close2;
+			cutin "",255;
+			end;
+		case 2:
+			mes "[Nurse]";
+			mes "Yes, you must be busy.";
+			mes "Oh, well.";
+			mes "I'll let you be on your way.";
+			mes "Don't mind me. *Sob*";
+			emotion e_sob;
+			cutin "malaya_nurseA03",2;
+			close2;
+			cutin "",255;
+			end;
+		}
+	} else if (malaya_bang == 1) {
+		if (countitem(930) > 1) {
+			mes "[Nurse Las]";
+			mes "Oh......";
+			mes "I know they're effective but... Not so tempting.";
+			cutin "malaya_nurseA01",2;
+			next;
+			mes "[Nurse Las]";
+			mes "Rotten Bandages... A fit name for something that seems to have been cut fresh from a mummy.";
+			next;
+			mes "[Nurse Las]";
+			mes "I'm having second thoughts looking at them, but as I am to be a professional nurse!!";
+			mes "Here goes nothing!!!";
+			mes "Ewwww!!";
+			next;
+			mes "[Nurse Las]";
+			mes "*Squish*";
+			mes "*Squelch*";
+			delitem 930,2; //Rotten_Bandage
+			set malaya_bang,2;
+			close2;
+			cutin "",255;
+			end;
+		} else {
+			mes "[Nurse Las]";
+			mes "Before that...";
+			mes "Could you get something to wrap my feet? I can't put my shoes on because I've got blisters.";
+			emotion e_hlp;
+			cutin "malaya_nurseA03",2;
+			next;
+			mes "[Nurse Las]";
+			mes "2 Rotten Bandages should do to wrap both my feet. They may look dirty, but they have special liquid on that have with amazing effects.";
+			close2;
+			cutin "",255;
+			end;
+		}
+	} else if (malaya_bang == 2) {
+		mes "[Nurse Las]";
+		mes "Ahhhhh...";
+		mes "My feet feel a lot better now, but it smells funny.";
+		cutin "malaya_nurseA01",2;
+		next;
+		mes "[Nurse Las]";
+		mes "Oh...... the smell......";
+		mes "My new shoes will be ruined...";
+		emotion e_swt2;
+		next;
+		mes "[Nurse Las]";
+		mes "Okay!!!!!!";
+		mes "I don't know if it's locked or stuck, let's try pushing it together!";
+		set malaya_bang,3;
+		changequest 11284,11285;
+		close2;
+		cutin "",255;
+		end;
+	} else if (malaya_bang == 3) {
+		mes "[Nurse Las]";
+		mes "Okay!!!!!!";
+		mes "I don't know if it's locked or stuck, let's try pushing it together!";
+		cutin "malaya_nurseA01",2;
+		close2;
+		cutin "",255;
+		end;
+	} else if (malaya_bang == 4) {
+		mes "["+strcharinfo(0)+"]";
+		mes "We pushed and pulled, but it won't budge.";
+		emotion e_swt2,1;
+		next;
+		mes "[Nurse Las]";
+		mes "Strange~";
+		mes "They wouldn't have sent me to a closed down hospital.";
+		cutin "malaya_nurseA03",2;
+		next;
+		mes "[Nurse Las]";
+		mes "Hmmm!";
+		mes "I can't stand it anymore!";
+		emotion e_an;
+		next;
+		mes "[Nurse Las]";
+		mes "Could you ask the townsfolk about the hospital while I contact HQ?";
+		cutin "malaya_nurseA01",2;
+		next;
+		mes "[Nurse Las]";
+		mes "Hey, why don't you start with that girl over there?";
+		mes "Perhaps she'll tell you something.";
+		set malaya_bang,5;
+		changequest 11286,11287;
+		close2;
+		cutin "",255;
+		end;
+	} else if (malaya_bang == 5) {
+		mes "[Nurse Las]";
+		mes "Could you ask the townsfolk about the hospital while I contact HQ?";
+		cutin "malaya_nurseA01",2;
+		next;
+		mes "[Nurse Las]";
+		mes "Hey, why don't you start with that girl over there?";
+		mes "Perhaps she'll tell you something.";
+		close2;
+		cutin "",255;
+		end;
+	} else if (malaya_bang == 6) {
+		mes "[Nurse Las]";
+		mes "What did she say?";
+		emotion e_what;
+		cutin "malaya_nurseA02",2;
+		next;
+		select("Tell her what she said.");
+		mes "[Nurse Las]";
+		mes "Strange.";
+		mes "HQ confirmed that I am assigned here.";
+		cutin "malaya_nurseA01",2;
+		next;
+		mes "[Nurse Las]";
+		mes "Maybe that girl doesn't know about this place?";
+		mes "HQ couldn't have sent me here and be lying about it. Could you ask someone else in town?";
+		next;
+		mes "[Nurse Las]";
+		mes "I'll contact HQ again for more info.";
+		mes "Hey, why not ask that man over there?";
+		mes "I'm sure he'll know something.";
+		set malaya_bang,7;
+		changequest 11288,11289;
+		close2;
+		cutin "",255;
+		end;
+	} else if (malaya_bang == 7) {
+		mes "[Nurse Las]";
+		mes "I'll contact HQ again for more info.";
+		mes "Hey, why not ask that man over there?";
+		mes "I'm sure he'll know something.";
+		cutin "malaya_nurseA01",2;
+		close2;
+		cutin "",255;
+		end;
+	} else if (malaya_bang == 8) {
+		mes "[Nurse Las]";
+		mes "An inn?";
+		mes "Good gracious!";
+		mes "If they'd have told me earlier I wouldn't have had to stand out here for so long!";
+		emotion e_pif;
+		cutin "malaya_nurseA01",2;
+		next;
+		mes "[Nurse Las]";
+		mes "Ummm......";
+		mes "......";
+		mes "......";
+		next;
+		mes "[Nurse Las]";
+		mes "Hey... you know what...";
+		next;
+		mes "[Nurse Las]";
+		mes "I don't think I can move anymore because of my feet. Could you go to the inn for me?";
+		emotion e_swt2;
+		cutin "malaya_nurseA03",2;
+		next;
+		mes "[Nurse Las]";
+		mes "I can't carry my bags around so I'll stay here and watch over them while I treat my feet.";
+		next;
+		mes "[Nurse Las]";
+		mes "I have to be back here again anyway.";
+		mes "Thank you.";
+		set malaya_bang,9;
+		changequest 11290,11291;
+		close2;
+		cutin "",255;
+		end;
+	} else if (malaya_bang == 9) {
+		mes "[Nurse Las]";
+		mes "I don't think I can move anymore because of my feet. Could you go to the inn for me?";
+		emotion e_swt2;
+		cutin "malaya_nurseA03",2;
+		next;
+		mes "[Nurse Las]";
+		mes "I can't carry my bags around so I'll stay here and watch over them while I treat my feet.";
+		next;
+		mes "[Nurse Las]";
+		mes "I have to be back here again anyway.";
+		mes "Thank you.";
+		close2;
+		cutin "",255;
+		end;
+	} else if (malaya_bang == 10) {
+		mes "[Nurse Las]";
+		mes "Hey~";
+		mes "How'd it go?";
+		cutin "malaya_nurseA02",2;
+		next;
+		select("Hand over the key and message.");
+		mes "[Nurse Las]";
+		mes "Keys?";
+		mes "Well this is one step closer to my goals!";
+		mes "Let's open the door right now!";
+		set malaya_bang,11;
+		close2;
+		cutin "",255;
+		end;
+	} else if (malaya_bang == 11) {
+		mes "[Nurse Las]";
+		mes "Keys?";
+		mes "Well this is one step closer to my goals!";
+		mes "Let's open the door right now!";
+		cutin "malaya_nurseA02",2;
+		close2;
+		cutin "",255;
+		end;
+	} else if (malaya_bang == 12) {
+		mes "[Nurse Las]";
+		mes "That's weird~!";
+		mes "The door's not locked?";
+		mes "How can this be?????";
+		mes "????";
+		emotion e_what;
+		emotion e_what,1;
+		cutin "malaya_nurseA04",2;
+		next;
+		mes "[Nurse Las]";
+		mes "Oh no!!!";
+		mes "Everything's falling apart.";
+		mes "Maybe we should wait for the doctor to come.....";
+		cutin "malaya_nurseA03",2;
+		next;
+		mes "[???]";
+		mes "...";
+		cutin "",255;
+		next;
+		mes "[???]";
+		mes "*Snigger*";
+		emotion e_what,1;
+		emotion e_what;
+		next;
+		mes "[???]";
+		mes "Hey "+((Sex)?"dude":"missy")+",";
+		mes "You're not getting in the hospital.";
+		next;
+		mes "["+strcharinfo(0)+"]";
+		mes "Who's there?!";
+		next;
+		mes "[???]";
+		mes "*Snigger*";
+		next;
+		mes "[???]";
+		mes "That's a secret~";
+		mes "My mom will kill me if she knew I was here!";
+		next;
+		switch(select("About entering the hospital.:About it's mom.:About ???:Quit.")) {
+		case 1:
+			mes "[???]";
+			mes "A few days ago, the old lady who lives near us went around the hospital sticking some kind of sticks into the ground.";
+			next;
+			mes "[???]";
+			mes "She was mumbling and looking around a lot.";
+			next;
+			mes "[???]";
+			mes "I was well hidden here because I wasn't supposed to be here.";
+			next;
+			break;
+		case 2:
+			mes "[???]";
+			mes "My mom once told me.";
+			mes "The old lady's daughter was hospitalized here.";
+			next;
+			mes "[???]";
+			mes "She never got out of it though...";
+			next;
+			mes "[???]";
+			mes "She wasn't the only one. There were many strange things going on at the hospital.";
+			next;
+			mes "[???]";
+			mes "That's why my mom doesn't want me coming around here.";
+			next;
+			break;
+		case 3:
+			mes "[???]";
+			mes "No way Jose!";
+			mes "I got a spanking last time I was caught around here!";
+			next;
+			mes "[???]";
+			mes "If I'm caught again, it won't end with a spanking....";
+			mes "So scary.";
+			next;
+			break;
+		case 4:
+			mes "[???]";
+			mes "Humph!!";
+			close;
+		}
+		mes "The voice seems to be coming from the bushes near the entrance of the hospital.";
+		specialeffect EF_STEAL,AREA,"Bushes#ma";
+		set malaya_bang,13;
+		changequest 11293,11294;
+		close;
+	} else if (malaya_bang == 13) {
+		mes "The voice seems to be coming from the bushes near the entrance of the hospital.";
+		mes "Let's check around.";
+		specialeffect EF_STEAL,AREA,"Bushes#ma";
+		close;
+	} else if (malaya_bang == 14) {
+		mes "[Nurse Las]";
+		mes "Hmmm... Let's look around the hospital.";
+		cutin "malaya_nurseA01",2;
+		close2;
+		cutin "",255;
+		end;
+	} else if (malaya_bang == 15) {
+		mes "[Nurse Las]";
+		mes "Hey... ummm...";
+		mes "You know...";
+		mes "Could you give that old lady a visit?";
+		cutin "malaya_nurseA04",2;
+		next;
+		mes "[Nurse Las]";
+		mes "Oh, me? I'll look be looking around here.";
+		next;
+		mes "[Nurse Las]";
+		mes "As you know, my feet hurt...";
+		mes "Yes?";
+		mes "Yes?";
+		next;
+		switch(select("Go.:Don't go.")) {
+		case 1:
+			mes "[Nurse Las]";
+			mes "Okay, off you go.";
+			mes "I think she lives on the west side of town.";
+			mes "Go on.";
+			next;
+			mes "[Nurse Las]";
+			mes "Hey you in the bushes, I'll tell on you if you don't go home now!";
+			set malaya_bang,16;
+			changequest 11296,11297;
+			close2;
+			cutin "",255;
+			end;
+		case 2:
+			mes "[Nurse Las]";
+			mes "Why!?";
+			mes "Staying here won't solve anything.";
+			close2;
+			cutin "",255;
+			end;
+		}
+	} else if (malaya_bang == 16 || malaya_bang == 17) {
+		mes "[Nurse Las]";
+		mes "Okay, off you go.";
+		mes "I think she lives on the west side of town.";
+		mes "Go on.";
+		cutin "malaya_nurseA04",2;
+		next;
+		mes "[Nurse Las]";
+		mes "Hey you in the bushes, I'll tell on you if you don't go home now!";
+		emotion e_omg,0,"Bushes#ma";
+		close2;
+		cutin "",255;
+		end;
+	} else if (malaya_bang == 18) {
+		mes "[Nurse Las]";
+		mes "How'd it go?";
+		mes "Did you meet the old lady?";
+		cutin "malaya_nurseA02",2;
+		next;
+		mes "[Nurse Las]";
+		mes "Oh by the way, when ["+strcharinfo(0)+"], you were gone, I tried the door.";
+		mes "It did open...";
+		next;
+		mes "[Nurse Las]";
+		mes "But the way to the 2nd floor was blocked.";
+		mes "I thought the door opening was a break through, but turns out it wasn't.";
+		cutin "malaya_nurseA03",2;
+		next;
+		mes "[Nurse Las]";
+		mes "Anyway, the first floor door is open, so let's go inside.";
+		mes "Everything would be meaningless if the second floor door is not opened.";
+		emotion e_sob;
+		set malaya_bang,19;
+		changequest 11299,11300;
+		close2;
+		cutin "",255;
+		warp "ma_dun01",33,110;
+		end;
+	} else if (malaya_bang == 19) {
+		mes "[Nurse Las]";
+		mes "Anyway, the first floor door is open, so let's go inside.";
+		mes "Everything would be meaningless if the second floor door is not opened.";
+		emotion e_sob;
+		cutin "malaya_nurseA01",2;
+		close2;
+		cutin "",255;
+		warp "ma_dun01",33,110;
+		end;
+	} else if (malaya_bang < 30) {
+		mes "[Nurse Las]";
+		mes "Could you check the 2nd floor door again in case I missed something?";
+		cutin "malaya_nurseA01",2;
+		close2;
+		cutin "",255;
+		warp "ma_dun01",33,110;
+		end;
+	} else {
+		callfunc "F_Malaya_Nurse",1;
+		end;
+	}
+	mes "There's a nurse outside the hospital holding a large bag.";
+	mes "I don't think I can help her.";
+	close;
+}
+
+ma_dun01,35,108,4	script	Nurse#ma_n2	569,{
+	if (malaya_bang < 19) {
+		// fall through
+	} else if (malaya_bang < 30) {
+		if (malaya_bang == 19) {
+			mes "The hospital is infested with monsters, like the old lady said.";
+			mes "How could she have gone back and forth to the 2nd floor with her feet like that....";
+			next;
+			set malaya_bang,20;
+			changequest 11300,11301;
+		}
+		mes "[Nurse Las]";
+		mes "Could you check the 2nd floor door again in case I missed something?";
+		cutin "malaya_nurseA01",2;
+		next;
+		switch(select("Go outside.:Quit.")) {
+		case 1:
+			close2;
+			cutin "",255;
+			warp "malaya",58,76;
+			end;
+		case 2:
+			mes "[Nurse Las]";
+			mes "Tsk...";
+			close2;
+			cutin "",255;
+			end;
+		}
+	} else {
+		callfunc "F_Malaya_Nurse",2;
+		end;
+	}
+	mes "[Nurse]";
+	mes "I want to be left alone.";
+	mes "Please leave.";
+	close2;
+	warp "malaya",58,76;
+	end;
+}
+
+ma_dun01,152,23,4	script	Suspicious Wooden Stick::MalayaStick0	858,{
+	if (malaya_bang == 20) {
+		mes "There's a talisman similar to the ones outside the hospital.";
+		mes "Let's look around for something else.";
+		set malaya_bang,30;
+		changequest 11301,11302;
+		close;
+	} else if (malaya_bang == 30) {
+		mes "There's a talisman similar to the ones outside the hospital.";
+		mes "Let's look around for something else.";
+		close;
+	} else if (malaya_bang == 35) {
+		mes "After sticking on the talisman over the other one, the dark feeling lifted away, just like Las said.";
+		next;
+		mes "[Nurse Las]";
+		mes "*Snigger*";
+		cutin "malaya_nurseA05",2;
+		next;
+		mes "["+strcharinfo(0)+"]";
+		mes "?!";
+		cutin "",255;
+		next;
+		mes "[Nurse Las]";
+		mes "Yes, yes!";
+		cutin "malaya_nurseA05",2;
+		next;
+		mes "[Nurse Las]";
+		mes "The annoying talismans are gone!";
+		next;
+		mes "[Nurse Las]";
+		mes "*Giggle*";
+		next;
+		mes "[Nurse Las]";
+		mes "Human's are so dumb. You show them a pretty little helpless look and they fall for it.";
+		next;
+		mes "[Nurse Las]";
+		mes "*Snigger*";
+		next;
+		mes "[Nurse Las]";
+		mes "For your work, I shall take you to my room...";
+		mes "Darn...";
+		next;
+		mes "[Nurse Las]";
+		mes "......";
+		next;
+		mes "[Nurse Las]";
+		mes "No no no!";
+		mes "You still have those annoying talismans!!!";
+		next;
+		mes "[Nurse Las]";
+		mes "This is your lucky day!";
+		mes "*Snigger*";
+		set malaya_bang,36;
+		changequest 11307,11308;
+		close2;
+		cutin "",255;
+		warp "malaya",58,76;
+		end;
+	} else if (malaya_bang > 35) {
+		mes "Cannot feel anything evil about the talisman.";
+		mes "Only the bitter taste of being fooled around Las remains...";
+		close;
+	} else {
+		mes "No power can be felt.";
+		close;
+	}
+}
+
+malaya,48,76,4	script	Hospital Door#ma_n1	844,{
+	if (malaya_bang == 3) {
+		mes "Pushed hard on the door, but it won't open.";
+		mes "It doesn't feel like it's locked or stuck, but encased by a layer of something.";
+		set malaya_bang,4;
+		changequest 11285,11286;
+		close;
+	} else if (malaya_bang == 4) {
+		mes "Pushed hard on the door, but it won't open.";
+		mes "It doesn't feel like it's locked or stuck, but encased by a layer of something.";
+		close;
+	} else if (malaya_bang == 11) {
+		mes "Put the key inside the lock of the hospital door...";
+		mes "But it's not locked as expected.";
+		next;
+		mes "Then why is the door not opening?";
+		set malaya_bang,12;
+		changequest 11292,11293;
+		close;
+	} else if (malaya_bang == 12) {
+		mes "Put the key inside the lock of the hospital door...";
+		mes "But it's not locked as expected.";
+		next;
+		mes "Then why is the door not opening?";
+		close;
+	} else if (malaya_bang > 18) {
+		if(select("Enter the hospital.:Quit.") == 1)
+			warp "ma_dun01",33,110;
+		end;
+	} else {
+		mes "The hospital door seems to be closed.";
+		close;
+	}
+}
+
+malaya,64,78,4	script	Village Woman#mab	583,{
+	if (malaya_hi < 20) {
+		mes "[Village Woman]";
+		mes "......";
+		next;
+		mes "Seems very cautious about you.";
+		close;
+	}
+	if (malaya_bang == 5) {
+		mes "[Village Woman]";
+		mes "Oh~Are you an adventurer?";
+		mes "It seems like we have a lot of them in town lately.";
+		next;
+		mes "[Village Woman]";
+		mes "I was born here and never went far away from here, so I always feel like going on my adventures when I hear the stories they bring.";
+		next;
+		switch(select("Ask about the hospital.:End conversation.")) {
+		case 1:
+			mes "[Village Woman]";
+			mes "The hospital?";
+			mes "It's been closed for a very long time.";
+			mes "They don't talk about it around here.";
+			next;
+			mes "[Village Woman]";
+			mes "I never had to go to the hospital.";
+			mes "I've been there once when I had a stomach ache as a child. I remember the place being creepy.";
+			next;
+			mes "[Village Woman]";
+			mes "Children never like hospitals.";
+			next;
+			select("Ask about the nurse.");
+			mes "[Village Woman]";
+			mes "The new nurse?";
+			mes "I don't know.";
+			mes "I haven't given it a thought.";
+			mes "It is strange to have a new nurse coming to a closed hospital.";
+			set malaya_bang,6;
+			changequest 11287,11288;
+			close;
+		case 2:
+			mes "[Village Woman]";
+			mes "Have a nice day~";
+			close;
+		}
+	} else if (malaya_bang == 6) {
+		mes "[Village Woman]";
+		mes "The new nurse?";
+		mes "I don't know.";
+		mes "I haven't given it a thought.";
+		mes "It is strange to have a new nurse coming to a closed hospital.";
+		set malaya_bang,6;
+		changequest 11287,11288;
+		close;
+	} else {
+		mes "[Village Woman]";
+		mes "Oh~Are you an adventurer?";
+		mes "It seems like we have a lot of them in town lately.";
+		next;
+		mes "[Village Woman]";
+		mes "I was born here and never went far away from here, so I always feel like going on my adventures when I hear the stories they bring.";
+		close;
+	}
+}
+
+malaya,62,37,4	script	Village Man#mab	582,{
+	if (malaya_hi < 20) {
+		mes "[Village Man]";
+		mes "Hmmm! Haven't seen you around?";
+		mes "What brings you to our town?";
+		next;
+		mes "Seems very cautious about you.";
+		close;
+	}
+	if (malaya_bang == 7) {
+		mes "[Village Man]";
+		mes "*Laughs*";
+		mes "An adventurer, are you?";
+		mes "When you have time, come and take a look around my pineapple farm.";
+		next;
+		mes "[Village Man]";
+		mes "Just a little bit~";
+		mes "far from the village, but I'll give you all the pineapple you want in exchange for a good story of yours!";
+		next;
+		switch(select("Ask about the hospital.:End conversation.")) {
+		case 1:
+			mes "[Village Man]";
+			mes "Ummm......";
+			mes "You mean that hospital?";
+			next;
+			mes "[Village Man]";
+			mes "It was closed down because of an accident.";
+			mes "But I wouldn't trouble an outsider with the details......";
+			mes "There's not much I can tell you.";
+			next;
+			select("Ask about the nurse.");
+			mes "[Village Man]";
+			mes "Oh!!!";
+			mes "Did you meet the nurse?!";
+			next;
+			mes "["+strcharinfo(0)+"]";
+			mes "She was standing in front of the hospital.";
+			mes "Oh!";
+			mes "She must have gone to contact HQ.";
+			next;
+			mes "[Village Man]";
+			mes "We requested 'the nurse', and she's already here! We're saved!";
+			next;
+			select("The nurse?");
+			mes "[Village Man]";
+			mes "She was invited here to save our hospital.";
+			next;
+			mes "[Village Man]";
+			mes "Now I have to spread the good news! Could you bring her to the inn at the center of town?";
+			next;
+			mes "[Village Man]";
+			mes "That's where the doctor is staying.";
+			mes "He's been there ever since the hospital was closed.";
+			set malaya_bang,8;
+			changequest 11289,11290;
+			close;
+		case 2:
+			mes "[Village Man]";
+			mes "Whoopeee!";
+			close;
+		}
+	} else if (malaya_bang == 8) {
+		mes "[Village Man]";
+		mes "Now I have to spread the good news! Could you bring her to the inn at the center of town?";
+		next;
+		mes "[Village Man]";
+		mes "That's where the doctor is staying.";
+		mes "He's been there ever since the hospital was closed.";
+		close;
+	} else {
+		mes "[Village Man]";
+		mes "Whoopeee!";
+		mes "An adventurer, are you?";
+		mes "When you have time, come and take a look around my pineapple farm.";
+		next;
+		mes "[Village Man]";
+		mes "Just a little bit~";
+		mes "far from the village, but I'll give you all the pineapple you want in exchange for a good story of yours!";
+		close;
+	}
+}
+
+malaya,210,200,5	script	Dr. Boon#ma	865,{
+	if (malaya_hi < 20) {
+		mes "[Dr. Boon]";
+		mes "......";
+		next;
+		mes "Seems very cautious about you.";
+		close;
+	}
+	if (malaya_bang == 9) {
+		mes "[Dr. Boon]";
+		mes "So~ You're the new nurse?";
+		next;
+		switch(select("Yes.:No.")) {
+		case 1:
+			mes "[Dr. Boon]";
+			mes "Nothing's more important for a nurse than their white uniform.";
+			mes "Go get changed!";
+			close;
+		case 2:
+			mes "[Dr. Boon]";
+			mes "Oh! I'm sorry.";
+			mes "We're waiting for a new nurse.";
+			mes "My bad.";
+			next;
+			select("Explain the situation.");
+			mes "[Dr. Boon]";
+			mes "Aha~";
+			mes "So that's what happened.";
+			mes "Oh, dear. I guess there was a misunderstanding.";
+			next;
+			mes "[Dr. Boon]";
+			mes "You see, I've been treating patients at the inn after what happened to the hospital.";
+			next;
+			mes "[Dr. Boon]";
+			mes "Even so, I must apologize for making her stand there so long.";
+			next;
+			mes "[Dr. Boon]";
+			mes "I can't leave right now because I have patients to look after. Why don't you go over and hand over this key?";
+			next;
+			mes "[Dr. Boon]";
+			mes "And give her a message with the key saying, 'I'll leave it to your own discretion'.";
+			next;
+			mes "[Dr. Boon]";
+			mes "I'll be there as soon as I'm done here.";
+			mes "Good luck~";
+			set malaya_bang,10;
+			changequest 11291,11292;
+			close;
+		}
+	} else if (malaya_bang == 10) {
+		mes "[Dr. Boon]";
+		mes "I can't leave right now because I have patients to look after. Why don't you go over and hand over this key?";
+		next;
+		mes "[Dr. Boon]";
+		mes "And give her a message with the key saying, 'I'll leave it to your own discretion'.";
+		next;
+		mes "[Dr. Boon]";
+		mes "I'll be there as soon as I'm done here.";
+		mes "Good luck~";
+		close;
+	} else {
+		mes "[Dr. Boon]";
+		mes "*Sigh*";
+		mes "The work... It never ends...";
+		mes "How am I supposed to handle all these patients on my own?";
+		next;
+		mes "[Dr. Boon]";
+		mes "What? What's a doctor doing in an inn?";
+		mes "Well, why not?";
+		close;
+	}
+}
+
+malaya,53,68,4	script	Bushes#ma	844,{
+	if (malaya_bang < 13) {
+		mes "It's just a bush.";
+		mes "A sweet scent of wood rises when shaken.";
+		close;
+	}
+	if (malaya_bang == 13) {
+		mes "[???]";
+		mes "Don't come any closer!";
+		mes "Old "+((Sex)?"man":"lady")+"!";
+		mes "How'd you know I was here?";
+		emotion e_omg;
+		next;
+		mes "["+strcharinfo(0)+"]";
+		mes "I'm not old.";
+		emotion e_an,1;
+		next;
+		switch(select("About entering the hospital.:About its mom.:About ???.:Ask about the old lady.:Ask about the hospital grounds.:Quit.")) {
+		case 1:
+			mes "[???]";
+			mes "A few days ago, the old lady who lives near us went around the hospital sticking some kind of sticks into the ground.";
+			next;
+			mes "[???]";
+			mes "She was mumbling and looking around a lot.";
+			next;
+			mes "[???]";
+			mes "I was well hidden here because I wasn't supposed to be here.";
+			next;
+			break;
+		case 2:
+			mes "[???]";
+			mes "My mom once told me.";
+			mes "The old lady's daughter was hospitalized here.";
+			next;
+			mes "[???]";
+			mes "She never got out of it though...";
+			next;
+			mes "[???]";
+			mes "She wasn't the only one. There were many strange things going on at the hospital.";
+			next;
+			mes "[???]";
+			mes "That's why my mom doesn't want me coming around here.";
+			next;
+			break;
+		case 3:
+			mes "[???]";
+			mes "No way Jose!";
+			mes "I got a spanking last time I was caught around here!";
+			next;
+			mes "[???]";
+			mes "If I'm caught again, it won't end with a spanking....";
+			mes "So scary.";
+			next;
+			break;
+		case 4:
+			mes "[???]";
+			mes "It's the lady who lives next door to us.";
+			next;
+			mes "[???]";
+			mes "I saw her a few days ago doing something around the hospital.";
+			next;
+			mes "[???]";
+			mes "I couldn't see what she was doing from here, but I found some sticks there after she'd left.";
+			set malaya_bang,14;
+			changequest 11294,11295;
+			close;
+		case 5:
+			mes "[???]";
+			mes "I dunno.";
+			mes "Nothing's different except for the sticks.";
+			next;
+			mes "[???]";
+			mes "The old lady comes back once in a while to check on the sticks.";
+			mes "My heart races when that happens!";
+			next;
+			break;
+		case 6:
+			mes "[???]";
+			mes "Humph!!";
+			emotion e_pif;
+			close;
+		}
+		mes "[???]";
+		mes "Promise me you won't tell anyone that you saw me!!!";
+		mes "Promise?!";
+		close;
+	} else if (malaya_bang == 14) {
+		mes "[???]";
+		mes "I couldn't see what she was doing from here, but I found some sticks there after she'd left.";
+		close;
+	} else if (malaya_bang == 15) {
+		mes "[???]";
+		mes "Don't come any closer!";
+		mes "Old "+((Sex)?"man":"lady")+"!";
+		mes "How'd you know I was here?";
+		emotion e_omg;
+		next;
+		mes "["+strcharinfo(0)+"]";
+		mes "I'm not old.";
+		emotion e_an,1;
+		close;
+	} else {
+		mes "There's a trace of a young child.";
+		mes "Think the child's gone home now.";
+		close;
+	}
+}
+
+-	script	Suspicious Wooden Stick::MalayaStick	-1,{
+	if (checkweight(1201,1) == 0) {
+		mes "- Wait !! -";
+		mes "- You have too many items. -";
+		mes "- Cannot receive item. -";
+		mes "- Please lighten your bag -";
+		mes "- and try again. -";
+		close;
+	}
+	if (MaxWeight - Weight < 1000) {
+		mes "- Wait !! -";
+		mes "- You are carrying too many items. -";
+		mes "- Cannot receive item. -";
+		mes "- Please lighten your bag -";
+		mes "- and try again. -";
+		close;
+	}
+	if (malaya_bang == 14) {
+		mes "A strange stick is planted on the ground.";
+		mes "A mysterious force can be felt.";
+		next;
+		switch(select("Pull it out.:Leave it.")) {
+		case 1:
+			if (rand(1,5) == 4) {
+				mes "Pulled out the deeply planted stick.";
+				mes "The hospital seems to have become more gloomy.";
+				if (rand(2)) {
+					set malaya_bang,15;
+					changequest 11295,11296;
+					getitem 6497,1; //Lesser_Agimat
+					donpcevent "Tent"+replacestr(strnpcinfo(3),"MalayaStick","")+"#ma::OnEnable";
+					next;
+					mes "Better show Las the talisman.";
+					close;
+				} else {
+					getitem 6497,1; //Lesser_Agimat
+					donpcevent "Tent"+replacestr(strnpcinfo(3),"MalayaStick","")+"#ma::OnEnable";
+					close;
+				}
+			} else {
+				mes "After pulling out the deeply planted stick, an uneasy feeling washes over.";
+				donpcevent "Tent"+replacestr(strnpcinfo(3),"MalayaStick","")+"#ma::OnEnable";
+				close;
+			}
+		case 2:
+			mes "It looks ominous. Better leave it alone.";
+			close;
+		}
+	} else {
+		mes "There's a strange looking stick.";
+		close;
+	}
+	end;
+OnEnable:
+	enablenpc strnpcinfo(3); // NPC name is too long for strnpcinfo(0).
+	end;
+OnDisable:
+	disablenpc strnpcinfo(3);
+	end;
+}
+malaya,40,52,4	duplicate(MalayaStick)	Suspicious Wooden Stick::MalayaStick1	858
+malaya,31,42,4	duplicate(MalayaStick)	Suspicious Wooden Stick::MalayaStick2	858
+malaya,34,36,4	duplicate(MalayaStick)	Suspicious Wooden Stick::MalayaStick3	858
+malaya,40,32,4	duplicate(MalayaStick)	Suspicious Wooden Stick::MalayaStick4	858
+malaya,50,85,4	duplicate(MalayaStick)	Suspicious Wooden Stick::MalayaStick5	858
+malaya,46,93,4	duplicate(MalayaStick)	Suspicious Wooden Stick::MalayaStick6	858
+malaya,36,98,4	duplicate(MalayaStick)	Suspicious Wooden Stick::MalayaStick7	858
+malaya,48,79,4	duplicate(MalayaStick)	Suspicious Wooden Stick::MalayaStick8	858
+malaya,50,46,4	duplicate(MalayaStick)	Suspicious Wooden Stick::MalayaStick9	858
+malaya,59,84,4	duplicate(MalayaStick)	Suspicious Wooden Stick::MalayaStick10	858
+
+-	script	Tent#ma	-1,{ //557
+	end;
+OnInit:
+	disablenpc strnpcinfo(0);
+	end;
+OnEnable:
+	enablenpc strnpcinfo(0);
+	initnpctimer;
+	end;
+OnDisable:
+	stopnpctimer;
+	disablenpc strnpcinfo(0);
+	end;
+OnTimer1000:
+	donpcevent "MalayaStick"+replacestr(strnpcinfo(1),"Tent","")+"::OnDisable";
+	end;
+OnTimer30000:
+	donpcevent "MalayaStick"+replacestr(strnpcinfo(1),"Tent","")+"::OnEnable";
+	donpcevent strnpcinfo(0)+"::OnDisable";
+	end;
+}
+-	duplicate(Tent#ma)	Tent1#ma	-1
+-	duplicate(Tent#ma)	Tent2#ma	-1
+-	duplicate(Tent#ma)	Tent3#ma	-1
+-	duplicate(Tent#ma)	Tent4#ma	-1
+-	duplicate(Tent#ma)	Tent5#ma	-1
+-	duplicate(Tent#ma)	Tent6#ma	-1
+-	duplicate(Tent#ma)	Tent7#ma	-1
+-	duplicate(Tent#ma)	Tent8#ma	-1
+-	duplicate(Tent#ma)	Tent9#ma	-1
+-	duplicate(Tent#ma)	Tent10#ma	-1
+
+malaya,114,183,3	script	Bent Old Lady#ma	575,{
+	if (malaya_bang == 16) {
+		mes "[Bent Old Lady]";
+		mes "Ho ho ho ho~~";
+		next;
+		mes "["+strcharinfo(0)+"]";
+		mes "Ma'am, excuse me, but can I ask you a question?";
+		next;
+		mes "[Bent Old Lady]";
+		mes "Ho ho ho ho~~";
+		next;
+		mes "["+strcharinfo(0)+"]";
+		mes "Ma'am?";
+		next;
+		mes "[Bent Old Lady]";
+		mes "Ho ho ho ho~~";
+		next;
+		mes "["+strcharinfo(0)+"]";
+		mes "Ma'am?";
+		next;
+		mes "[Bent Old Lady]";
+		mes "Ho ho ho ho~~";
+		next;
+		mes "["+strcharinfo(0)+"]";
+		mes "Ma'am!!!!!!!!!";
+		next;
+		mes "[Bent Old Lady]";
+		mes "Who? What?";
+		next;
+		mes "["+strcharinfo(0)+"]";
+		mes "Excuse me, but can I ask you something?";
+		next;
+		mes "[Bent Old Lady]";
+		mes "What? I can't hear you.";
+		mes "Speak up!";
+		next;
+		mes "["+strcharinfo(0)+"]";
+		mes "I! Have! Something! To! Ask! You!";
+		next;
+		mes "[Bent Old Lady]";
+		mes "Oh~Yes dear~";
+		mes "I'll tell you everything I know, dear~";
+		next;
+		mes "["+strcharinfo(0)+"]";
+		mes "Do you know anything about the hospital?";
+		next;
+		mes "[Bent Old Lady]";
+		mes "Hospital?";
+		mes "........";
+		next;
+		mes "[Bent Old Lady]";
+		mes "Hospital?!?!?!?";
+		next;
+		mes "[Bent Old Lady]";
+		mes "That hospital is cursed!";
+		mes "Something wicked is living there!";
+		next;
+		mes "[Bent Old Lady]";
+		mes "The thing took away my poor little girl.";
+		next;
+		switch(select("Ask about the hospital.:Ask about her daughter.")) {
+		case 1:
+			mes "[Bent Old Lady]";
+			mes "Everybody was happy to hear about the hospital being built.";
+			next;
+			mes "[Bent Old Lady]";
+			mes "We no longer had to go to other towns for medical care.";
+			next;
+			mes "[Bent Old Lady]";
+			mes "But the one they built didn't work out so well.";
+			mes "It couldn't cure people.";
+			mes "I knew this would happen when they chopped down the old tree to build it.";
+			next;
+			mes "[Bent Old Lady]";
+			mes "But the administrator wouldn't listen.";
+			mes "Far from curing people, they started to die.";
+			mes "So did my daughter...";
+			set malaya_bang,17;
+			changequest 11297,11298;
+			close;
+		case 2:
+			mes "[Bent Old Lady]";
+			mes "She suffered from nothing life threatening.";
+			mes "It was...";
+			mes "Just a cold......";
+			next;
+			mes "[Bent Old Lady]";
+			mes "The wicked thing.... My daughter...";
+			mes "There's something in that hospital.";
+			close;
+		}
+	} else if (malaya_bang == 17) {
+		select("Show her the stick.");
+		mes "[Bent Old Lady]";
+		mes "What?";
+		mes "Arghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh";
+		emotion e_omg;
+		next;
+		mes "[Bent Old Lady]";
+		mes "Arghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh";
+		emotion e_omg;
+		next;
+		mes "[Bent Old Lady]";
+		mes "Arghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh";
+		emotion e_omg;
+		next;
+		mes "[Bent Old Lady]";
+		mes "Arghhhhhhhhhh!!!!!!!!!!!";
+		emotion e_omg;
+		next;
+		mes "[Bent Old Lady]";
+		mes "What have you done!";
+		mes "That... That was a talisman to stop the wicked thing!";
+		next;
+		mes "[Bent Old Lady]";
+		mes "If you pull them up, it will go after people again!";
+		next;
+		mes "[Bent Old Lady]";
+		mes "I saw it!";
+		mes "I saw it when they closed the hospital saying that everybody had died.";
+		next;
+		mes "[Bent Old Lady]";
+		mes "But they all knew.";
+		mes "The patients weren't all dead.";
+		next;
+		mes "[Bent Old Lady]";
+		mes "Taken alive...";
+		mes "By the thing that took my daughter...";
+		next;
+		mes "[Bent Old Lady]";
+		mes "Oh dear.";
+		next;
+		mes "Nurse Las may be in danger, standing alone in front of the hospital.";
+		mes "If I don't return quickly...";
+		set malaya_bang,18;
+		changequest 11298,11299;
+		close;
+	} else if (malaya_bang == 18) {
+		mes "Nurse Las may be in danger, standing alone in front of the hospital.";
+		mes "If I don't return quickly...";
+		close;
+	} else if (malaya_bang == 32) {
+		mes "[Bent Old Lady]";
+		mes "Yes? The talisman?";
+		mes "I asked the shaman up north of the village to make them,";
+		next;
+		mes "[Bent Old Lady]";
+		mes "Not famous, but a talented shaman.";
+		set malaya_bang,33;
+		changequest 11304,11305;
+		close;
+	} else {
+		mes "[Bent Old Lady]";
+		mes "Ho ho ho ho~~";
+		next;
+		mes "["+strcharinfo(0)+"]";
+		mes "Ma'am, excuse me, but can I ask you a question?";
+		next;
+		mes "[Bent Old Lady]";
+		mes "Ho ho ho ho~~";
+		next;
+		mes "["+strcharinfo(0)+"]";
+		mes "Ma'am?";
+		next;
+		mes "[Bent Old Lady]";
+		mes "Ho ho ho ho~~";
+		next;
+		mes "["+strcharinfo(0)+"]";
+		mes "Ma'am?";
+		next;
+		mes "[Bent Old Lady]";
+		mes "Ho ho ho ho~~";
+		next;
+		mes "["+strcharinfo(0)+"]";
+		mes "Ma'am!!!!!!!!!";
+		next;
+		mes "[Bent Old Lady]";
+		mes "Who? What?";
+		next;
+		mes "["+strcharinfo(0)+"]";
+		mes "Excuse me, but can I ask you something?";
+		next;
+		mes "[Bent Old Lady]";
+		mes "What? I can't hear you.";
+		mes "Speak up!";
+		close;
+	}
+}
+
+malaya,276,367,4	script	Bent Shaman#ma	782,{
+	if (malaya_hi < 20) {
+		mes "[Bent Shaman]";
+		mes "Urgh Urgh Urghhhhhh";
+		next;
+		mes "Doesn't give even a glance...";
+		close;
+	}
+	mes "[Bent Shaman]";
+	mes "Hmmmm...";
+	mes "I feel, feel....";
+	next;
+	mes "[Bent Shaman]";
+	mes "I feel something bad from you...";
+	if (malaya_bang == 33) {
+		next;
+		mes "[Bent Shaman]";
+		mes "No no...";
+		mes "You need not say anything!";
+		mes "You'll be needing this.";
+		next;
+		mes "[Bent Shaman]";
+		mes "It's okay.";
+		mes "No need for money.";
+		mes "It's the karma this village must face...";
+		set malaya_bang,34;
+		changequest 11305,11306;
+	}
+	close;
+}
+
+// Pintados Festival :: pintados
+//============================================================
+/*
+Description
+-----------
+The Pintados Festival begins when players have accumulated 1000 Lesser Agimats,
+1000 Silver Crosses, and 300 dyestuffs, and lasts for 7 days. During that time,
+players are able to create a tattoo.
+
+Global Variables
+----------------
+$malaya_pintados_00  - Festival time limit, in 30-minute intervals. (range: 0~344)
+$malaya_pintados_01  - Number of Lesser Agimats collected. (range: 0~1000)
+$malaya_pintados_02  - Number of Silver Crosses collected. (range: 0~1000)
+$malaya_pintados_03  - Number of dyestuffs collected. (range: 0~300)
+$malaya_pintados_04$ - Last player to create a tattoo.
+*/
+
+ma_fild01,1,1,4	script	Pintados Manager#pin	894,{
+
+	if (!getgmlevel()) end;
+
+	input .@input;
+	if (.@input == 1854) {
+		mes "Bingo!";
+		next;
+	} else {
+		mes "Error occurred.";
+		close;
+	}
+	mes "Hi, I'm the Pintados Festival Manager. Please select an item.";
+	mes "Time Value: ("+$malaya_pintados_00+"/344)";
+	mes "Lesser Agimat Value: ("+$malaya_pintados_01+"/1,000)";
+	mes "Cross Value: ("+$malaya_pintados_02+"/1,000)";
+	mes "Dyestuffs Value: ("+$malaya_pintados_03+"/300)";
+	mes "Recent Tattoo Creator: "+$malaya_pintados_04$;
+	next;
+	switch(select("Eastern Medicine Button ? Start & End:Detail Button ? Adjust Value:Start Timer:End Timer")) {
+	case 1:
+		mes "This is the Eastern Medicine Control Button.";
+		mes "You can set the Start or End values for the festival.";
+		next;
+		switch(select("Start Pintados Festival:End Pintados Festival:NPC_ON:NPC_OFF")) {
+		case 1:
+			set $malaya_pintados_00,1;
+			donpcevent "Pintados Manager#pin::OnEnable";
+			mes "Start the Pintados Festival.";
+			close;
+		case 2:
+			donpcevent "Pintados Manager#pin::OnDisable";
+			mes "End the Pintados Festival.";
+			close;
+		case 3:
+			donpcevent "Pintados Manager#pin::OnEnableNPC";
+			mes "Add an NPC.";
+			close;
+		case 4:
+			donpcevent "Pintados Manager#pin::OnDisableNPC";
+			mes "Remove an NPC.";
+			close;
+		}
+	case 2:
+		mes "Adjust the global value. Please select the value to adjust.";
+		next;
+		while(1) {
+			switch(select("Complete Adjustment:Time ("+$malaya_pintados_00+"):Lesser Agimat ("+$malaya_pintados_01+"):Silver Cross ("+$malaya_pintados_02+"):Dyestuffs ("+$malaya_pintados_03+")")) {
+			case 1:
+				mes "Completed global adjustment.";
+				close;
+			case 2:
+				mes "Adjust Time [0~344]";
+				mes "Global Increase by 1/30 min.";
+				mes "1 - 49 -> Day 1";
+				mes "50 - 98 -> Day 2";
+				mes "99 - 147 -> Day 3";
+				mes "148 - 196 -> Day 4";
+				mes "197 - 245 -> Day 5";
+				mes "246 - 294 -> Day 6";
+				mes "295 - 343 -> Day 7";
+				mes "Global 1 = 1 hr.";
+				next;
+				input .@input;
+				if (.@input < 0 || .@input > 344)
+					close;
+				set $malaya_pintados_00, .@input;
+				break;
+			case 3:
+				mes "Adjust the accumulated value for the Lesser Agimat.";
+				mes "Values can be adjusted between 0 to 1000.";
+				next;
+				input .@input;
+				if (.@input < 0 || .@input > 1000)
+					close;
+				set $malaya_pintados_01, .@input;
+				break;
+			case 4:
+				mes "Adjust the accumulated value of the Silver Cross.";
+				mes "Values can be adjusted between 0 to 1000.";
+				next;
+				input .@input;
+				if (.@input < 0 || .@input > 1000)
+					close;
+				set $malaya_pintados_02, .@input;
+				break;
+			case 5:
+				mes "Adjust the accumulated value for the Dyestuff.";
+				mes "Values can be adjusted between 0 to 300.";
+				next;
+				input .@input;
+				if (.@input < 0 || .@input > 300)
+					close;
+				set $malaya_pintados_03, .@input;
+				break;
+			}
+			mes "Time Value: ("+$malaya_pintados_00+"/344)";
+			mes "Lesser Agimat Value: ("+$malaya_pintados_01+"/1,000)";
+			mes "Cross Value: ("+$malaya_pintados_02+"/1,000)";
+			mes "Dyestuffs Value: ("+$malaya_pintados_03+"/300)";
+			mes "This is the current value. Do you want to adjust it?";
+			next;
+		}
+	case 3:
+		initnpctimer;
+		break;
+	case 4:
+		stopnpctimer;
+		break;
+	}
+	end;
+
+// Moved to individual NPCs for smoother processing.
+//OnInit:
+//	if ($malaya_pintados_00 > 0)
+//		donpcevent "Pintados Manager#pin::OnEnableNPC";
+//	end;
+
+OnTimer1800000:
+	set $malaya_pintados_00, $malaya_pintados_00;
+	if ($malaya_pintados_00 > 0 && $malaya_pintados_00 < 344) {
+		set $malaya_pintados_00,$malaya_pintados_00+1;
+		stopnpctimer;
+		initnpctimer;
+	} else {
+		set $malaya_pintados_00,0;
+		donpcevent "Pintados Manager#pin::OnDisable";
+	}
+	end;
+OnEnable:
+	initnpctimer;
+	donpcevent "Pintados Manager#pin::OnEnableNPC";
+	announce "The 'Pintados Festival' will be held for a week in Baryo Mahiwaga.",bc_all,"0xFB9D04",FW_NORMAL,12;
+	end;
+OnDisable:
+	stopnpctimer;
+	set $malaya_pintados_00,0;
+	set $malaya_pintados_01,0;
+	set $malaya_pintados_02,0;
+	set $malaya_pintados_03,0;
+	donpcevent "Pintados Manager#pin::OnDisableNPC";
+	announce "The 'Pintados Festival' ended with great success.",bc_all,"0xFB9D04",FW_NORMAL,12;
+	end;
+OnEnableNPC:
+	set .@str$, "::OnEnable";
+OnDisableNPC:
+	if (.@str$ == "")
+		set .@str$, "::OnDisable";
+	donpcevent "Tourist#pin01"+.@str$;
+	donpcevent "Tourist#pin02"+.@str$;
+	donpcevent "Tourist#pin03"+.@str$;
+	donpcevent "Young Tattooist#pin04"+.@str$;
+	donpcevent "Tourist#pin05"+.@str$;
+	donpcevent "Drumming Young Man#pin06"+.@str$;
+	donpcevent "Drumming Young Man#pin07"+.@str$;
+	donpcevent "Drumming Young Man#pin08"+.@str$;
+	donpcevent "Beat Catching Boy#pin09"+.@str$;
+	donpcevent "Beat Catching Boy#pin10"+.@str$;
+	donpcevent "Beat Catching Boy#pin11"+.@str$;
+	end;
+}
+
+ma_fild01,179,260,2	script	Festival Helper Boy#pin	577,{
+	if (checkweight(1201,1) == 0 || MaxWeight - Weight < 1000) {
+		mes "Cannot proceed because you have too many items in your possession.";
+		close;
+	}
+	if ($malaya_pintados_00 == 0) {
+		if ($malaya_pintados_01 > 999 && $malaya_pintados_02 > 999 && $malaya_pintados_03 > 299) {
+			set $malaya_pintados_00,1;
+			donpcevent "Pintados Manager#pin::OnEnable";
+			emotion e_lv;
+			mes "[Isco]";
+			mes "Many adventurers helped find festival items that I returned to the village.";
+			next;
+			emotion e_ho;
+			mes "[Isco]";
+			mes "He he... Now we can hold the '^7A96E0Pintados Festival^000000'.";
+			close;
+		}
+		// fall through
+	} else {
+		mes "[Isco]";
+		mes "He he... The fun '^7A96E0Pintados Festival^000000' is in full swing.";
+		next;
+		if ($malaya_pintados_00 > 0 && $malaya_pintados_00 < 50) {
+			emotion e_ho;
+			mes "[Isco]";
+			mes "Today's the first day of the '^7A96E0Pintados Festival^000000'. The festival is held for 7 days, so have fun.";
+			close;
+		} else if ($malaya_pintados_00 > 49 && $malaya_pintados_00 < 99) {
+			mes "[Isco]";
+			mes "Oh! Did you know?";
+			mes "Village tattooists draw tattoos only during the '^7A96E0Pintados Festival^000000'.";
+			close;
+		} else if ($malaya_pintados_00 > 98 && $malaya_pintados_00 < 148) {
+			mes "[Isco]";
+			mes "Today's the third day of the '^7A96E0Pintados Festival^000000'.";
+			next;
+			mes "[Isco]";
+			mes "Villagers say that an adventurer named "+$malaya_pintados_04$+" got a tattoo at the festival.";
+			close;
+		} else if ($malaya_pintados_00 > 147 && $malaya_pintados_00 < 197) {
+			mes "[Isco]";
+			mes "Villagers say that an adventurer named "+$malaya_pintados_04$+" got a tattoo at the festival.";
+			next;
+			mes "[Isco]";
+			mes "The Tattooist is scary and doesn't draw tattoos for just anyone so the adventurer must be special.";
+			close;
+		} else if ($malaya_pintados_00 > 196 && $malaya_pintados_00 < 246) {
+			mes "[Isco]";
+			mes "An adventurer named "+$malaya_pintados_04$+" is famous in the village.";
+			next;
+			mes "[Isco]";
+			mes "Have you every seen ^FF8440Bakonawa^000000, the monster known to swallow the moon? They say he is really ferocious.";
+			close;
+		} else if ($malaya_pintados_00 > 245 && $malaya_pintados_00 < 295) {
+			emotion e_sob;
+			mes "[Isco]";
+			mes "I'm so sad. Many adventurers helped to hold the '^7A96E0Pintados Festival^000000' and now only one day is left.";
+			close;
+		} else {
+			emotion e_sob;
+			mes "[Isco]";
+			mes "Oh gosh! It's already the last day of the '^7A96E0Pintados Festival^000000'. Can't believe there won't be more festivities.";
+			close;
+		}
+	}
+	emotion e_spin;
+	mes "[Isco]";
+	mes "Oh no. What will we do with the festival coming to an end.";
+	next;
+	switch(select("What is it?:How many did you collect?:Brought back a lost belonging.")) {
+	case 1:
+		mes "[Isco]";
+		mes "There is a traditional festival held since ancient times";
+		mes "in Baryo Mahiwaga called the '^7A96E0Pintados Festival^000000'.";
+		next;
+		emotion e_otl;
+		mes "[Isco]";
+		mes "I don't think I'll make it to the festival this time.";
+		next;
+		select("Why?");
+		mes "[Isco]";
+		mes "I was going back to the village delivering 1000 Lesser Agimats, 1000 Silver Crosses, and 300 Dyestuffs as an errand from Port Malaya.";
+		next;
+		mes "[Isco]";
+		mes "But '^FF8440Bongisungisu^000000' appeared out of nowhere and took the items away from me.";
+		next;
+		select("Are you hurt?");
+		emotion e_sigh;
+		mes "[Isco]";
+		mes "Fortunately not.";
+		next;
+		mes "[Isco]";
+		mes "But I'm in deep trouble. The '^7A96E0Pintados Festival^000000' can't be held without those items. What should I do.";
+		close;
+	case 2:
+		mes "[Isco]";
+		mes "Many adventurers are helping out but only collected...";
+		next;
+		mes "[Isco]";
+		mes "Lesser Agimat "+$malaya_pintados_01+", Silver Cross "+$malaya_pintados_02+", Dyestuff "+$malaya_pintados_03+" so far.";
+		next;
+		emotion e_sigh;
+		mes "[Isco]";
+		mes "Sigh... We are still short of materials to start the '^7A96E0Pintados Festival^000000'.";
+		close;
+	case 3:
+		set .@str$, (Sex)?"Bro":"Sis";
+		break;
+	}
+	emotion e_lv;
+	mes "[Isco]";
+	mes "Oh~ Really? Wow!";
+	mes "Thanks! "+strcharinfo(0)+" "+.@str$+"!!";
+	mes "He he. What did you bring?";
+	next;
+	set .@i, select(
+		"Lesser Agimat (^FF0000"+(($malaya_pintados_01 > 999)?"Collection complete":(1000 - $malaya_pintados_01)+" short")+"^000000):"+
+		"Silver Cross (^FF0000"+(($malaya_pintados_02 > 999)?"Collection complete":(1000 - $malaya_pintados_02)+" short")+"^000000):"+
+		"Dyestuff (^FF0000"+(($malaya_pintados_03 > 299)?"Collection complete":(300 - $malaya_pintados_03)+" short")+"^000000)"
+	);
+	switch(.@i) {
+	case 1:
+		set .@item,6497; //Lesser_Agimat
+		set .@name$,"Lesser Agimats";
+		set .@total,1000;
+		break;
+	case 2:
+		set .@item,6502; //Silver_Cross
+		set .@name$,"Silver Crosses";
+		set .@total,1000;
+		break;
+	case 3:
+		setarray .@items[0],975,976,978,979,980,981,982,983;
+		set .@name$,"Dyestuffs";
+		set .@total,300;
+		break;
+	}
+	mes "[Isco]";
+	mes "Wow! "+.@str$+" You've brought "+.@name$+"!";
+	next;
+	mes "[Isco]";
+	mes "Wait. One... two...";
+	if (getd("$malaya_pintados_0"+.@i) >= .@total) {
+		mes "Eh... oh? I already have all the "+.@name$+" I need. "+.@str$+"! But thank you for helping.";
+		close;
+	}
+	if (.@i < 3) {
+		mes "I am "+(.@total - getd("$malaya_pintados_0"+.@i))+" short of "+.@name$+". How many did you bring?";
+		next;
+		switch(select("One?!:Enter quantity.")) {
+		case 1:
+			set .@amount,1;
+			mes "[Isco]";
+			mes "He he... You've brought back one.";
+			next;
+			break;
+		case 2:
+			mes "[Isco]";
+			mes "He he... I'm slow with numbers. I get lost when it's over 50. How many will you give me?";
+			next;
+			input .@amount;
+			if (.@amount < 1 || .@amount > 50) {
+				mes "[Isco]";
+				mes "Sigh~ I'm lost! I can't count if the numbers are weird.";
+				close;
+			}
+			break;
+		}
+		if (countitem(.@item) < .@amount) {
+			mes "[Isco]";
+			mes "Sigh~ "+.@str$+"! Where is the "+getitemname(.@item)+"?";
+			close;
+		}
+	} else {
+		mes "I am "+(.@total - getd("$malaya_pintados_0"+.@i))+" short of Dyestuffs. What kind of Dyestuff did you bring?";
+		next;
+		for(set .@j,0; .@j<getarraysize(.@items); set .@j,.@j+1)
+			set .@menu$, .@menu$+getitemname(.@items[.@j])+" (^FF0000"+countitem(.@items[.@j])+"^000000):";
+		set .@item, .@items[select(.@menu$)-1];
+		if (countitem(.@item) == 0) {
+			mes "[Isco]";
+			mes "Sigh~ You don't have any "+getitemname(.@item)+".";
+			close;
+		}
+		mes "[Isco]";
+		mes .@str$+"! How many Scarlet Dyestuffs can you give me from the "+countitem(.@item)+" you have?";
+		next;
+		switch(select("Enter Quantity:All")) {
+		case 1:
+			mes "[Isco]";
+			mes "He he... I'm slow with numbers. I get lost when it's over 50. How many will you give me?";
+			next;
+			input .@amount;
+			if (.@amount < 1 || .@amount > 50) {
+				mes "[Isco]";
+				mes "Sigh~ I told you I'm not good with numbers.";
+				close;
+			}
+			break;
+		case 2:
+			set .@amount, countitem(.@item);
+			break;
+		}
+		if (countitem(.@item) < .@amount) {
+			mes "[Isco]";
+			mes "Sigh... I'm short of "+getitemname(.@item)+".";
+			close;
+		}
+	}
+	delitem .@item,.@amount;
+	setd "$malaya_pintados_0"+.@i, getd("$malaya_pintados_0"+.@i)+.@amount;
+	set .@amount_left, .@total - getd("$malaya_pintados_0"+.@i);
+	mes "[Isco]";
+	mes "He he... Thanks. "+.@str$+"!";
+	if (.@amount_left <= 0)
+		mes "Whoa! We've collected all the "+.@name$+" we need. Happy~!";
+	else
+		mes "I only need "+.@amount_left+" more "+.@name$+".";
+	close;
+}
+
+ma_fild01,172,223,6	script	Tattooist#pin	574,{
+	if (checkweight(1201,1) == 0 || MaxWeight - Weight < 1000) {
+		mes "Cannot proceed because you have too many items in your possession.";
+		close;
+	}
+	emotion e_what;
+	mes "[Tattooist]";
+	mes "Why do you want a Tattoo?";
+	next;
+	switch(select("What is a Tattoo?:I'm curious about the effect of Tattoos.:I need a Tattoo.")) {
+	case 1:
+		mes "[Tattooist]";
+		mes "A Tattoo of a powerful monster is said to increase the ability of the holder.";
+		next;
+		select("Awesome. How can I get one?");
+		mes "[Tattooist]";
+		mes "Drawing a Tattoo is a very holy task.";
+		next;
+		mes "[Tattooist]";
+		mes "10 Ancient Grudges to protect me while I draw Tattoos.";
+		next;
+		mes "[Tattooist]";
+		mes "1 Doll that looks like a powerful monster.";
+		next;
+		mes "[Tattooist]";
+		mes "And last but not least, 1 Spirit Piece to imbue the energy of a powerful monster into the Tattoo.";
+		next;
+		select("What kind of Tattoo will you draw?");
+		mes "[Tattooist]";
+		mes "I can draw 3 kinds of Tattoos.";
+		next;
+		mes "[Tattooist]";
+		mes "Bangungot Agimat Tattoo for a powerful monster that comes from an old gigantic tree in Port Malaya.";
+		next;
+		mes "[Tattooist]";
+		mes "Bakonawa Agimat Tattoo for a huge monster that can swallow the moon.";
+		next;
+		mes "[Tattooist]";
+		mes "Buwaya Agimat Tattoo for a giant alligator that kidnaps people.";
+		next;
+		select("Where can I get the Spirit Pieces and Doll?");
+		mes "[Tattooist]";
+		mes "You can get these powerful items from Buwaya, Bangungot, and Bakonawa themselves but it won't be an easy task.";
+		next;
+		mes "[Tattooist]";
+		mes "This holy task isn't done every day. Tattoos are drawn only during the '^7A96E0Pintados Festival^000000'.";
+		close;
+	case 2:
+		mes "[Tattooist]";
+		mes "Which Tattoo's effect are you curious about?";
+		next;
+		while(1) {
+			switch (select("Bangungot Agimat Tattoo:Buwaya Agimat Tattoo:Bakonawa Agimat Tattoo:I have no questions.")) {
+			case 1:
+				mes "[Tattooist]";
+				mes "Need 10 Ancient Grudges, 1 Piece of Bangungot's Spirit, and 1 Bangungot Doll to create";
+				next;
+				mes "[Tattooist]";
+				mes "The Bangungot Agimat Tattoo holds the energy of an old gigantic tree in Port Malaya.";
+				next;
+				mes "[Tattooist]";
+				mes "Increases the effect of healing others by 4% and healing from others by 7%.";
+				next;
+				break;
+			case 2:
+				mes "[Tattooist]";
+				mes "Need 10 Ancient Grudges, 1 Piece of Buwaya's Spirit, and 1 Buwaya Doll to create";
+				next;
+				mes "[Tattooist]";
+				mes "The Buwaya Agimat Tattoo contains the energy from a giant alligator.";
+				next;
+				mes "[Tattooist]";
+				mes "Increases MATK by +7% and decreases Fixed Casting by 7%.";
+				next;
+				break;
+			case 3:
+				mes "[Tattooist]";
+				mes "Need 10 Ancient Grudges, 1 Piece of Bakonawa's Spirit, and 1 Bakonawa Doll to create";
+				next;
+				mes "[Tattooist]";
+				mes "The Bakonawa Agimat Tattoo holds the energy from a gigantic monster that can swallow the moon.";
+				next;
+				mes "[Tattooist]";
+				mes "Increases ATK by +7% and ASPD by 10%.";
+				next;
+				break;
+			case 4:
+				mes "[Tattooist]";
+				mes "Looks like you've got all the answers. Hope you enjoy your journey.";
+				close;
+			}
+			mes "[Tattooist]";
+			mes "Do you have any questions about other Tattoo effects?";
+			next;
+		}
+	case 3:
+		break;
+	}
+	if ($malaya_pintados_00 == 0) {
+		mes "[Tattooist]";
+		mes "The holy task of drawing Tattoos is only done during the '^7A96E0Pintados Festival^000000'. Sorry but looks like the festival is not on.";
+		close;
+	}
+	mes "[Tattooist]";
+	mes "You've come right on time during the '^7A96E0Pintados Festival^000000'.";
+	next;
+	mes "[Tattooist]";
+	mes "There is no time like during the holy '^7A96E0Pintados Festival^000000' to draw Tattoos.";
+	next;
+	mes "[Tattooist]";
+	mes "The festival doesn't last long so I should start drawing. What Tattoo do you need?";
+	next;
+	switch(select("I will think it over.:Bangungot Agimat Tattoo:Buwaya Agimat Tattoo:Bakonawa Agimat Tattoo")) {
+	case 1:
+		mes "[Tattooist]";
+		mes "Hope you enjoy the '^7A96E0Pintados Festival^000000'.";
+		close;
+	case 2:
+		set .@tattoo,2911; //Bangungot_Tattoo
+		set .@doll,6517; //Bangungot_Doll
+		set .@spirit,6524; //Bangungot_Spirit_Piece
+		set .@name$,"Bangungot";
+		break;
+	case 3:
+		set .@tattoo,2907; //Buwaya_Tattoo
+		set .@doll,6518; //Buwaya_Doll
+		set .@spirit,6525; //Buwaya_Spirit_Piece
+		set .@name$,"Buwaya";
+		break;
+	case 4:
+		set .@tattoo,2910; //Bakonawa_Tattoo
+		set .@doll,6516; //Bakonawa_Doll
+		set .@spirit,6523; //Bakonawa_Spirit_Piece
+		set .@name$,"Bakonawa";
+		break;
+	}
+	if (countitem(6499) < 10 || countitem(.@spirit) == 0 || countitem(.@doll) == 0) {
+		mes "[Tattooist]";
+		mes "I think you are short on materials.";
+		mes "Need 10 Ancient Grudges, 1 Piece of "+.@name$+"'s Spirit, and 1 "+.@name$+" Doll to create a ^EE1D11"+.@name$+" Agimat Tattoo^000000.";
+		close;
+	}
+	emotion e_flash;
+	mes "[Tattooist]";
+	mes "The materials are full with holy energy. I'm sure we'll get a great Tattoo using these.";
+	next;
+	mes "[Tattooist]";
+	mes "Please don't interrupt while I'm working on drawing a holy Tattoo if you want it to come out right.";
+	next;
+	mes "The Tattooist placed the Ancient Grudges around the workplace.";
+	next;
+	specialeffect EF_FLAMELAUNCHER,AREA,"Ancient Grudge#01";
+	specialeffect EF_FLAMELAUNCHER,AREA,"Ancient Grudge#02";
+	specialeffect EF_FLAMELAUNCHER,AREA,"Ancient Grudge#03";
+	specialeffect EF_FLAMELAUNCHER,AREA,"Ancient Grudge#04";
+	specialeffect EF_FLAMELAUNCHER,AREA,"Ancient Grudge#05";
+	mes "The Ancient Grudge lit up and tools starts to glow. He smiled satisfyingly at the glowing tools and materials.";
+	next;
+	mes "And then "+.@name$+" stared intensely at the doll as if to remember every detail of it in his head.";
+	next;
+	if(select("Aren't you going to start?:... ... ..") == 1) {
+		emotion e_an;
+		delitem 6499,5; //Ancient_Grudge
+		mes "[Tattooist]";
+		mes "Oh no, now you ruined it.";
+		mes "I cannot draw a Tattoo for someone like you who doesn't understand art. You can take back the remaining materials.";
+		next;
+		mes "Received back 5 Ancient Grudges, "+.@name$+" Doll, and Piece of "+.@name$+"'s Spirit.";
+		close;
+	}
+	emotion e_bzz;
+	mes "Think he will melt the doll with his eyes?";
+	next;
+	specialeffect EF_SONICBLOWHIT;
+	mes "He closed and opened his eyes slowly as if to memorize the doll in his head and then held up a glowing tool to start drawing.";
+	next;
+	mes "The "+.@name$+" Tattoo was completed almost instantly.";
+	next;
+	emotion e_an;
+	mes "But he kept on looking at each corner of the drawing as if he didn't like some of its details.";
+	next;
+	if(select("Looks good to me.:... ... ..") == 1) {
+		emotion e_an;
+		emotion e_ag;
+		delitem 6499,5; //Ancient_Grudge
+		mes "[Tattooist]";
+		mes "Ergh! I told you not to interrupt!";
+		next;
+		mes "The Tattooist ripped up the drawing irritably.";
+		next;
+		mes "[Tattooist]";
+		mes "I can't continue like this. Maybe another time. You can take back the remaining materials.";
+		next;
+		mes "Received back 5 Ancient Grudges, "+.@name$+" Doll, and Piece of "+.@name$+"'s Spirit.";
+		close;
+	}
+	mes "He looked at the drawing intensely for a long time and then nodded with a satisfied smile.";
+	next;
+	mes "Looks like he is satisfied with the "+.@name$+" drawing.";
+	next;
+	emotion e_dum;
+	mes "But now he is staring at the sky without doing anything else. What is he waiting for?";
+	next;
+	if(select("When will it be done?:... ... ..") == 1) {
+		emotion e_an;
+		emotion e_ag;
+		delitem 6499,5; //Ancient_Grudge
+		mes "[Tattooist]";
+		mes "Ergh! I told you not to interrupt!";
+		next;
+		mes "The Tattooist ripped up the drawing irritably.";
+		next;
+		mes "[Tattooist]";
+		mes "I can't continue like this. Maybe another time. You can take back the remaining materials.";
+		next;
+		mes "Received back 5 Ancient Grudges, "+.@name$+" Doll, and Piece of "+.@name$+"'s Spirit.";
+		close;
+	}
+	emotion e_dots;
+	mes "[Tattooist]";
+	mes ".";
+	next;
+	mes "[Tattooist]";
+	mes ". .";
+	next;
+	mes "[Tattooist]";
+	mes ". . .";
+	next;
+	emotion e_dots;
+	mes "[Tattooist]";
+	mes ". . . .";
+	next;
+	mes "[Tattooist]";
+	mes ". . . . .";
+	next;
+	mes "[Tattooist]";
+	mes ". . . . . .";
+	next;
+	mes "[Tattooist]";
+	mes ". . . . . . .";
+	next;
+	emotion e_flash;
+	mes "The Tattooist's eyes started to shine after staring at the sky for awhile, then he broke the Piece of "+.@name$+"'s Spirit with both his hands.";
+	next;
+	specialeffect EF_DETOXICATION;
+	mes "The Piece of "+.@name$+"'s Spirit is shattered into powder. The Tattooist's hands are glowing.";
+	next;
+	if(select("Why did you break the pieces...:... ... ..") == 1) {
+		delitem 6499,5; //Ancient_Grudge
+		delitem .@spirit,1;
+		emotion e_an;
+		emotion e_ag;
+		mes "[Tattooist]";
+		mes "Ergh! I told you not to interrupt!";
+		next;
+		mes "The glowing light from his hands faded away. He starred at his hands for a while and then ripped up the drawing irritably.";
+		next;
+		mes "[Tattooist]";
+		mes "I was this close to completing a wonderful piece but you ruined it. Not in a good mood. You can take the remaining materials.";
+		next;
+		mes "Received back 5 Ancient Grudges and the doll.";
+		close;
+	}
+	mes "He held up the powder in both hands and then blew it onto the drawing.";
+	next;
+	specialeffect EF_FLAMELAUNCHER,AREA,"Ancient Grudge#01";
+	specialeffect EF_FLAMELAUNCHER,AREA,"Ancient Grudge#02";
+	specialeffect EF_FLAMELAUNCHER,AREA,"Ancient Grudge#03";
+	specialeffect EF_FLAMELAUNCHER,AREA,"Ancient Grudge#04";
+	specialeffect EF_FLAMELAUNCHER,AREA,"Ancient Grudge#05";
+	mes "All Ancient Grudges started to burn and then the glowing light from the "+.@name$+" drawing faded away.";
+	next;
+	specialeffect EF_LIGHTSPHERE;
+	mes "Blinking light on top of the drawing.";
+	next;
+	mes "Light faded away and the "+.@name$+" drawing is no longer the simple one it was before.";
+	next;
+	mes "The "+.@name$+" drawing looks as if it is... alive.";
+	next;
+	mes "The Tattooist is finally satisfied and is all smiles.";
+	next;
+	emotion e_heh;
+	mes "[Tattooist]";
+	mes "Ha ha. It came out great.";
+	next;
+	delitem 6499,10; //Ancient_Grudge
+	delitem .@spirit,1;
+	delitem .@doll,1;
+	getitem .@tattoo,1;
+	set $malaya_pintados_04$, strcharinfo(0);
+	mes "[Tattooist]";
+	mes "I'm sorry you had to wait for a long time. But it was worth it cause I haven't created a Tattoo of this quality in a long time.";
+	next;
+	mes "[Tattooist]";
+	mes "The ^EE1D11"+.@name$+" Agimat Tattoo^000000 you've waited for is now completed.";
+	next;
+	mes "[Tattooist]";
+	mes "Hope you enjoy the '^7A96E0Pintados Festival^000000'.";
+	close;
+}
+
+ma_fild01,171,224,0	script	Ancient Grudge#01	139,{ end; }
+ma_fild01,173,224,0	duplicate(Ancient Grudge#01)	Ancient Grudge#02	139
+ma_fild01,173,223,0	duplicate(Ancient Grudge#01)	Ancient Grudge#03	139
+ma_fild01,172,222,0	duplicate(Ancient Grudge#01)	Ancient Grudge#04	139
+ma_fild01,171,223,0	duplicate(Ancient Grudge#01)	Ancient Grudge#05	139
+
+ma_fild01,192,200,8	script	Tourist#pin01	58,{
+	mes "[Tourist]";
+	mes "I came from afar and dropped everything to come and enjoy the 'Pintados Festival'.";
+	next;
+	mes "[Tourist]";
+	mes "I don't regret visiting but...";
+	next;
+	mes "[Tourist]";
+	mes "I don't like the Tattoo I got after all I've gone through to get it.";
+	next;
+	mes "[Tourist]";
+	mes "I've looked at it in the light but I think the Tattooist made a mistake.";
+	next;
+	mes "[Tourist]";
+	mes "This ruined my whole visit.";
+	next;
+	mes "[Tourist]";
+	mes "Tsk!";
+	close;
+OnInit:
+	if (!$malaya_pintados_00)
+		disablenpc "Tourist#pin01";
+	end;
+OnEnable:
+	enablenpc "Tourist#pin01";
+	end;
+OnDisable:
+	disablenpc "Tourist#pin01";
+	end;
+}
+
+ma_fild01,211,200,6	script	Tourist#pin02	775,{
+	mes "[Tourist]";
+	mes "I heard of the 'Pintados Festival' and came all the way from Gonryun.";
+	next;
+	mes "[Tourist]";
+	mes "Just in case you might think otherwise, this is a mask on my face and not a tattoo.";
+	close;
+OnInit:
+	if (!$malaya_pintados_00)
+		disablenpc "Tourist#pin02";
+	end;
+OnEnable:
+	enablenpc "Tourist#pin02";
+	end;
+OnDisable:
+	disablenpc "Tourist#pin02";
+	end;
+}
+
+ma_fild01,251,205,2	script	Tourist#pin03	824,{
+	mes "[Tourist]";
+	mes "Hey, hear me. This isn't the Tattoo I wanted.";
+	next;
+	mes "[Tourist]";
+	mes "I asked for a Bakonawa Tattoo but the more I look at it, this is Bangungot.";
+	next;
+	mes "[Tattooist]";
+	mes "No... you said that you wanted that one. Don't be so difficult.";
+	next;
+	mes "[Tourist]";
+	mes "Don't you know that customer is king? Huh? Do you want a bad reputation?";
+	next;
+	mes "[Tattooist]";
+	mes "Ugh... Can't believe this.";
+	close;
+OnInit:
+	if (!$malaya_pintados_00)
+		disablenpc "Tourist#pin03";
+	end;
+OnEnable:
+	enablenpc "Tourist#pin03";
+	end;
+OnDisable:
+	disablenpc "Tourist#pin03";
+	end;
+}
+
+ma_fild01,249,206,6	script	Young Tattooist#pin04	582,{
+	mes "[Tattooist]";
+	mes "Ah... I can't work with customers like this.";
+	next;
+	mes "[Tattooist]";
+	mes "How many times do I have to tell you, you said you wanted a Bangungot.";
+	next;
+	mes "[Tattooist]";
+	mes "Ouch, my throat... Shouting will get me nowhere.";
+	close;
+OnInit:
+	if (!$malaya_pintados_00)
+		disablenpc "Young Tattooist#pin04";
+	end;
+OnEnable:
+	enablenpc "Young Tattooist#pin04";
+	end;
+OnDisable:
+	disablenpc "Young Tattooist#pin04";
+	end;
+}
+
+ma_fild01,162,235,6	script	Tourist#pin05	815,{
+	mes "[Tourist]";
+	mes "They say the Pintados Festival will only be held for one week.";
+	next;
+	mes "[Tourist]";
+	mes "I came from Louyang without knowing about the festival. Must be my lucky day.";
+	close;
+OnInit:
+	if (!$malaya_pintados_00)
+		disablenpc "Tourist#pin05";
+	end;
+OnEnable:
+	enablenpc "Tourist#pin05";
+	end;
+OnDisable:
+	disablenpc "Tourist#pin05";
+	end;
+}
+
+ma_fild01,164,234,6	script	Drumming Young Man#pin06	578,{
+	mes "ba-dum-DUM- ba-dum-DUM";
+	next;
+	mes "[Drumming Young Man]";
+	mes "The Pintados Festival wouldn't be a festival without a drummer.";
+	next;
+	mes "[Drumming Young Man]";
+	mes "Why don't you join?";
+	close;
+OnInit:
+	if (!$malaya_pintados_00)
+		disablenpc "Drumming Young Man#pin06";
+	end;
+OnEnable:
+	enablenpc "Drumming Young Man#pin06";
+	end;
+OnDisable:
+	disablenpc "Drumming Young Man#pin06";
+	end;
+}
+
+ma_fild01,170,231,4	script	Drumming Young Man#pin07	578,{
+	mes "ba-dum-DUM- ba-dum-DUM";
+	next;
+	mes "[Drumming Young Man]";
+	mes "The Pintados from Pintados Festival means painted in our language.";
+	next;
+	mes "[Drumming Young Man]";
+	mes "So that is probably why we have people drawing special Tattoos during the festival.";
+	close;
+OnInit:
+	if (!$malaya_pintados_00)
+		disablenpc "Drumming Young Man#pin07";
+	end;
+OnEnable:
+	enablenpc "Drumming Young Man#pin07";
+	end;
+OnDisable:
+	disablenpc "Drumming Young Man#pin07";
+	end;
+}
+
+ma_fild01,164,228,6	script	Drumming Young Man#pin08	578,{
+	mes "ba-dum-DUM- ba-dum-DUM";
+	next;
+	mes "[Drumming Young Man]";
+	mes "I don't remember it accurately, but they say the Pintados Festival was to celebrate a rich harvest.";
+	close;
+OnInit:
+	if (!$malaya_pintados_00)
+		disablenpc "Drumming Young Man#pin08";
+	end;
+OnEnable:
+	enablenpc "Drumming Young Man#pin08";
+	end;
+OnDisable:
+	disablenpc "Drumming Young Man#pin08";
+	end;
+}
+
+ma_fild01,170,234,4	script	Beat Catching Boy#pin09	577,{
+	mes "ba-dum-TSH- ba-dum-TSH-";
+	next;
+	mes "[Beat Catching Boy]";
+	mes "I always get energetic when I hear drums and sticks in a rhythmic beat.";
+	next;
+	mes "[Beat Catching Boy]";
+	mes "ba-dum-TSH- ba-dum-TSH- So much fun!";
+	close;
+OnInit:
+	if (!$malaya_pintados_00)
+		disablenpc "Beat Catching Boy#pin09";
+	end;
+OnEnable:
+	enablenpc "Beat Catching Boy#pin09";
+	end;
+OnDisable:
+	disablenpc "Beat Catching Boy#pin09";
+	end;
+}
+
+ma_fild01,164,231,6	script	Beat Catching Boy#pin10	577,{
+	mes "ba-dum-TSH- ba-dum-TSH-";
+	next;
+	mes "[Beat Catching Boy]";
+	mes "I may be using sticks to catch the beat right now but you never know if I'll grow big enough to play the drums, right?";
+	close;
+OnInit:
+	if (!$malaya_pintados_00)
+		disablenpc strnpcinfo(0);
+	end;
+OnEnable:
+	enablenpc strnpcinfo(0);
+	end;
+OnDisable:
+	disablenpc strnpcinfo(0);
+	end;
+}
+ma_fild01,170,228,4	duplicate(Beat Catching Boy#pin10)	Beat Catching Boy#pin11	577
