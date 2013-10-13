@@ -103,10 +103,13 @@ enum e_skill_display {
 };
 
 #define MAX_SKILL_ITEM_REQUIRE	10
+#define MAX_SKILL_STATUS_REQUIRE 3
 struct skill_condition {
 	int hp,
 		mhp,
 		sp,
+		hp_rate,
+		sp_rate,
 		ammo,
 		ammo_qty,
 		weapon,
@@ -116,7 +119,7 @@ struct skill_condition {
 		itemid[MAX_SKILL_ITEM_REQUIRE],
 		amount[MAX_SKILL_ITEM_REQUIRE];
 	uint8 status_count;
-	enum sc_type status[MAX_SKILL_ITEM_REQUIRE];
+	enum sc_type status[MAX_SKILL_STATUS_REQUIRE];
 };
 
 struct s_skill_require {
@@ -134,7 +137,7 @@ struct s_skill_require {
 		itemid[MAX_SKILL_ITEM_REQUIRE],
 		amount[MAX_SKILL_ITEM_REQUIRE];
 	uint8 status_count;
-	enum sc_type status[MAX_SKILL_ITEM_REQUIRE];
+	enum sc_type status[MAX_SKILL_STATUS_REQUIRE];
 };
 
 /// Database skills
@@ -163,6 +166,10 @@ struct s_skill_db {
 #ifdef ADJUST_SKILL_DAMAGE
 	struct s_skill_damage damage;
 #endif
+	struct s_copyable { // [Cydh]
+		bool plagiarism, reproduce;
+		uint16 joballowed, req_opt;
+	} copyable;
 };
 extern struct s_skill_db skill_db[MAX_SKILL_DB];
 
@@ -440,6 +447,7 @@ enum e_require_state {
 	ST_HIDDEN,
 	ST_RIDING,
 	ST_FALCON,
+	ST_CART,
 	ST_SHIELD,
 	ST_RECOV_WEIGHT_RATE,
 	ST_MOVE_ENABLE,
@@ -1963,5 +1971,15 @@ enum e_skill_damage_caster {
 	SDC_ALL  = SDC_PC|SDC_MOB|SDC_PET|SDC_HOM|SDC_MER|SDC_ELEM,
 };
 #endif
+
+/// Variable name of copied skill by Plagiarism
+#define SKILL_VAR_PLAGIARISM "CLONE_SKILL"
+/// Variable name of copied skill level by Plagiarism
+#define SKILL_VAR_PLAGIARISM_LV "CLONE_SKILL_LV"
+
+/// Variable name of copied skill by Reproduce
+#define SKILL_VAR_REPRODUCE "REPRODUCE_SKILL"
+/// Variable name of copied skill level by Reproduce
+#define SKILL_VAR_REPRODUCE_LV "REPRODUCE_SKILL_LV"
 
 #endif /* _SKILL_H_ */
