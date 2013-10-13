@@ -3,7 +3,7 @@
 //===== By: ================================================== 
 //= Euphy
 //===== Current Version: ===================================== 
-//= 1.1
+//= 1.0
 //===== Compatible With: ===================================== 
 //= rAthena SVN
 //===== Description: ========================================= 
@@ -12,7 +12,6 @@
 //= Part of the "Nurse in Port Malaya" quest.
 //===== Additional Comments: ================================= 
 //= 1.0 First version. [Euphy]
-//= 1.1 Added GM management function. [Euphy]
 //============================================================ 
 
 // Instance Creation
@@ -348,11 +347,12 @@ L_Complete:
 	return;
 }
 
+/*
 sec_in02,27,30,0	script	Bangungot Gate	406,{
-	callfunc "F_GM_NPC";
 	mes "Password";
 	next;
-	if (callfunc("F_GM_NPC","1854",1) == 0) {
+	input .@inputstr$;
+	if (.@inputstr$ != "1854") {
 		mes "Good Luck.";
 		close;
 	}
@@ -370,6 +370,7 @@ sec_in02,27,30,0	script	Bangungot Gate	406,{
 		case 11: close;
 	}
 }
+*/
 
 // Instance Scripts
 //============================================================
