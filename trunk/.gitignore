@@ -17,14 +17,17 @@
 /*.stackdump
 /*.suo
 /char-server_sql
+/char-server
 /config.log
 /config.status
 /core
 /ipch
 /login-server_sql
+/login-server
 /Makefile
 /Makefile.cache
 /map-server_sql
+/map-server
 /mapcache
 /nbproject
 
@@ -53,6 +56,9 @@
 /src/common/obj_all
 /src/common/obj_sql
 /src/common/svnversion.h
+
+# /src/custom/
+/src/custom
 
 # /src/login/
 /src/login/Makefile

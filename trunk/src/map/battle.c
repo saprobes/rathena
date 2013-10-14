@@ -1027,7 +1027,7 @@ int64 battle_calc_damage(struct block_list *src,struct block_list *bl,struct Dam
 			(flag&(BF_LONG|BF_WEAPON)) == (BF_LONG|BF_WEAPON))
 			DAMAGE_SUBRATE(20)
 
-		if(sc->data[SC_FOGWALL] && skill_id != RK_DRAGONBREATH) {
+		if(sc->data[SC_FOGWALL] && skill_id != RK_DRAGONBREATH && skill_id != RK_DRAGONBREATH_WATER) {
 			if(flag&BF_SKILL) //25% reduction
 				DAMAGE_SUBRATE(25)
 			else if ((flag&(BF_LONG|BF_WEAPON)) == (BF_LONG|BF_WEAPON))
@@ -1543,8 +1543,8 @@ static int battle_calc_base_weapon_attack(struct block_list *src, struct status_
 
 	if (sd->equip_index[type] >= 0 && sd->inventory_data[sd->equip_index[type]]) {
 		int variance =   wa->atk * (sd->inventory_data[sd->equip_index[type]]->wlv*5)/100;
-		atkmin -= variance;
-		atkmax += variance;
+		atkmin = max(0,atkmin-variance);
+		atkmin = min(UINT16_MAX,atkmax+variance);
 
 		if (sc && sc->data[SC_MAXIMIZEPOWER])
 			damage = atkmax;
@@ -2260,7 +2260,7 @@ static bool battle_skill_stacks_masteries_vvs(uint16 skill_id)
 #ifndef RENEWAL
 		skill_id == PA_SHIELDCHAIN || skill_id == CR_SHIELDBOOMERANG ||
 #endif
-		skill_id == LG_SHIELDPRESS || skill_id == LG_EARTHDRIVE)
+		skill_id == LG_SHIELDPRESS || skill_id == LG_EARTHDRIVE || skill_id == RK_DRAGONBREATH_WATER)
 			return false;
 
 	return true;
@@ -2524,19 +2524,14 @@ struct Damage battle_calc_damage_parts(struct Damage wd, struct block_list *src,
 	wd.statusAtk += battle_calc_status_attack(sstatus, EQI_HAND_R);
 	wd.statusAtk2 += battle_calc_status_attack(sstatus, EQI_HAND_L);
 
-	if (!skill_id) { // status atk is considered neutral on normal attacks [helvetica]
-		if(sd && sd->sc.data[SC_SEVENWIND]) { // Mild Wind applies element to status ATK as well as weapon ATK [helvetica]
-			wd.statusAtk = (int)battle_attr_fix(src, target, wd.statusAtk, right_element, tstatus->def_ele, tstatus->ele_lv);
-			wd.statusAtk2 = (int)battle_attr_fix(src, target, wd.statusAtk, left_element, tstatus->def_ele, tstatus->ele_lv);
-		}
-		else {
-			wd.statusAtk = (int)battle_attr_fix(src, target, wd.statusAtk, ELE_NEUTRAL, tstatus->def_ele, tstatus->ele_lv);
-			wd.statusAtk2 = (int)battle_attr_fix(src, target, wd.statusAtk, ELE_NEUTRAL, tstatus->def_ele, tstatus->ele_lv);
-		}
-	}
-	else {
+	if (skill_id || (sd && sd->sc.data[SC_SEVENWIND])) {
+		 // Mild Wind applies element to status ATK as well as weapon ATK [helvetica]
 		wd.statusAtk = (int)battle_attr_fix(src, target, wd.statusAtk, right_element, tstatus->def_ele, tstatus->ele_lv);
 		wd.statusAtk2 = (int)battle_attr_fix(src, target, wd.statusAtk, left_element, tstatus->def_ele, tstatus->ele_lv);
+	}
+	else { // status atk is considered neutral on normal attacks [helvetica]
+		wd.statusAtk = (int)battle_attr_fix(src, target, wd.statusAtk, ELE_NEUTRAL, tstatus->def_ele, tstatus->ele_lv);
+		wd.statusAtk2 = (int)battle_attr_fix(src, target, wd.statusAtk, ELE_NEUTRAL, tstatus->def_ele, tstatus->ele_lv);
 	}
 
 	wd.weaponAtk += battle_calc_base_weapon_attack(src, tstatus, &sstatus->rhw, sd);
@@ -4390,7 +4385,7 @@ void battle_do_reflect(int attack_type, struct Damage *wd, struct block_list* sr
 	if( (wd->damage + wd->damage2) && src && target && src != target &&
 		(src->type != BL_SKILL ||
 		(src->type == BL_SKILL && ( skill_id == SG_SUN_WARM || skill_id == SG_MOON_WARM || skill_id == SG_STAR_WARM )) )
-	){ //don't reflect to ourself
+	){ //don't reflect to yourself
 		int64 damage = wd->damage + wd->damage2, rdamage = 0;
 		struct map_session_data *tsd = BL_CAST(BL_PC, target);
 		struct status_change *tsc = status_get_sc(target);
@@ -5349,7 +5344,7 @@ struct Damage battle_calc_magic_attack(struct block_list *src,struct block_list 
 		MATK_ADDRATE(skill_damage);
 #endif
 
-	battle_do_reflect(BF_MAGIC,&ad, src, target, skill_id, skill_lv); //WIP [lighta]
+	//battle_do_reflect(BF_MAGIC,&ad, src, target, skill_id, skill_lv); //WIP [lighta]
 	return ad;
 }
 
@@ -5579,6 +5574,7 @@ struct Damage battle_calc_misc_attack(struct block_list *src,struct block_list *
 	case NPC_EVILLAND:
 		md.damage = skill_calc_heal(src,target,skill_id,skill_lv,false);
 		break;
+	case RK_DRAGONBREATH_WATER:
 	case RK_DRAGONBREATH:
 		md.damage = ((status_get_hp(src) / 50) + (status_get_max_sp(src) / 4)) * skill_lv;
 		RE_LVL_MDMOD(150);
@@ -5750,7 +5746,7 @@ struct Damage battle_calc_misc_attack(struct block_list *src,struct block_list *
 	if(tstatus->mode&MD_IGNOREMISC && md.flag&(BF_MISC) )	//misc @TODO optimize me
 		md.damage = md.damage2 = 1;
 
-	battle_do_reflect(BF_MISC,&md, src, target, skill_id, skill_lv); //WIP [lighta]
+	//battle_do_reflect(BF_MISC,&md, src, target, skill_id, skill_lv); //WIP [lighta]
 
 	return md;
 }
