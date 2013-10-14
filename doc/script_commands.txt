@@ -398,7 +398,9 @@ identical. Writing a number like '0x<hex digits>' will make it recognized as a
 hexadecimal value. Notice that 0x10 is equal to 16. Also notice that if you try 
 to 'mes 0x10' it will print '16'.
 
-This is not used much, but it pays to know about it.
+Number values can't exceed the limits of an integer variable: Any number
+greater than INT_MAX (2147483647) or smaller than INT_MIN (-2147483648) will
+be capped to those values and will cause a warning to be reported.
 
 Variables
 ---------
@@ -924,7 +926,7 @@ This special label triggers when a player kills another player. The variable
 OnNPCKillEvent:
 
 This special label triggers when a player kills a monster. The variable
-'killedrid' is set to the Class of the monster killed.
+'killedrid' is set to the Class (mob ID) of the monster killed.
 
 OnPCLoadMapEvent:
 
@@ -4608,6 +4610,16 @@ This command will return 1 if an item was deleted and 0 otherwise.
 
 ---------------------------------------
 
+*breakequip <equipment slot>;
+
+This command will break and unequip whatever is currently equipped in the
+invoking character's specified equipment slot. For a full list of possible
+equipment slots see 'getequipid'.
+
+This command will return 1 if an item was broken and 0 otherwise.
+
+---------------------------------------
+
 *clearitem;
 
 This command will destroy all items the invoking character has in their 
@@ -6070,7 +6082,7 @@ specified.
 
 ---------------------------------------
 
-*setmapflag "<map name>",<flag>{,<zone>};
+*setmapflag "<map name>",<flag>{,<zone>{,<type>}};
 
 This command marks a specified map with the given map flag, which will alter the 
 behavior of the map. A full list of mapflags is located in 'db/const.txt' with
@@ -6085,7 +6097,15 @@ skills or open up trade deals (mf_notrade, mf_novending, mf_noskill, mf_noicewal
 current weather effects (mf_snow, mf_fog, mf_sakura, mf_leaves, mf_rain, mf_clouds, 
 mf_fireworks) and whether night will be in effect on this map (mf_nightenabled).
 
-The zone optional parameter is used to set the zone for restricted mapflags.
+The optional parameter 'zone' is used to set the zone for restricted mapflags.
+
+For the 'skill_damage' mapflag, 'zone' functions as 'value' (-100 to 100000) and
+'type' can be:
+ 1: damage against players
+ 2: damage against mobs
+ 3: damage against bosses
+ 4: damage against other
+ 5: caster type
 
 ---------------------------------------
 
@@ -6094,14 +6114,22 @@ The zone optional parameter is used to set the zone for restricted mapflags.
 This command removes a mapflag from a specified map. 
 See 'setmapflag' for a list of mapflags.
 
-The zone optional parameter is used to remove the zone from restricted mapflags.
+The optional parameter 'zone' is used to remove the zone from restricted mapflags.
 
 ---------------------------------------
 
-*getmapflag("<map name>",<flag>)
+*getmapflag("<map name>",<flag>{,<type>})
 
 This command checks the status of a given mapflag and returns the mapflag's state. 
 0 means OFF, and 1 means ON. See 'setmapflag' for a list of mapflags.
+
+The optional parameter 'type' is used in the 'skill_damage' mapflag:
+ 0: if mapflag is set (default)
+ 1: damage against players
+ 2: damage against mobs
+ 3: damage against bosses
+ 4: damage against other
+ 5: caster type
 
 ---------------------------------------
 
@@ -6512,8 +6540,8 @@ character belonged to an account which had GM level 99.
     input @player$;
     atcommand "@nuke "+@player$;
 
-This command has a lot of good uses, I am sure you can have some fun with this 
-one.
+Note that for atcommands bound using 'bindatcmd', this command will execute the
+original atcommand, not the script-bound atcommand.
 
 ---------------------------------------
 
@@ -6530,7 +6558,7 @@ The commands can also run without an attached rid.
 
 ---------------------------------------
 
-*bindatcmd "command","<NPC object name>::<event label>"{,<atcommand level>,<charcommand level>};
+*bindatcmd "<command>","<NPC object name>::<event label>"{,<atcommand level>,<charcommand level>};
 
 This command will bind a NPC event label to an atcommand. Upon execution of the
 atcommand, the user will invoke the NPC event label. Each atcommand is only allowed
@@ -6556,16 +6584,20 @@ OnAtcommand:
 
 ---------------------------------------
 
-*unbindatcmd "command";
+*unbindatcmd "<command>";
 
 This command will unbind a NPC event label from an atcommand.
 
 ---------------------------------------
 
-*useatcmd "command";
+*useatcmd "<command>";
 
-This command will execute an atcommand binding on the attached RID from a script. 
-The three .@atcmd_***** variables will NOT be set when invoking scripts-atcommands this way.
+This command will execute a script-bound atcommand for the attached RID. If the
+supplied command is not bound to any script, this command will act like 'atcommand'
+and attempt to execute a source-defined command.
+
+The three .@atcmd_***** variables will NOT be set when invoking script-bound atcommands
+in this way.
 
 ---------------------------------------
 \\
@@ -7216,7 +7248,7 @@ same as NPC sprite facing directions: 0=north, 1=northwest, 2=west, etc.
 
 *readbook <book id>,<page>;
 
-This will open a book item at the specified page
+This command will open a book item at the specified page.
 
 ---------------------------------------
 
@@ -7602,23 +7634,8 @@ currently has active. Valid types are:
  3 - Pet friendly level (intimacy score). 1000 is full loyalty.
  4 - Pet hungry level. 100 is completely full.
  5 - Pet rename flag. 0 means this pet has not been named yet.
+ 6 - Pet level
 
----------------------------------------
-
-*petstat(<flag>)
-
-Returns current pet status, all are integers except name.
-Returns 0 or "" if the player doesn't have pets.
-
-Flags usable:
-- PET_CLASS
-- PET_NAME
-- PET_LEVEL
-- PET_HUNGRY
-- PET_INTIMATE
-
-Example:
-	set @i, petstat(PET_CLASS);
 
 ---------------------------------------
 

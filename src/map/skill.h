@@ -118,7 +118,8 @@ struct skill_condition {
 		state,
 		spiritball,
 		itemid[MAX_SKILL_ITEM_REQUIRE],
-		amount[MAX_SKILL_ITEM_REQUIRE];
+		amount[MAX_SKILL_ITEM_REQUIRE],
+		eqItem[10]; //max eq_item
 	uint8 status_count;
 	enum sc_type status[MAX_SKILL_STATUS_REQUIRE];
 };
@@ -136,7 +137,8 @@ struct s_skill_require {
 		state,
 		spiritball[MAX_SKILL_LEVEL],
 		itemid[MAX_SKILL_ITEM_REQUIRE],
-		amount[MAX_SKILL_ITEM_REQUIRE];
+		amount[MAX_SKILL_ITEM_REQUIRE],
+		eqItem[10]; //max eq_item
 	uint8 status_count;
 	enum sc_type status[MAX_SKILL_STATUS_REQUIRE];
 };
@@ -1905,10 +1907,6 @@ enum {
  **/
 void skill_usave_add(struct map_session_data * sd, uint16 skill_id, uint16 skill_lv);
 void skill_usave_trigger(struct map_session_data *sd);
-/**
- * Skill Cool Downs - load from pc.c when the character logs in
- **/
-void skill_cooldown_load(struct map_session_data * sd);
 /**
  * Warlock
  **/

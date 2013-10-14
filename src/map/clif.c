@@ -4201,7 +4201,7 @@ void clif_getareachar_unit(struct map_session_data* sd,struct block_list *bl)
 
 //Modifies the type of damage according to status changes [Skotlex]
 //Aegis data specifies that: 4 endure against single hit sources, 9 against multi-hit.
-static inline int clif_calc_delay(int type, int div, int damage, int delay)
+static inline int clif_calc_delay(int type, int div, int64 damage, int delay)
 {
 	return ( delay == 0 && damage > 0 ) ? ( div > 1 ? 9 : 4 ) : type;
 }
@@ -4209,7 +4209,7 @@ static inline int clif_calc_delay(int type, int div, int damage, int delay)
 /*==========================================
  * Estimates walk delay based on the damage criteria. [Skotlex]
  *------------------------------------------*/
-static int clif_calc_walkdelay(struct block_list *bl,int delay, int type, int damage, int div_)
+static int clif_calc_walkdelay(struct block_list *bl,int delay, int type, int64 damage, int div_)
 {
 	if (type == 4 || type == 9 || damage <=0)
 		return 0;
@@ -4245,10 +4245,12 @@ static int clif_calc_walkdelay(struct block_list *bl,int delay, int type, int da
 ///     10 = critical hit
 ///     11 = lucky dodge
 ///     12 = (touch skill?)
-int clif_damage(struct block_list* src, struct block_list* dst, unsigned int tick, int sdelay, int ddelay, int damage, int div, int type, int damage2)
+int clif_damage(struct block_list* src, struct block_list* dst, unsigned int tick, int sdelay, int ddelay, int64 sdamage, int div, int type, int64 sdamage2)
 {
 	unsigned char buf[33];
 	struct status_change *sc;
+	int damage = (int)cap_value(sdamage,INT_MIN,INT_MAX);
+	int damage2 = (int)cap_value(sdamage2,INT_MIN,INT_MAX);
 #if PACKETVER < 20071113
 	const int cmd = 0x8a;
 #else
@@ -4944,10 +4946,11 @@ void clif_skill_cooldown(struct map_session_data *sd, uint16 skill_id, unsigned 
 /// Skill attack effect and damage.
 /// 0114 <skill id>.W <src id>.L <dst id>.L <tick>.L <src delay>.L <dst delay>.L <damage>.W <level>.W <div>.W <type>.B (ZC_NOTIFY_SKILL)
 /// 01de <skill id>.W <src id>.L <dst id>.L <tick>.L <src delay>.L <dst delay>.L <damage>.L <level>.W <div>.W <type>.B (ZC_NOTIFY_SKILL2)
-int clif_skill_damage(struct block_list *src,struct block_list *dst,unsigned int tick,int sdelay,int ddelay,int damage,int div,uint16 skill_id,uint16 skill_lv,int type)
+int clif_skill_damage(struct block_list *src,struct block_list *dst,unsigned int tick,int sdelay,int ddelay,int64 sdamage,int div,uint16 skill_id,uint16 skill_lv,int type)
 {
 	unsigned char buf[64];
 	struct status_change *sc;
+	int damage = (int)cap_value(sdamage,INT_MIN,INT_MAX);
 
 	nullpo_ret(src);
 	nullpo_ret(dst);
@@ -5358,6 +5361,8 @@ void clif_cooking_list(struct map_session_data *sd, int trigger, uint16 skill_id
 	nullpo_retv(sd);
 	fd = sd->fd;
 
+	if(sd->menuskill_id == skill_id)
+		return; //Avoid resending the menu twice or more times...
 	WFIFOHEAD(fd, 6 + 2 * MAX_SKILL_PRODUCE_DB);
 	WFIFOW(fd,0) = 0x25a;
 	WFIFOW(fd,4) = list_type; // list type
@@ -5375,30 +5380,20 @@ void clif_cooking_list(struct map_session_data *sd, int trigger, uint16 skill_id
 		c++;
 	}
 
-	if( skill_id == AM_PHARMACY ) {	// Only send it while Cooking else check for c.
-		WFIFOW(fd,2) = 6 + 2 * c;
-		WFIFOSET(fd,WFIFOW(fd,2));
-	}
-
-	if( c > 0 ) {
+	if( c > 0 || skill_id == AM_PHARMACY) {
 		sd->menuskill_id = skill_id;
 		sd->menuskill_val = trigger;
-		if( skill_id != AM_PHARMACY ) {
-			sd->menuskill_val2 = qty; // amount.
-			WFIFOW(fd,2) = 6 + 2 * c;
-			WFIFOSET(fd,WFIFOW(fd,2));
-		}
+		sd->menuskill_val2 = qty; // amount.
+		WFIFOW(fd,2) = 6 + 2 * c;
+		WFIFOSET(fd,WFIFOW(fd,2));
 	} else {
 		clif_menuskill_clear(sd);
-		if( skill_id != AM_PHARMACY ) { // AM_PHARMACY is used to Cooking.
-			// It fails.
 #if PACKETVER >= 20090922
 			clif_msg_skill(sd,skill_id,0x625);
 #else
 			WFIFOW(fd,2) = 6 + 2 * c;
 			WFIFOSET(fd,WFIFOW(fd,2));
 #endif
-		}
 	}
 }
 
@@ -6121,6 +6116,19 @@ void clif_cart_additem(struct map_session_data *sd,int n,int amount,int fail)
 #endif
 }
 
+// [Ind/Hercules] - Data Thanks to Yommy
+void clif_cart_additem_ack(struct map_session_data *sd, int flag)
+{
+	int fd;
+	unsigned char *buf;
+	nullpo_retv(sd);
+
+	fd = sd->fd;
+	buf = WFIFOP(fd,0);
+	WBUFW(buf,0) = 0x12c;
+	WBUFL(buf,2) = flag;
+	clif_send(buf,packet_len(0x12c),&sd->bl,SELF);
+}
 
 /// Deletes an item from character's cart (ZC_DELETE_ITEM_FROM_CART).
 /// 0125 <index>.W <amount>.L
@@ -10668,12 +10676,15 @@ void clif_parse_StopAttack(int fd,struct map_session_data *sd)
 void clif_parse_PutItemToCart(int fd,struct map_session_data *sd)
 {
 	struct s_packet_db* info = &packet_db[sd->packet_ver][RFIFOW(fd,0)];
+	short flag = 0;
 	if (pc_istrading(sd))
 		return;
 	if (!pc_iscarton(sd))
 		return;
-	pc_putitemtocart(sd,RFIFOW(fd,info->pos[0])-2,
-		RFIFOL(fd,info->pos[1]));
+	if ((flag = pc_putitemtocart(sd,RFIFOW(fd,info->pos[0])-2,RFIFOL(fd,info->pos[1])))) {
+		clif_dropitem(sd,RFIFOW(fd,info->pos[0])-2,0);
+		clif_cart_additem_ack(sd,(flag==1)?ADDITEM_TO_CART_FAIL_WEIGHT:ADDITEM_TO_CART_FAIL_COUNT);
+	}
 }
 
 
@@ -10764,7 +10775,7 @@ static void clif_parse_UseSkillToId_homun(struct homun_data *hd, struct map_sess
 
 	if( !hd )
 		return;
-	if( skillnotok_hom(skill_id, hd) )
+	if( skill_isNotOk_hom(skill_id, hd) )
 		return;
 	if( hd->bl.id != target_id && skill_get_inf(skill_id)&INF_SELF_SKILL )
 		target_id = hd->bl.id;
@@ -10787,7 +10798,7 @@ static void clif_parse_UseSkillToPos_homun(struct homun_data *hd, struct map_ses
 	int lv;
 	if( !hd )
 		return;
-	if( skillnotok_hom(skill_id, hd) )
+	if( skill_isNotOk_hom(skill_id, hd) )
 		return;
 	if( hd->ud.skilltimer != INVALID_TIMER ) {
 		if( skill_id != SA_CASTCANCEL && skill_id != SO_SPELLFIST ) return;
@@ -10809,7 +10820,7 @@ static void clif_parse_UseSkillToId_mercenary(struct mercenary_data *md, struct 
 
 	if( !md )
 		return;
-	if( skillnotok_mercenary(skill_id, md) )
+	if( skill_isNotOk_mercenary(skill_id, md) )
 		return;
 	if( md->bl.id != target_id && skill_get_inf(skill_id)&INF_SELF_SKILL )
 		target_id = md->bl.id;
@@ -10832,7 +10843,7 @@ static void clif_parse_UseSkillToPos_mercenary(struct mercenary_data *md, struct
 	int lv;
 	if( !md )
 		return;
-	if( skillnotok_mercenary(skill_id, md) )
+	if( skill_isNotOk_mercenary(skill_id, md) )
 		return;
 	if( md->ud.skilltimer != INVALID_TIMER )
 		return;
@@ -10901,7 +10912,7 @@ void clif_parse_UseSkillToId(int fd, struct map_session_data *sd)
 	if( pc_issit(sd) )
 		return;
 
-	if( skillnotok(skill_id, sd) )
+	if( skill_isNotOk(skill_id, sd) )
 		return;
 
 	if( sd->bl.id != target_id && tmp&INF_SELF_SKILL )
@@ -10983,7 +10994,7 @@ static void clif_parse_UseSkillToPosSub(int fd, struct map_session_data *sd, uin
 	//Whether skill fails or not is irrelevant, the char ain't idle. [Skotlex]
 	sd->idletime = last_tick;
 
-	if( skillnotok(skill_id, sd) )
+	if( skill_isNotOk(skill_id, sd) )
 		return;
 	if( skillmoreinfo != -1 ) {
 		if( pc_issit(sd) ) {
