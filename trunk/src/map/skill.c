@@ -5667,8 +5667,6 @@ int skill_castend_nodamage_id (struct block_list *src, struct block_list *bl, ui
 	case SM_ENDURE:
 		clif_skill_nodamage(src,bl,skill_id,skill_lv,
 			sc_start(src,bl,type,100,skill_lv,skill_get_time(skill_id,skill_lv)));
-		if (sd)
-			skill_blockpc_start (sd, skill_id, skill_get_time2(skill_id,skill_lv));
 		break;
 
 	case AS_ENCHANTPOISON: // Prevent spamming [Valaris]
@@ -8598,9 +8596,9 @@ int skill_castend_nodamage_id (struct block_list *src, struct block_list *bl, ui
 				- status_get_lv(bl)/10 - tstatus->luk/10 - (dstsd?(dstsd->max_weight-dstsd->weight)/10000:0) - rnd_value(tstatus->agi/6,tstatus->agi/3);
 			rate = cap_value(rate, skill_lv+sstatus->dex/20, 100);
 			if (clif_skill_nodamage(src,bl,skill_id,0,sc_start(src,bl,type,rate,skill_lv,skill_get_time(skill_id,skill_lv)))) {
-				int sp = 200 * skill_lv;
+				int sp = 100 * skill_lv;
 				if( dstmd ) sp = dstmd->level * 2;
-				if( status_zap(bl,0,sp) )
+				if( !dstmd && status_zap(bl,0,sp) )
 					status_heal(src,0,sp/2,3);
 			}
 			else if( sd ) clif_skill_fail(sd,skill_id,USESKILL_FAIL_LEVEL,0);
@@ -11635,7 +11633,9 @@ static int skill_unit_onplace (struct skill_unit *src, struct block_list *bl, un
 			if (sg->src_id == bl->id)
 				break; //Does not affect the caster.
 			if( !sce && sc_start4(ss, bl,type,100,sg->skill_lv,0,SC__BLOODYLUST,0,sg->limit) )
-				sc_start(ss, bl,SC__BLOODYLUST,100,sg->skill_lv,sg->limit);
+				// Dirty fix to add extra time to Bloody Lust so it doesn't end before
+				// Berserk, causing HP to drop to 100 when we don't want it to [Akinari]
+				sc_start(ss, bl,SC__BLOODYLUST,100,sg->skill_lv,sg->limit+100);
 			break;
 
 		case UNT_PNEUMA:
@@ -14125,8 +14125,12 @@ struct skill_condition skill_get_requirement(struct map_session_data* sd, uint16
 
 	req.zeny = skill_db[idx].require.zeny[skill_lv-1];
 
-	if( sc && sc->data[SC__UNLUCKY] )
-		req.zeny += sc->data[SC__UNLUCKY]->val1 * 500;
+	if( sc && sc->data[SC__UNLUCKY] ) {
+		if(sc->data[SC__UNLUCKY]->val1 < 3)
+			req.zeny += sc->data[SC__UNLUCKY]->val1 * 250;
+		else
+			req.zeny += 1000;
+	}
 
 	req.spiritball = skill_db[idx].require.spiritball[skill_lv-1];
 	req.state = skill_db[idx].require.state;
@@ -18520,7 +18524,9 @@ static bool skill_parse_row_copyabledb(char* split[], int column, int current) {
 
 /// Reads additional range [Cydh]
 static bool skill_parse_row_nonearnpcrangedb(char* split[], int column, int current) {
-	uint16 skill_id = skill_name2id(split[0]), idx;
+	int idx;
+	uint16 skill_id = skill_name2id(split[0]);
+
 	if ((idx = skill_get_index(skill_id)) < 0) { // invalid skill id
 		ShowError("skill_parse_row_nonearnpcrangedb: Invalid skill '%s'\n",split[0]);
 		return false;
