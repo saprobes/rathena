@@ -945,7 +945,7 @@ ACMD_FUNC(jobchange)
 		upper = 0;
 
 		// Normal Jobs
-		for( i = JOB_NOVICE; i < JOB_MAX_BASIC && !found; i++ ){
+		for( i = JOB_NOVICE; i < JOB_MAX_BASIC && !found; i++ ) {
 			if (strncmpi(message, job_name(i), 16) == 0) {
 				job = i;
 				found = true;
@@ -953,7 +953,7 @@ ACMD_FUNC(jobchange)
 		}
 
 		// High Jobs, Babys and Third
-		for( i = JOB_NOVICE_HIGH; i < JOB_MAX && !found; i++ ){
+		for( i = JOB_NOVICE_HIGH; i < JOB_MAX && !found; i++ ) {
 			if (strncmpi(message, job_name(i), 16) == 0) {
 				job = i;
 				found = true;
@@ -970,8 +970,8 @@ ACMD_FUNC(jobchange)
 
     if (job == JOB_KNIGHT2 || job == JOB_CRUSADER2 || job == JOB_WEDDING || job == JOB_XMAS || job == JOB_SUMMER || job == JOB_HANBOK
         || job == JOB_LORD_KNIGHT2 || job == JOB_PALADIN2 || job == JOB_BABY_KNIGHT2 || job == JOB_BABY_CRUSADER2 || job == JOB_STAR_GLADIATOR2
-		 || (job >= JOB_RUNE_KNIGHT2 && job <= JOB_MECHANIC_T2) || (job >= JOB_BABY_RUNE2 && job <= JOB_BABY_MECHANIC2)
-	){ // Deny direct transformation into dummy jobs
+		 || (job >= JOB_RUNE_KNIGHT2 && job <= JOB_MECHANIC_T2) || (job >= JOB_BABY_RUNE2 && job <= JOB_BABY_MECHANIC2))
+	{ // Deny direct transformation into dummy jobs
 		clif_displaymessage(fd, msg_txt(sd,923)); //"You can not change to this job by command."
 		return 0;
 	}
@@ -3741,7 +3741,6 @@ ACMD_FUNC(reload) {
 		clif_displaymessage(fd, msg_txt(sd,516)); // Instance database has been reloaded.
 	}
 
-
 	return 0;
 }
 /*==========================================
@@ -4525,34 +4524,6 @@ ACMD_FUNC(servertime)
 	return 0;
 }
 
-//Added by Coltaro
-//We're using this function here instead of using time_t so that it only counts player's jail time when he/she's online (and since the idea is to reduce the amount of minutes one by one in status_change_timer...).
-//Well, using time_t could still work but for some reason that looks like more coding x_x
-static void get_jail_time(int jailtime, int* year, int* month, int* day, int* hour, int* minute)
-{
-	const int factor_year = 518400; //12*30*24*60 = 518400
-	const int factor_month = 43200; //30*24*60 = 43200
-	const int factor_day = 1440; //24*60 = 1440
-	const int factor_hour = 60;
-
-	*year = jailtime/factor_year;
-	jailtime -= *year*factor_year;
-	*month = jailtime/factor_month;
-	jailtime -= *month*factor_month;
-	*day = jailtime/factor_day;
-	jailtime -= *day*factor_day;
-	*hour = jailtime/factor_hour;
-	jailtime -= *hour*factor_hour;
-	*minute = jailtime;
-
-	*year = *year > 0? *year : 0;
-	*month = *month > 0? *month : 0;
-	*day = *day > 0? *day : 0;
-	*hour = *hour > 0? *hour : 0;
-	*minute = *minute > 0? *minute : 0;
-	return;
-}
-
 /*==========================================
  * @jail <char_name> by [Yor]
  * Special warp! No check with nowarp and nowarpto flag
@@ -4576,14 +4547,12 @@ ACMD_FUNC(jail)
 		return -1;
 	}
 
-	if (pc_get_group_level(sd) < pc_get_group_level(pl_sd))
-  	{ // you can jail only lower or same GM
+	if (pc_get_group_level(sd) < pc_get_group_level(pl_sd)) { // you can jail only lower or same GM
 		clif_displaymessage(fd, msg_txt(sd,81)); // Your GM level don't authorise you to do this action on this player.
 		return -1;
 	}
 
-	if (pl_sd->sc.data[SC_JAILED])
-	{
+	if (pl_sd->sc.data[SC_JAILED]) {
 		clif_displaymessage(fd, msg_txt(sd,118)); // Player warped in jails.
 		return -1;
 	}
@@ -4634,8 +4603,7 @@ ACMD_FUNC(unjail)
 		return -1;
 	}
 
-	if (!pl_sd->sc.data[SC_JAILED])
-	{
+	if (!pl_sd->sc.data[SC_JAILED]) {
 		clif_displaymessage(fd, msg_txt(sd,119)); // This player is not in jails.
 		return -1;
 	}
@@ -4650,7 +4618,6 @@ ACMD_FUNC(unjail)
 ACMD_FUNC(jailfor)
 {
 	struct map_session_data *pl_sd = NULL;
-	int year, month, day, hour, minute, value;
 	char * modif_p;
 	int jailtime = 0,x,y;
 	short m_index = 0;
@@ -4664,42 +4631,11 @@ ACMD_FUNC(jailfor)
 	atcmd_output[sizeof(atcmd_output)-1] = '\0';
 
 	modif_p = atcmd_output;
-	year = month = day = hour = minute = 0;
-	while (modif_p[0] != '\0') {
-		value = atoi(modif_p);
-		if (value == 0)
-			modif_p++;
-		else {
-			if (modif_p[0] == '-' || modif_p[0] == '+')
-				modif_p++;
-			while (modif_p[0] >= '0' && modif_p[0] <= '9')
-				modif_p++;
-			if (modif_p[0] == 'n') {
-				minute = value;
-				modif_p++;
-			} else if (modif_p[0] == 'm' && modif_p[1] == 'n') {
-				minute = value;
-				modif_p = modif_p + 2;
-			} else if (modif_p[0] == 'h') {
-				hour = value;
-				modif_p++;
-			} else if (modif_p[0] == 'd' || modif_p[0] == 'j') {
-				day = value;
-				modif_p++;
-			} else if (modif_p[0] == 'm') {
-				month = value;
-				modif_p++;
-			} else if (modif_p[0] == 'y' || modif_p[0] == 'a') {
-				year = value;
-				modif_p++;
-			} else if (modif_p[0] != '\0') {
-				modif_p++;
-			}
-		}
-	}
+	jailtime = (int)solve_time(modif_p)/60; // Change to minutes
 
-	if (year == 0 && month == 0 && day == 0 && hour == 0 && minute == 0) {
+	if (jailtime == 0) {
 		clif_displaymessage(fd, msg_txt(sd,1136)); // Invalid time for jail command.
+		clif_displaymessage(fd, msg_txt(sd,702)); // Time parameter format is +/-<value> to alter. y/a = Year, m = Month, d/j = Day, h = Hour, n/mn = Minute, s = Second.
 		return -1;
 	}
 
@@ -4713,42 +4649,38 @@ ACMD_FUNC(jailfor)
 		return -1;
 	}
 
-	jailtime = year*12*30*24*60 + month*30*24*60 + day*24*60 + hour*60 + minute;	//In minutes
-
-	if(jailtime==0) {
-		clif_displaymessage(fd, msg_txt(sd,1136)); // Invalid time for jail command.
-		return -1;
-	}
-
-	//Added by Coltaro
-	if(pl_sd->sc.data[SC_JAILED] &&
-		pl_sd->sc.data[SC_JAILED]->val1 != INT_MAX)
-  	{	//Update the player's jail time
+	// Added by Coltaro
+	if(pl_sd->sc.data[SC_JAILED] && pl_sd->sc.data[SC_JAILED]->val1 != INT_MAX) { // Update the player's jail time
 		jailtime += pl_sd->sc.data[SC_JAILED]->val1;
 		if (jailtime <= 0) {
 			jailtime = 0;
 			clif_displaymessage(pl_sd->fd, msg_txt(sd,120)); // GM has discharge you.
 			clif_displaymessage(fd, msg_txt(sd,121)); // Player unjailed
 		} else {
-			get_jail_time(jailtime,&year,&month,&day,&hour,&minute);
-			sprintf(atcmd_output,msg_txt(sd,402),msg_txt(sd,1137),year,month,day,hour,minute); //%s in jail for %d years, %d months, %d days, %d hours and %d minutes
+			int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
+			char timestr[CHAT_SIZE_MAX];
+			split_time(jailtime*60,&year,&month,&day,&hour,&minute,&second);
+			sprintf(atcmd_output,msg_txt(sd,402),msg_txt(sd,1137),year,month,day,hour,minute); // %s in jail for %d years, %d months, %d days, %d hours and %d minutes
 	 		clif_displaymessage(pl_sd->fd, atcmd_output);
-			sprintf(atcmd_output,msg_txt(sd,402),msg_txt(sd,1138),year,month,day,hour,minute); //This player is now in jail for %d years, %d months, %d days, %d hours and %d minutes
+			sprintf(atcmd_output,msg_txt(sd,402),msg_txt(sd,1138),year,month,day,hour,minute); // This player is now in jail for %d years, %d months, %d days, %d hours and %d minutes
 	 		clif_displaymessage(fd, atcmd_output);
+			time2str(timestr,"%Y-%m-%d %H:%M",jailtime*60);
+			sprintf(atcmd_output,"Release date is: %s",timestr);
+			clif_displaymessage(pl_sd->fd, atcmd_output);
+			clif_displaymessage(fd, atcmd_output);
 		}
 	} else if (jailtime < 0) {
 		clif_displaymessage(fd, msg_txt(sd,1136));
 		return -1;
 	}
 
-	//Jail locations, add more as you wish.
-	switch(rnd()%2)
-	{
-		case 1: //Jail #1
+	// Jail locations, add more as you wish.
+	switch(rnd()%2) {
+		case 1: // Jail #1
 			m_index = mapindex_name2id(MAP_JAIL);
 			x = 49; y = 75;
 			break;
-		default: //Default Jail
+		default: // Default Jail
 			m_index = mapindex_name2id(MAP_JAIL);
 			x = 24; y = 75;
 			break;
@@ -4758,11 +4690,11 @@ ACMD_FUNC(jailfor)
 	return 0;
 }
 
-
 //By Coltaro
 ACMD_FUNC(jailtime)
 {
-	int year, month, day, hour, minute;
+	int year, month, day, hour, minute, second;
+	char timestr[CHAT_SIZE_MAX];
 
 	nullpo_retr(-1, sd);
 
@@ -4781,11 +4713,12 @@ ACMD_FUNC(jailtime)
 		return -1;
 	}
 
-	//Get remaining jail time
-	get_jail_time(sd->sc.data[SC_JAILED]->val1,&year,&month,&day,&hour,&minute);
+	// Get remaining jail time
+	split_time(sd->sc.data[SC_JAILED]->val1*60,&year,&month,&day,&hour,&minute,&second);
 	sprintf(atcmd_output,msg_txt(sd,402),msg_txt(sd,1142),year,month,day,hour,minute); // You will remain in jail for %d years, %d months, %d days, %d hours and %d minutes
-
 	clif_displaymessage(fd, atcmd_output);
+	time2str(timestr,"%Y-%m-%d %H:%M",sd->sc.data[SC_JAILED]->val1*60);
+	sprintf(atcmd_output,"Release date is: %s",timestr);
 
 	return 0;
 }
@@ -4825,6 +4758,11 @@ ACMD_FUNC(disguise)
 	if(pc_isriding(sd))
 	{
 		clif_displaymessage(fd, msg_txt(sd,1144)); // Character cannot be disguised while mounted.
+		return -1;
+	}
+
+	if (sd->sc.data[SC_MONSTER_TRANSFORM]) {
+		clif_displaymessage(fd, msg_txt(sd,1499)); // Character cannot be disguised while in monster transform.
 		return -1;
 	}
 
@@ -5273,20 +5211,47 @@ ACMD_FUNC(follow)
 
 
 /*==========================================
- * @dropall by [MouseJstr]
- * Drop all your possession on the ground
+ * @dropall by [MouseJstr] and [Xantara]
+ * Drops all your possession on the ground based on item type
  *------------------------------------------*/
 ACMD_FUNC(dropall)
 {
-	int i;
+	int8 type = -1;
+	uint16 i, count = 0;
+	struct item_data *item_data = NULL;
+
 	nullpo_retr(-1, sd);
-	for (i = 0; i < MAX_INVENTORY; i++) {
-	if (sd->status.inventory[i].amount) {
-		if(sd->status.inventory[i].equip != 0)
-			pc_unequipitem(sd, i, 3);
-			pc_dropitem(sd,  i, sd->status.inventory[i].amount);
+	
+	if( message[0] ) {
+		type = atoi(message);
+		if( type != -1 && type != IT_HEALING && type != IT_USABLE && type != IT_ETC && type != IT_WEAPON &&
+			type != IT_ARMOR && type != IT_CARD && type != IT_PETEGG && type != IT_PETARMOR && type != IT_AMMO )
+		{
+			clif_displaymessage(fd, msg_txt(sd,1492));
+			clif_displaymessage(fd, msg_txt(sd,1493));
+			return -1;
 		}
 	}
+
+	for( i = 0; i < MAX_INVENTORY; i++ ) {
+		if( sd->status.inventory[i].amount ) {
+			if( (item_data = itemdb_exists(sd->status.inventory[i].nameid)) == NULL ) {
+				ShowDebug("Non-existant item %d on dropall list (account_id: %d, char_id: %d)\n", sd->status.inventory[i].nameid, sd->status.account_id, sd->status.char_id);
+				continue;
+			}
+			if( !pc_candrop(sd,&sd->status.inventory[i]) )
+				continue;
+
+			if( type == -1 || type == (uint8)item_data->type ) {
+				if( sd->status.inventory[i].equip != 0 )
+					pc_unequipitem(sd, i, 3);
+				count += sd->status.inventory[i].amount;
+				pc_dropitem(sd, i, sd->status.inventory[i].amount);
+			}
+		}
+	}
+	sprintf(atcmd_output, msg_txt(sd,1494), count); // %d items are dropped!
+	clif_displaymessage(fd, atcmd_output); 
 	return 0;
 }
 
@@ -7533,14 +7498,7 @@ ACMD_FUNC(whereis)
 
 ACMD_FUNC(version)
 {
-	const char * revision;
-
-	if ((revision = get_svn_revision()) != 0) {
-		sprintf(atcmd_output,msg_txt(sd,1295),revision); // rAthena Version SVN r%s
-		clif_displaymessage(fd,atcmd_output);
-	} else
-		clif_displaymessage(fd,msg_txt(sd,1296)); // Cannot determine SVN revision.
-
+	pc_show_version(sd);
 	return 0;
 }
 

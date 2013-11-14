@@ -462,6 +462,7 @@ extern struct Battle_Config
 	int client_limit_unit_lv;
 	int hom_max_level;
 	int hom_S_max_level;
+	int hom_S_growth_level;
 
 	// [BattleGround Settings]
 	int bg_update_interval;
@@ -494,6 +495,8 @@ extern struct Battle_Config
 	int item_onfloor; // Whether to drop an undroppable item on the map or destroy it if inventory is full.
 	int bowling_bash_area;
 	int drop_rateincrease;
+	int feature_banking;
+	int mon_trans_disable_in_gvg;
 
 } battle_config;
 

@@ -47,9 +47,8 @@
 // 20120307 - 2012-03-07aRagexeRE+ - 0x970
 
 #ifndef PACKETVER
-	#define PACKETVER 20120410
-	//#define PACKETVER 20130320
-	//#define PACKETVER 20111116
+	#define PACKETVER 20130807
+	//#define PACKETVER 20120410
 #endif
 
 //Remove/Comment this line to disable sc_data saving. [Skotlex]
@@ -79,6 +78,7 @@
 //Max amount of a single stacked item
 #define MAX_AMOUNT 30000
 #define MAX_ZENY 1000000000
+#define MAX_BANK_ZENY SINT32_MAX
 #define MAX_FAME 1000000000
 #define MAX_CART 100
 #define MAX_SKILL 5020
@@ -249,6 +249,13 @@ struct status_change_data {
 	long val1, val2, val3, val4, tick; //Remaining duration.
 };
 
+#define MAX_BONUS_SCRIPT_LENGTH 1024
+struct bonus_script_data {
+	char script[MAX_BONUS_SCRIPT_LENGTH];
+	long tick;
+	short type, flag;
+};
+
 struct skill_cooldown_data {
 	unsigned short skill_id;
 	long tick;
@@ -351,6 +358,7 @@ struct mmo_charstatus {
 
 	unsigned int base_exp,job_exp;
 	int zeny;
+	int bank_vault;
 
 	short class_;
 	unsigned int status_point,skill_point;
@@ -524,10 +532,10 @@ struct guild {
 	struct guild_alliance alliance[MAX_GUILDALLIANCE];
 	struct guild_expulsion expulsion[MAX_GUILDEXPULSION];
 	struct guild_skill skill[MAX_GUILDSKILL];
+	struct Channel *channel;
 
 	/* TODO: still used for something? */
 	unsigned short save_flag; // for TXT saving
-	void *channel;
 };
 
 struct guild_castle {
@@ -749,6 +757,8 @@ enum {
 
 	JOB_KAGEROU = 4211,
 	JOB_OBORO,
+
+	JOB_REBELLION = 4215,
 
 	JOB_MAX,
 };

@@ -1662,6 +1662,7 @@ int map_quit(struct map_session_data *sd) {
 		status_change_end(&sd->bl, SC_WEIGHT90, INVALID_TIMER);
 		status_change_end(&sd->bl, SC_SATURDAYNIGHTFEVER, INVALID_TIMER);
 		status_change_end(&sd->bl, SC_KYOUGAKU, INVALID_TIMER);
+		status_change_end(&sd->bl, SC_C_MARKER, INVALID_TIMER);
 		if (battle_config.debuff_on_logout&1) {
 			status_change_end(&sd->bl, SC_ORCISH, INVALID_TIMER);
 			status_change_end(&sd->bl, SC_STRIPWEAPON, INVALID_TIMER);
@@ -1677,6 +1678,10 @@ int map_quit(struct map_session_data *sd) {
 			// Both these statuses are removed on logout. [L0ne_W0lf]
 			status_change_end(&sd->bl, SC_SLOWCAST, INVALID_TIMER);
 			status_change_end(&sd->bl, SC_CRITICALWOUND, INVALID_TIMER);
+			status_change_end(&sd->bl, SC_HEAT_BARREL_AFTER, INVALID_TIMER);
+			status_change_end(&sd->bl, SC_H_MINE, INVALID_TIMER);
+			status_change_end(&sd->bl, SC_ANTI_M_BLAST, INVALID_TIMER);
+			status_change_end(&sd->bl, SC_B_TRAP, INVALID_TIMER);
 		}
 		if (battle_config.debuff_on_logout&2) {
 			status_change_end(&sd->bl, SC_MAXIMIZEPOWER, INVALID_TIMER);
@@ -1685,6 +1690,9 @@ int map_quit(struct map_session_data *sd) {
 			status_change_end(&sd->bl, SC_PRESERVE, INVALID_TIMER);
 			status_change_end(&sd->bl, SC_KAAHI, INVALID_TIMER);
 			status_change_end(&sd->bl, SC_SPIRIT, INVALID_TIMER);
+			status_change_end(&sd->bl, SC_HEAT_BARREL, INVALID_TIMER);
+			status_change_end(&sd->bl, SC_P_ALTER, INVALID_TIMER);
+			status_change_end(&sd->bl, SC_E_CHAIN, INVALID_TIMER);
 		}
 	}
 
@@ -1708,7 +1716,7 @@ int map_quit(struct map_session_data *sd) {
 		elemental_clean_effect(sd->ed);
 		unit_remove_map(&sd->ed->bl,CLR_RESPAWN);
 	}
-
+	
 	unit_remove_map_pc(sd,CLR_RESPAWN);
 
 	if( map[sd->bl.m].instance_id ) { // Avoid map conflicts and warnings on next login
@@ -1735,6 +1743,7 @@ int map_quit(struct map_session_data *sd) {
 	party_booking_delete(sd); // Party Booking [Spiria]
 	pc_makesavestatus(sd);
 	pc_clean_skilltree(sd);
+	pc_crimson_marker_clear(sd);
 	chrif_save(sd,1);
 	unit_free_pc(sd);
 	return 0;
@@ -3590,7 +3599,7 @@ int map_sql_init(void)
 	ShowInfo("Connecting to the Map DB Server....\n");
 	if( SQL_ERROR == Sql_Connect(mmysql_handle, map_server_id, map_server_pw, map_server_ip, map_server_port, map_server_db) )
 		exit(EXIT_FAILURE);
-	ShowStatus("connect success! (Map Server Connection)\n");
+	ShowStatus("Connect success! (Map Server Connection)\n");
 
 	if( strlen(default_codepage) > 0 )
 		if ( SQL_ERROR == Sql_SetEncoding(mmysql_handle, default_codepage) )

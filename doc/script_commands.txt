@@ -2,10 +2,8 @@
 //= rAthena Script Commands
 //===== By: ==================================================
 //= rAthena Dev Team
-//===== Current Version: =====================================
-//= $Revision$
 //===== Last Updated: ========================================
-//= $LastChangedDate$
+//= 20131112
 //===== Description: =========================================
 //= A reference manual for the rAthena scripting language.
 //= Commands are sorted depending on their functionality.
@@ -4534,10 +4532,6 @@ Whatever the type is, it will also show a failure effect on screen.
 This command repairs a broken piece of equipment, using the same list of broken 
 items as available through 'getbrokenid'.
 
-The official scripts seem to use the repair command as a function instead: 
-'repair(<number>)' but it returns nothing on the stack. Probably only Valaris, 
-who made it, can answer why is it so.
-
 ---------------------------------------
 
 *repairall;
@@ -4557,10 +4551,6 @@ character and put appropriate messages into their chat window. It will also give
 the character fame points if a weapon reached +10 this way, even though these 
 will only take effect for blacksmith who will later forge a weapon.
 
-The official scripts seems to use the 'successrefitem' command as a function 
-instead: 'successrefitem(<number>)' but it returns nothing on the stack. 
-This is since jAthena, so probably nobody knows for sure why is it so.
-
 ---------------------------------------
 
 *failedrefitem <equipment slot>;
@@ -4570,22 +4560,14 @@ invoking character. The item will be destroyed. This will also display a 'refine
 failure' effect on the character and put appropriate messages into their chat 
 window.
 
-The official scripts seems to use the 'failedrefitem' command as a function 
-instead: 'failedrefitem(<number>)' but it returns nothing on the stack. This is 
-since jAthena, so probably nobody knows for sure why is it so.
-
 ---------------------------------------
 
-*downrefitem <equipment slot>;
+*downrefitem <equipment slot>{,<count>};
 
 This command will downgrade an item in the specified equipment slot of the invoking
-character by -1. For a list of equipment slots see 'getequipid'. This command will
-also display a 'refine failure' effect on the character and put appropriate
-messages into their chat window.
-
-The official scripts seems to use the 'downrefitem' command as a function 
-instead: 'downrefitem(<number>)' but it returns nothing on the stack. This is 
-since jAthena, so probably nobody knows for sure why is it so.
+character by -1, or a count if given. For a list of equipment slots see 'getequipid'.
+This command will also display a 'refine failure' effect on the character and put 
+appropriate messages into their chat window.
 
 ---------------------------------------
 
@@ -5075,6 +5057,32 @@ autobonus and autobonus3).
 
 ---------------------------------------
 
+*bonus_script "<script code>",<duration>{,<flag>{,<type>{,<char_id>}}};
+
+This command will attach a script to a player for a given duration, in seconds.
+After that time, the script will automatically expire. The same bonus cannot be
+stacked. By default, this bonus will be stored on `bonus_script` table when player
+logs out.
+
+Note that the maximum number of 'bonus_script' commands that can run simultaneously
+for a player is 10 (MAX_PC_BONUS_SCRIPT in 'src/map/pc.h').
+
+Flags:
+	&1: Remove when dead.
+	&2: Removable by Dispell.
+	&4: Removable by Clearance.
+	&8: Remove when player logs out.
+
+Types:
+	0: Buff
+	1: Debuff
+
+Example:
+	// Apple gives you +5 Str bonus for 1 minute when it's consumed.
+	512,Apple,Apple,0,15,,20,,,,,0xFFFFFFFF,63,2,,,,,,{ bonus_script "{ bonus bStr,5; }",60; },{},{}
+
+---------------------------------------
+
 *skill <skill id>,<level>{,<flag>};
 *skill "<skill name>",<level>{,<flag>};
 *addtoskill <skill id>,<level>{,<flag>};
@@ -5134,6 +5142,14 @@ Example:
 disguise 1002; // Disguise character as a Poring.
 next;
 undisguise; // Return to normal character sprite.
+
+---------------------------------------
+
+*transform <monster name/ID>,<duration>,<sc type>{,<val1>,<val2>,<val3>,<val4>};
+
+This command will turn a player into a monster for a given duration and grants an
+SC attribute effect while transformed. Note that players cannot be transformed
+during War of Emperium or if already disguised.
 
 ---------------------------------------
 \\

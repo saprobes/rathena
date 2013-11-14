@@ -24,6 +24,7 @@
 #define MAX_PC_SKILL_REQUIRE 5
 #define MAX_PC_FEELHATE 3
 #define DAMAGELOG_SIZE_PC 100	// Any idea for this value?
+#define MAX_PC_BONUS_SCRIPT 10
 
 //Update this max as necessary. 55 is the value needed for Super Baby currently
 //Raised to 84 since Expanded Super Novice needs it.
@@ -192,6 +193,8 @@ struct map_session_data {
 		unsigned int prevend : 1;//used to flag wheather you've spent 40sp to open the vending or not.
 		unsigned int warping : 1;//states whether you're in the middle of a warp processing
 		unsigned int permanent_speed : 1; // When 1, speed cannot be changed through status_calc_pc().
+		unsigned int banking : 1; //1 when we using the banking system 0 when closed
+		unsigned int hpmeter_visible : 1;
 	} state;
 	struct {
 		unsigned char no_weapon_damage, no_magic_damage, no_misc_damage;
@@ -365,8 +368,8 @@ struct map_session_data {
 		short add_steal_rate;
 		short add_heal_rate, add_heal2_rate;
 		short sp_gain_value, hp_gain_value, magic_sp_gain_value, magic_hp_gain_value;
-		short sp_vanish_rate;
-		short sp_vanish_per;
+		short sp_vanish_rate, hp_vanish_rate;
+		short sp_vanish_per, hp_vanish_per;
 		unsigned short unbreakable;	// chance to prevent ANY equipment breaking [celest]
 		unsigned short unbreakable_equip; //100% break resistance on certain equipment
 		unsigned short unstripable_equip;
@@ -544,8 +547,22 @@ struct map_session_data {
 		int id;
 	} dmglog[DAMAGELOG_SIZE_PC];
 
-};
+	struct s_crimson_marker {
+		int target[MAX_SKILL_CRIMSON_MARKER]; //Target id storage
+		uint8 count; //Count of target for skill like RL_D_TAIL
+	} c_marker;
+	bool flicker;
 
+	//Timed bonus 'bonus_script' struct [Cydh]
+	struct s_script {
+		struct script_code *script;
+		char script_str[MAX_BONUS_SCRIPT_LENGTH]; //Used for comparing and storing on table
+		uint32 tick;
+		uint8 flag;
+		bool isBuff; //Can be used for deciding which bonus that buff or debuff
+		int tid;
+	} bonus_script[MAX_PC_BONUS_SCRIPT];
+};
 
 enum weapon_type {
 	W_FIST,	//Bare hands
@@ -679,7 +696,7 @@ struct {
 #define pc_isinvisible(sd)    ( (sd)->sc.option&OPTION_INVISIBLE )
 #define pc_is50overweight(sd) ( (sd)->weight*100 >= (sd)->max_weight*battle_config.natural_heal_weight_rate )
 #define pc_is90overweight(sd) ( (sd)->weight*10 >= (sd)->max_weight*9 )
-#define pc_maxparameter(sd)   ( ((((sd)->class_&MAPID_UPPERMASK) == MAPID_KAGEROUOBORO) || (sd)->class_&JOBL_THIRD ? ((sd)->class_&JOBL_BABY ? battle_config.max_baby_third_parameter : battle_config.max_third_parameter) : ((sd)->class_&JOBL_BABY ? battle_config.max_baby_parameter : battle_config.max_parameter)) )
+#define pc_maxparameter(sd)   ( ((((sd)->class_&MAPID_UPPERMASK) == MAPID_KAGEROUOBORO) || ((sd)->class_&MAPID_UPPERMASK) == MAPID_REBELLION || (sd)->class_&JOBL_THIRD ? ((sd)->class_&JOBL_BABY ? battle_config.max_baby_third_parameter : battle_config.max_third_parameter) : ((sd)->class_&JOBL_BABY ? battle_config.max_baby_parameter : battle_config.max_parameter)) )
 /**
  * Ranger
  **/
@@ -698,14 +715,14 @@ struct {
 	1<<(sd)->status.weapon:(1<<(sd)->weapontype1)|(1<<(sd)->weapontype2)|(1<<(sd)->status.weapon)))
 //Checks if the given class value corresponds to a player class. [Skotlex]
 //JOB_NOVICE isn't checked for class_ is supposed to be unsigned
-#define pcdb_checkid_sub(class_) \
-( \
-	( (class_) <  JOB_MAX_BASIC ) \
-||	( (class_) >= JOB_NOVICE_HIGH    && (class_) <= JOB_DARK_COLLECTOR ) \
-||	( (class_) >= JOB_RUNE_KNIGHT    && (class_) <= JOB_MECHANIC_T2    ) \
-||	( (class_) >= JOB_BABY_RUNE      && (class_) <= JOB_BABY_MECHANIC2 ) \
-||	( (class_) >= JOB_SUPER_NOVICE_E && (class_) <= JOB_SUPER_BABY_E   ) \
-||	( (class_) >= JOB_KAGEROU        && (class_) <  JOB_MAX            ) \
+#define pcdb_checkid_sub(class_) ( \
+	( (class_) < JOB_MAX_BASIC ) || \
+	( (class_) >= JOB_NOVICE_HIGH    && (class_) <= JOB_DARK_COLLECTOR ) || \
+	( (class_) >= JOB_RUNE_KNIGHT    && (class_) <= JOB_MECHANIC_T2    ) || \
+	( (class_) >= JOB_BABY_RUNE      && (class_) <= JOB_BABY_MECHANIC2 ) || \
+	( (class_) >= JOB_SUPER_NOVICE_E && (class_) <= JOB_SUPER_BABY_E   ) || \
+	( (class_) >= JOB_KAGEROU        && (class_) <= JOB_OBORO          ) || \
+	( (class_) >= JOB_REBELLION      && (class_) <  JOB_MAX            ) \
 )
 #define pcdb_checkid(class_) pcdb_checkid_sub((unsigned int)class_)
 
@@ -859,6 +876,7 @@ int pc_resethate(struct map_session_data*);
 int pc_equipitem(struct map_session_data*,int,int);
 int pc_unequipitem(struct map_session_data*,int,int);
 int pc_checkitem(struct map_session_data*);
+int pc_check_available_item(struct map_session_data *sd);
 int pc_useitem(struct map_session_data*,int);
 
 int pc_skillatk_bonus(struct map_session_data *sd, uint16 skill_id);
@@ -1009,6 +1027,17 @@ void pc_baselevelchanged(struct map_session_data *sd);
 
 void pc_damage_log_add(struct map_session_data *sd, int id);
 void pc_damage_log_clear(struct map_session_data *sd, int id);
+
+enum e_BANKING_DEPOSIT_ACK pc_bank_deposit(struct map_session_data *sd, int money);
+enum e_BANKING_WITHDRAW_ACK pc_bank_withdraw(struct map_session_data *sd, int money);
+
+void pc_crimson_marker_clear(struct map_session_data *sd);
+
+void pc_show_version(struct map_session_data *sd);
+
+int pc_bonus_script_timer(int tid, unsigned int tick, int id, intptr_t data);
+void pc_bonus_script_remove(struct map_session_data *sd, uint8 i);
+void pc_bonus_script_check(struct map_session_data *sd, enum e_bonus_script_flags flag);
 
 #if defined(RENEWAL_DROP) || defined(RENEWAL_EXP)
 int pc_level_penalty_mod(struct map_session_data *sd, int mob_level, uint32 mob_race, uint32 mob_mode, int type);
