@@ -114,6 +114,7 @@ enum {
 	MAPID_BLACKSMITH,
 	MAPID_ASSASSIN,
 	MAPID_STAR_GLADIATOR,
+	MAPID_REBELLION = JOBL_2_1 | 0x09,
 	MAPID_KAGEROUOBORO = JOBL_2_1|0x0A,
 	MAPID_DEATH_KNIGHT = JOBL_2_1|0x0E,
 //2-2 Jobs
@@ -426,7 +427,7 @@ enum _sp {
 	SP_EMATK, SP_SP_GAIN_RACE_ATTACK, SP_HP_GAIN_RACE_ATTACK, SP_SKILL_USE_SP_RATE, //2046-2049
 	SP_SKILL_COOLDOWN,SP_SKILL_FIXEDCAST, SP_SKILL_VARIABLECAST, SP_FIXCASTRATE, SP_VARCASTRATE, //2050-2054
 	SP_SKILL_USE_SP,SP_MAGIC_ATK_ELE, SP_ADD_FIXEDCAST, SP_ADD_VARIABLECAST,  //2055-2058
-	SP_DEF_SET,SP_MDEF_SET  //2059-2060
+	SP_DEF_SET,SP_MDEF_SET,SP_HP_VANISH_RATE  //2059-2061
 };
 
 enum _look {
@@ -637,6 +638,9 @@ struct map_data {
 
 	/* rAthena Local Chat */
 	struct Channel *channel;
+	
+	/* speeds up clif_updatestatus processing by causing hpmeter to run only when someone with the permission can view it */
+	unsigned short hpmeter_visible;
 };
 
 /// Stores information about a remote map (for multi-mapserver setups).

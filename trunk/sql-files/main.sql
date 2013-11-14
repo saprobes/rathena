@@ -459,6 +459,7 @@ CREATE TABLE IF NOT EXISTS `login` (
   `character_slots` tinyint(3) unsigned NOT NULL default '0',
   `pincode` varchar(4) NOT NULL DEFAULT '',
   `pincode_change` int(11) unsigned NOT NULL DEFAULT '0',
+  `bank_vault` int(11) NOT NULL DEFAULT '0',
   PRIMARY KEY  (`account_id`),
   KEY `name` (`userid`)
 ) ENGINE=MyISAM AUTO_INCREMENT=2000000; 
@@ -695,3 +696,15 @@ CREATE TABLE IF NOT EXISTS `interreg` (
 ) ENGINE=InnoDB;
 INSERT INTO `interreg` (`varname`, `value`) VALUES
 ('unique_id', '0');
+
+--
+-- Table structure for table `bonus_script`
+--
+
+CREATE TABLE IF NOT EXISTS `bonus_script` (
+  `char_id` int(11) NOT NULL,
+  `script` varchar(1024) NOT NULL,
+  `tick` int(11) NOT NULL,
+  `flag` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `type` tinyint(1) unsigned NOT NULL DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;

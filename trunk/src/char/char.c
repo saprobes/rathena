@@ -33,8 +33,8 @@
 #include <stdlib.h>
 #include <malloc.h>
 
-#define MAX_STARTITEM 32
-#define CHAR_MAX_MSG 300
+#define MAX_STARTITEM 32	//max number of items a new players can start with
+#define CHAR_MAX_MSG 300	//max number of msg_conf
 static char* msg_table[CHAR_MAX_MSG]; // Login Server messages_conf
 
 char char_db[256] = "char";
@@ -69,6 +69,7 @@ char mercenary_db[256] = "mercenary";
 char mercenary_owner_db[256] = "mercenary_owner";
 char elemental_db[256] = "elemental";
 char ragsrvinfo_db[256] = "ragsrvinfo";
+char bonus_script_db[256] = "bonus_script";
 
 // show loading/saving messages
 int save_log = 1;
@@ -143,6 +144,7 @@ struct char_session_data {
 	time_t pincode_change;
 	uint16 pincode_try;
 	// Addon system
+	int bank_vault;
 	unsigned int char_moves[MAX_CHARS]; // character moves left
 };
 
@@ -189,6 +191,12 @@ bool char_moves_unlimited = false;
 void moveCharSlot( int fd, struct char_session_data* sd, unsigned short from, unsigned short to );
 void moveCharSlotReply( int fd, struct char_session_data* sd, unsigned short index, short reason );
 
+int loginif_BankingReq(int32 account_id, int8 type, int32 data);
+int loginif_parse_BankingAck(int fd);
+int mapif_BankingAck(int32 account_id, int32 bank_vault);
+int mapif_parse_UpdBankInfo(int fd);
+int mapif_parse_ReqBankInfo(int fd);
+
 //Custom limits for the fame lists. [Skotlex]
 int fame_list_size_chemist = MAX_FAME_LIST;
 int fame_list_size_smith = MAX_FAME_LIST;
@@ -198,6 +206,10 @@ int fame_list_size_taekwon = MAX_FAME_LIST;
 struct fame_list smith_fame_list[MAX_FAME_LIST];
 struct fame_list chemist_fame_list[MAX_FAME_LIST];
 struct fame_list taekwon_fame_list[MAX_FAME_LIST];
+
+//Bonus Script
+void bonus_script_get(int fd);///Get bonus_script data
+void bonus_script_save(int fd); ///Save bonus_script data
 
 // check for exit signal
 // 0 is saving complete
@@ -224,6 +236,7 @@ struct auth_node {
 	time_t expiration_time; // # of seconds 1/1/1970 (timestamp): Validity limit of the account (0 = unlimited)
 	int group_id;
 	unsigned changing_mapservers : 1;
+	uint8 version;
 };
 
 static DBMap* auth_db; // int account_id -> struct auth_node*
@@ -552,7 +565,7 @@ int mmo_char_tosql(int char_id, struct mmo_charstatus* p)
 		} else
 			strcat(save_status, " status");
 	}
-
+	
 	//Values that will seldom change (to speed up saving)
 	if (
 		(p->hair != cp->hair) || (p->hair_color != cp->hair_color) || (p->clothes_color != cp->clothes_color) ||
@@ -591,7 +604,7 @@ int mmo_char_tosql(int char_id, struct mmo_charstatus* p)
 		else
 			errors++;
 	}
-
+	
 	//memo points
 	if( memcmp(p->memo_point, cp->memo_point, sizeof(p->memo_point)) )
 	{
@@ -1799,6 +1812,10 @@ int delete_char_sql(int char_id)
 		Sql_ShowDebug(sql_handle);
 #endif
 
+	/* bonus_scripts */
+	if( SQL_ERROR == Sql_Query(sql_handle, "DELETE FROM `%s` WHERE `char_id` = '%d'", bonus_script_db, char_id) )
+		Sql_ShowDebug(sql_handle);
+
 	if (log_char) {
 		if( SQL_ERROR == Sql_Query(sql_handle, "INSERT INTO `%s`(`time`, `account_id`,`char_num`,`char_msg`,`name`) VALUES (NOW(), '%d', '%d', 'Deleted char (CID %d)', '%s')",
 			charlog_db, account_id, 0, char_id, esc_name) )
@@ -1962,24 +1979,20 @@ void char_parse_req_charlist(int fd, struct char_session_data* sd){
 //----------------------------------------
 int mmo_char_send006b(int fd, struct char_session_data* sd){
 	int j, offset = 0;
-	//bool newvers = (sd->version >= date2version(20100413) );
-#if PACKETVER >= 20100413
-	//if(newvers) //20100413
+	bool newvers = (sd->version >= (uint32)date2version(20100413));
+	if(newvers) //20100413
 		offset += 3;
-#endif
 	if (save_log)
 		ShowInfo("Loading Char Data ("CL_BOLD"%d"CL_RESET")\n",sd->account_id);
 
 	j = 24 + offset; // offset
 	WFIFOHEAD(fd,j + MAX_CHARS*MAX_CHAR_BUF);
 	WFIFOW(fd,0) = 0x6b;
-#if PACKETVER >= 20100413
-//	if(newvers){ //20100413
+	if(newvers){ //20100413
 		WFIFOB(fd,4) = MAX_CHARS; // Max slots.
 		WFIFOB(fd,5) = sd->char_slots; // Available slots. (PremiumStartSlot)
 		WFIFOB(fd,6) = MAX_CHARS; // Premium slots. (Any existent chars past sd->char_slots but within MAX_CHARS will show a 'Premium Service' in red)
-//	}
-#endif
+	}
 	memset(WFIFOP(fd,4 + offset), 0, 20); // unknown bytes
 	j+=mmo_chars_fromsql(sd, WFIFOP(fd,j));
 	WFIFOW(fd,2) = j; // packet len
@@ -2008,13 +2021,11 @@ void mmo_char_send082d(int fd, struct char_session_data* sd) {
 
 void mmo_char_send(int fd, struct char_session_data* sd){
 	//ShowInfo("sd->version = %d\n",sd->version);
-#if PACKETVER >= 20130000
-	//if(sd->version > date2version(20130000) ){
+	if(sd->version > (uint32)date2version(20130000) ){
 		mmo_char_send082d(fd,sd);
 		char_charlist_notify(fd,sd);
 		char_block_character(fd,sd);
-#endif
-	//}
+	}
 	//@FIXME dump from kro doesn't show 6b transmission
 	mmo_char_send006b(fd,sd);
 }
@@ -2146,6 +2157,89 @@ static void char_auth_ok(int fd, struct char_session_data *sd)
 int send_accounts_tologin(int tid, unsigned int tick, int id, intptr_t data);
 void mapif_server_reset(int id);
 
+/*
+ * HA 0x2740<aid>L <type>B <data>L
+ * type:
+ *  0 = select
+ *  1 = update
+ */
+int loginif_BankingReq(int32 account_id, int8 type, int32 data){
+	if (login_fd > 0 && session[login_fd] && !session[login_fd]->flag.eof){
+		WFIFOHEAD(login_fd,11);
+		WFIFOW(login_fd,0) = 0x2740;
+		WFIFOL(login_fd,2) = account_id;
+		WFIFOB(login_fd,6) = type;
+		WFIFOL(login_fd,7) = data;
+		WFIFOSET(login_fd,11);
+  		return 1;
+	}
+	return 0;
+}
+
+/*
+ * Received the banking data from login and transmit it to all map-serv
+ * AH 0x2741<aid>L <bank_vault>L <not_fw>B
+ * HZ 0x2b29 <aid>L <bank_vault>L 
+ */
+int loginif_parse_BankingAck(int fd){
+	if (RFIFOREST(fd) < 11)
+		return 0;
+	else {
+		uint32 aid = RFIFOL(fd,2);
+		int32 bank_vault = RFIFOL(fd,6);
+		char not_fw = RFIFOB(fd,10);
+		RFIFOSKIP(fd,11);
+ 	
+		if(not_fw==0) mapif_BankingAck(aid, bank_vault);
+	}
+	return 1;
+}
+
+//HZ 0x2b29 <aid>L <bank_vault>L
+int mapif_BankingAck(int32 account_id, int32 bank_vault){
+	unsigned char buf[11];
+	WBUFW(buf,0) = 0x2b29;
+	WBUFL(buf,2) = account_id;
+	WBUFL(buf,6) = bank_vault;
+  	mapif_sendall(buf, 10); //inform all maps-attached
+	return 1;
+}
+
+/*
+ *  Receive a map request to save banking
+ * Fowarding it to login-serv
+ * ZH 0x2b28 <aid>L <money>L
+ * HA 0x2740<aid>L <type>B <money>L
+ */
+int mapif_parse_UpdBankInfo(int fd){
+	if( RFIFOREST(fd) < 10 )
+		return 0;
+	else {
+		uint32 aid = RFIFOL(fd,2);
+		int money = RFIFOL(fd,6);
+		RFIFOSKIP(fd,10);
+		loginif_BankingReq(aid, 2, money);
+	}
+	return 1;
+}
+
+/*
+ *  Receive a map request to get banking info
+ * Fowarding it to login-serv
+ * ZH 0x2b2a <aid>L
+ * HA 0x2740<aid>L <type>B <money>L
+ */
+int mapif_parse_ReqBankInfo(int fd){
+	if( RFIFOREST(fd) < 6 )
+		return 0;
+	else {
+		uint32 aid = RFIFOL(fd,2);
+		RFIFOSKIP(fd,6);
+   		loginif_BankingReq(aid, 1, 0);  
+	}
+	return 1;
+}
+
 
 /// Resets all the data.
 void loginif_reset(void)
@@ -2193,6 +2287,34 @@ void loginif_on_ready(void)
 		ShowStatus("Awaiting maps from map-server.\n");
 }
 
+int logif_parse_reqpincode(int fd, struct char_session_data *sd){
+#if PACKETVER >=  20110309
+    if( pincode_enabled ){
+            // PIN code system enabled
+            if( strlen( sd->pincode ) <= 0 ){
+                // No PIN code has been set yet
+                if( pincode_force ) pincode_sendstate( fd, sd, PINCODE_NEW );
+                else pincode_sendstate( fd, sd, PINCODE_PASSED );
+            } else {
+                    if( !pincode_changetime || ( sd->pincode_change + pincode_changetime ) > time(NULL) ){
+                            struct online_char_data* node = (struct online_char_data*)idb_get( online_char_db, sd->account_id );
+
+                            if( node != NULL && node->pincode_success ){ // User has already passed the check                    
+                                    pincode_sendstate( fd, sd, PINCODE_PASSED );
+                            }else{
+                                    // Ask user for his PIN code
+                                    pincode_sendstate( fd, sd, PINCODE_ASK );
+                            }
+                    }else{ // User hasnt changed his PIN code too long
+                            pincode_sendstate( fd, sd, PINCODE_EXPIRED );
+                    }
+            }
+    } else { // PIN code system disabled 
+            pincode_sendstate( fd, sd, PINCODE_OK );
+    }
+#endif
+    return 0;
+}
 
 int parse_fromlogin(int fd) {
 	struct char_session_data* sd = NULL;
@@ -2230,6 +2352,7 @@ int parse_fromlogin(int fd) {
 
 		switch( command )
 		{
+		case 0x2741: loginif_parse_BankingAck(fd); break;
 
 		// acknowledgement of connect-to-loginserver request
 		case 0x2711:
@@ -2272,6 +2395,10 @@ int parse_fromlogin(int fd) {
 				int client_fd = request_id;
 				sd->version = version;
 				sd->clienttype = clienttype;
+				if(sd->version != date2version(PACKETVER))
+					ShowWarning("s aid=%d has an incorect version=%d in clientinfo. Server compiled for %d\n",
+						sd->account_id,sd->version,date2version(PACKETVER));
+				
 				switch( result )
 				{
 				case 0:// ok
@@ -2289,7 +2416,7 @@ int parse_fromlogin(int fd) {
 		break;
 
 		case 0x2717: // account data
-			if (RFIFOREST(fd) < 72)
+			if (RFIFOREST(fd) < 76)
 				return 0;
 
 			// find the authenticated session with this account id
@@ -2309,6 +2436,7 @@ int parse_fromlogin(int fd) {
 				safestrncpy(sd->birthdate, (const char*)RFIFOP(fd,52), sizeof(sd->birthdate));
 				safestrncpy(sd->pincode, (const char*)RFIFOP(fd,63), sizeof(sd->pincode));
 				sd->pincode_change = (time_t)RFIFOL(fd,68);
+				sd->bank_vault = RFIFOL(fd,72);
 				ARR_FIND( 0, ARRAYLENGTH(server), server_id, server[server_id].fd > 0 && server[server_id].map[0] );
 				// continued from char_auth_ok...
 				if( server_id == ARRAYLENGTH(server) || //server not online, bugreport:2359
@@ -2322,40 +2450,10 @@ int parse_fromlogin(int fd) {
 				} else {
 					// send characters to player
 					mmo_char_send(i, sd);
-#if PACKETVER >=  20110309
-					if( pincode_enabled ){
-						// PIN code system enabled
-						if( strlen( sd->pincode ) <= 0 ){
-							// No PIN code has been set yet
-							if( pincode_force ){
-								pincode_sendstate( i, sd, PINCODE_NEW );
-							}else{
-								pincode_sendstate( i, sd, PINCODE_PASSED );
-							}
-						}else{
-							if( !pincode_changetime || ( sd->pincode_change + pincode_changetime ) > time(NULL) ){
-								struct online_char_data* node = (struct online_char_data*)idb_get( online_char_db, sd->account_id );
-
-								if( node != NULL && node->pincode_success ){
-									// User has already passed the check
-									pincode_sendstate( i, sd, PINCODE_PASSED );
-								}else{
-									// Ask user for his PIN code
-									pincode_sendstate( i, sd, PINCODE_ASK );
-								}
-							}else{
-								// User hasnt changed his PIN code too long
-								pincode_sendstate( i, sd, PINCODE_EXPIRED );
-							}
-						}
-					}else{
-						// PIN code system disabled
-						pincode_sendstate( i, sd, PINCODE_OK );
-					}
-#endif
+					logif_parse_reqpincode(i, sd);
 				}
 			}
-			RFIFOSKIP(fd,72);
+			RFIFOSKIP(fd,76);
 		break;
 
 		// login-server alive packet
@@ -3047,14 +3145,15 @@ int parse_frommap(int fd)
 		break;
 
 		case 0x2b02: // req char selection
-			if( RFIFOREST(fd) < 18 )
+			if( RFIFOREST(fd) < 19 )
 				return 0;
 			else{
 				int account_id = RFIFOL(fd,2);
 				uint32 login_id1 = RFIFOL(fd,6);
 				uint32 login_id2 = RFIFOL(fd,10);
 				uint32 ip = RFIFOL(fd,14);
-				RFIFOSKIP(fd,18);
+				uint8 version = RFIFOB(fd,18);
+				RFIFOSKIP(fd,19);
 
 				if( runflag != CHARSERVER_ST_RUNNING ){
 					WFIFOHEAD(fd,7);
@@ -3073,13 +3172,13 @@ int parse_frommap(int fd)
 					node->login_id2 = login_id2;
 					//node->sex = 0;
 					node->ip = ntohl(ip);
+					node->version = version; //upd version for mapserv
 					//node->expiration_time = 0; // unlimited/unknown time by default (not display in map-server)
 					//node->gmlevel = 0;
 					idb_put(auth_db, account_id, node);
 
 					//Set char to "@ char select" in online db [Kevin]
 					set_char_charselect(account_id);
-
 					{
 						struct online_char_data* character = (struct online_char_data*)idb_get(online_char_db, account_id);
 
@@ -3579,6 +3678,21 @@ int parse_frommap(int fd)
 				RFIFOSKIP(fd, RFIFOW(fd,2) );/* skip this packet */
 		}
 		break;
+		
+		case 0x2b28: mapif_parse_UpdBankInfo(fd); break;
+		case 0x2b2a: mapif_parse_ReqBankInfo(fd); break;
+			
+		case 0x2b2d: //Load data
+			if (RFIFOREST(fd) < 6)
+				return 0;
+			bonus_script_get(fd);
+			break;
+
+		case 0x2b2e: //Save data
+			if (RFIFOREST(fd) < 4 || RFIFOREST(fd) < RFIFOW(fd,2))
+				return 0;
+			bonus_script_save(fd);
+			break;
 
 		default:
 		{
@@ -3972,6 +4086,7 @@ int parse_char(int fd)
 				node->login_id2  == login_id2 /*&&
 				node->ip         == ipl*/ )
 			{// authentication found (coming from map server)
+				sd->version = node->version;
 				idb_remove(auth_db, account_id);
 				char_auth_ok(fd, sd);
 			}
@@ -4881,6 +4996,83 @@ void moveCharSlotReply( int fd, struct char_session_data* sd, unsigned short ind
 	WFIFOSET(fd,8);
 }
 
+/** [Cydh]
+* Get bonus_script data(s) from table to load
+* @param fd
+*/
+void bonus_script_get(int fd) {
+	int cid;
+	cid = RFIFOL(fd,2);
+
+	if (SQL_ERROR == Sql_Query(sql_handle,"SELECT `script`, `tick`, `flag`, `type` FROM `%s` WHERE `char_id`='%d'",
+		bonus_script_db,cid))
+	{
+		Sql_ShowDebug(sql_handle);
+		return;
+	}
+	if (Sql_NumRows(sql_handle) > 0) {
+		struct bonus_script_data bsdata;
+		int count;
+		char *data;
+
+		WFIFOHEAD(fd,10+50*sizeof(struct bonus_script_data));
+		WFIFOW(fd,0) = 0x2b2f;
+		WFIFOL(fd,4) = cid;
+		for (count = 0; count < 20 && SQL_SUCCESS == Sql_NextRow(sql_handle); ++count) {
+			Sql_GetData(sql_handle,0,&data,NULL); memcpy(bsdata.script,data,strlen(data)+1);
+			Sql_GetData(sql_handle,1,&data,NULL); bsdata.tick = atoi(data);
+			Sql_GetData(sql_handle,2,&data,NULL); bsdata.flag = atoi(data);
+			Sql_GetData(sql_handle,3,&data,NULL); bsdata.type = atoi(data);
+			memcpy(WFIFOP(fd,10+count*sizeof(struct bonus_script_data)),&bsdata,sizeof(struct bonus_script_data));
+		}
+		if (count >= 50)
+			ShowWarning("Too many bonus_script for %d, some of them were not loaded.\n",cid);
+		if (count > 0) {
+			WFIFOW(fd,2) = 10 + count*sizeof(struct bonus_script_data);
+			WFIFOW(fd,8) = count;
+			WFIFOSET(fd,WFIFOW(fd,2));
+
+			//Clear the data once loaded.
+			if (SQL_ERROR == Sql_Query(sql_handle,"DELETE FROM `%s` WHERE `char_id`='%d'",bonus_script_db,cid))
+				Sql_ShowDebug(sql_handle);
+		}
+	}
+	Sql_FreeResult(sql_handle);
+	RFIFOSKIP(fd,6);
+}
+
+/** [Cydh]
+* Svae bonus_script data(s) to the table
+* @param fd
+*/
+void bonus_script_save(int fd) {
+	int count, cid;
+
+	cid = RFIFOL(fd,4);
+	count = RFIFOW(fd,8);
+
+	if (count > 0) {
+		struct bonus_script_data bs;
+		StringBuf buf;
+		int i;
+		char esc_script[MAX_BONUS_SCRIPT_LENGTH] = "";
+
+		StringBuf_Init(&buf);
+		StringBuf_Printf(&buf,"INSERT INTO `%s` (`char_id`, `script`, `tick`, `flag`, `type`) VALUES ",bonus_script_db);
+		for (i = 0; i < count; ++i) {
+			memcpy(&bs,RFIFOP(fd,10+i*sizeof(struct bonus_script_data)),sizeof(struct bonus_script_data));
+			Sql_EscapeString(sql_handle,esc_script,bs.script);
+			if (i > 0)
+				StringBuf_AppendStr(&buf,", ");
+			StringBuf_Printf(&buf,"(%d,'%s',%d,%d,%d)",cid,esc_script,bs.tick,bs.flag,bs.type);
+		}
+		if (SQL_ERROR == Sql_QueryStr(sql_handle,StringBuf_Value(&buf)))
+			Sql_ShowDebug(sql_handle);
+		StringBuf_Destroy(&buf);
+	}
+	RFIFOSKIP(fd,RFIFOW(fd,2));
+}
+
 //------------------------------------------------
 //Invoked 15 seconds after mapif_disconnectplayer in case the map server doesn't
 //replies/disconnect the player we tried to kick. [Skotlex]
@@ -5049,6 +5241,10 @@ void sql_config_read(const char* cfgName)
 			safestrncpy(mercenary_owner_db,w2,sizeof(mercenary_owner_db));
 		else if(!strcmpi(w1,"elemental_db"))
 			safestrncpy(elemental_db,w2,sizeof(elemental_db));
+		else if(!strcmpi(w1,"skillcooldown_db"))
+			safestrncpy(skillcooldown_db, w2, sizeof(skillcooldown_db));
+		else if(!strcmpi(w1,"bonus_script_db"))
+			safestrncpy(bonus_script_db, w2, sizeof(bonus_script_db));
 		//support the import command, just like any other config
 		else if(!strcmpi(w1,"import"))
 			sql_config_read(w2);

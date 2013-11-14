@@ -7760,13 +7760,15 @@ BUILDIN_FUNC(failedrefitem)
  *------------------------------------------*/
 BUILDIN_FUNC(downrefitem)
 {
-	int i = -1,num,ep;
+	int i = -1,num,ep,down = 1;
 	TBL_PC *sd;
 
-	num = script_getnum(st,2);
 	sd = script_rid2sd(st);
 	if( sd == NULL )
 		return 0;
+	num = script_getnum(st,2);
+	if( script_hasdata(st, 3) )
+		down = script_getnum(st, 3);
 
 	if (num > 0 && num <= ARRAYLENGTH(equip))
 		i = pc_checkequip(sd,equip[num-1]);
@@ -7776,10 +7778,11 @@ BUILDIN_FUNC(downrefitem)
 		//Logs items, got from (N)PC scripts [Lupus]
 		log_pick_pc(sd, LOG_TYPE_SCRIPT, -1, &sd->status.inventory[i]);
 
-		sd->status.inventory[i].refine++;
 		pc_unequipitem(sd,i,2); // status calc will happen in pc_equipitem() below
+		sd->status.inventory[i].refine -= down;
+		sd->status.inventory[i].refine = cap_value( sd->status.inventory[i].refine, 0, MAX_REFINE);
 
-		clif_refine(sd->fd,2,i,sd->status.inventory[i].refine = sd->status.inventory[i].refine - 2);
+		clif_refine(sd->fd,2,i,sd->status.inventory[i].refine);
 		clif_delitem(sd,i,1,3);
 
 		//Logs items, got from (N)PC scripts [Lupus]
@@ -17963,7 +17966,7 @@ BUILDIN_FUNC(party_destroy)
 *  1 - check by date
 * @return true/false
  *------------------------------------------*/
-BUILDIN_FUNC(is_clientver){
+BUILDIN_FUNC(is_clientver) {
 	TBL_PC *sd = NULL;
 	int type = script_getnum(st,2);
 	int data = script_getnum(st,3);
@@ -17994,7 +17997,7 @@ BUILDIN_FUNC(is_clientver){
 * Retrieves server definitions.
 * (see @type in const.txt)
  *------------------------------------------*/
-BUILDIN_FUNC(getserverdef){
+BUILDIN_FUNC(getserverdef) {
 	int type = script_getnum(st,2);
 	switch(type){
 		case 0: script_pushint(st,PACKETVER); break;
@@ -18012,6 +18015,146 @@ BUILDIN_FUNC(getserverdef){
 			script_pushint(st,0);
 			break;
 	}
+	return 0;
+}
+
+/*==========================================
+ * Turns a player into a monster and grants SC attribute effect. [malufett/Hercules]
+ * montransform <monster name/ID>, <duration>, <sc type>, <val1>, <val2>, <val3>, <val4>;
+ *------------------------------------------*/
+BUILDIN_FUNC(montransform) {
+
+	TBL_PC *sd;
+	enum sc_type type;
+	char msg[CHAT_SIZE_MAX];
+	int tick, mob_id, val1, val2, val3, val4;
+
+	if( (sd = script_rid2sd(st)) == NULL )
+		return 1;
+
+	if( script_isstring(st, 2) )
+		mob_id = mobdb_searchname(script_getstr(st, 2));
+	else
+		mob_id = mobdb_checkid(script_getnum(st, 2));
+
+	tick = script_getnum(st, 3);
+	type = (sc_type)script_getnum(st, 4);
+	val1 = val2 = val3 = val4 = 0;
+
+	if (mob_id == 0) {
+		if( script_isstring(st,2) )
+			ShowWarning("buildin_montransform: Attempted to use non-existing monster '%s'.\n", script_getstr(st, 2));
+		else
+			ShowWarning("buildin_montransform: Attempted to use non-existing monster of ID '%d'.\n", script_getnum(st, 2));
+		return 0;
+	}
+
+	if (mob_id == MOBID_EMPERIUM) {
+		ShowWarning("buildin_montransform: Monster 'Emperium' cannot be used.\n");
+		return 0;
+	}
+
+	if (!(type > SC_NONE && type < SC_MAX)) {
+		ShowWarning("buildin_montransform: Unsupported status change id %d\n", type);
+		return 0;
+	}
+
+	if (script_hasdata(st, 5))
+		val1 = script_getnum(st, 5);
+
+	if (script_hasdata(st, 6))
+		val2 = script_getnum(st, 6);
+
+	if (script_hasdata(st, 7))
+		val3 = script_getnum(st, 7);
+
+	if (script_hasdata(st, 8))
+		val4 = script_getnum(st, 8);
+
+	if (tick != 0) {
+		struct mob_db *monster =  mob_db(mob_id);
+
+		if (battle_config.mon_trans_disable_in_gvg && map_flag_gvg2(sd->bl.m)) {
+			clif_displaymessage(sd->fd, msg_txt(sd,1500)); // Transforming into monster is not allowed in Guild Wars.
+			return 0;
+		}
+
+		if (sd->disguise){
+			clif_displaymessage(sd->fd, msg_txt(sd,1498)); // Cannot transform into monster while in disguise.
+			return 0;
+		}
+
+		sprintf(msg, msg_txt(sd,1497), monster->name); // Traaaansformation-!! %s form!!
+		clif_disp_overhead(&sd->bl, msg);
+		status_change_end(&sd->bl, SC_MONSTER_TRANSFORM, INVALID_TIMER); // Clear previous
+		sc_start2(NULL, &sd->bl, SC_MONSTER_TRANSFORM, 100, mob_id, type, tick);
+		sc_start4(NULL, &sd->bl, type, 100, val1, val2, val3, val4, tick);
+	}
+
+	return 0;
+}
+
+/** [Cydh]
+ * bonus_script "<script code>",<duration>{,<flag>{,<type>{,<char_id>}}};
+ * @param "script code"
+ * @param duration
+ * @param flag
+ * @param char_id
+ **/
+BUILDIN_FUNC(bonus_script) {
+	uint8 i, flag = 0;
+	uint32 dur;
+	bool isBuff = true;
+	TBL_PC* sd;
+	const char *script_str = NULL;
+	struct script_code *script = NULL;
+
+	if (script_hasdata(st,6))
+		sd = map_charid2sd(script_getnum(st,6));
+	else
+		sd = script_rid2sd(st);
+
+	if (sd == NULL)
+		return 0;
+	
+	script_str = script_getstr(st,2);
+	dur = 1000 * abs(script_getnum(st,3));
+	FETCH(4,flag);
+	if (script_getnum(st,5) == 1)
+		isBuff = false;
+
+	if (!strlen(script_str) || !dur) {
+		//ShowWarning("buildin_bonus_script: Invalid value(s). Skipping...\n");
+		return 0;
+	}
+
+	//Skip duplicate entry
+	ARR_FIND(0,MAX_PC_BONUS_SCRIPT,i,&sd->bonus_script[i] && sd->bonus_script[i].script_str && strcmp(sd->bonus_script[i].script_str,script_str) == 0);
+	if (i < MAX_PC_BONUS_SCRIPT) {
+		//ShowWarning("buildin_bonus_script: Duplicate entry with bonus '%d'. Skipping...\n",i);
+		return 0;
+	}
+
+	if (!(script = parse_script(script_str,"bonus_script",0,1))) {
+		//ShowWarning("buildin_bonus_script: Failed to parse script '%s'. Skipping...\n",script_str);
+		return 0;
+	}
+
+	//Find the empty slot
+	ARR_FIND(0,MAX_PC_BONUS_SCRIPT,i,!sd->bonus_script[i].script);
+	if (i >= MAX_PC_BONUS_SCRIPT) {
+		ShowWarning("buildin_itemscript: Maximum script_bonus is reached (max: %d). Skipping...\n",MAX_PC_BONUS_SCRIPT);
+		return 0;
+	}
+
+	//Add the script data
+	memcpy(sd->bonus_script[i].script_str,script_str,strlen(script_str)+1);
+	sd->bonus_script[i].script = script;
+	sd->bonus_script[i].tick = gettick() + dur;
+	sd->bonus_script[i].flag = flag;
+	sd->bonus_script[i].isBuff = isBuff;
+
+	status_calc_pc(sd,false);
 	return 0;
 }
 
@@ -18102,7 +18245,7 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(getequippercentrefinery,"i"),
 	BUILDIN_DEF(successrefitem,"i"),
 	BUILDIN_DEF(failedrefitem,"i"),
-	BUILDIN_DEF(downrefitem,"i"),
+	BUILDIN_DEF(downrefitem,"i?"),
 	BUILDIN_DEF(statusup,"i"),
 	BUILDIN_DEF(statusup2,"ii"),
 	BUILDIN_DEF(bonus,"iv"),
@@ -18464,9 +18607,7 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(breakequip,"i"),
 	BUILDIN_DEF(sit,"?"),
 	BUILDIN_DEF(stand,"?"),
-	/**
-	 * @commands (script based)
-	 **/
+	//@commands (script based)
 	BUILDIN_DEF(bindatcmd, "ss??"),
 	BUILDIN_DEF(unbindatcmd, "s"),
 	BUILDIN_DEF(useatcmd, "s"),
@@ -18494,6 +18635,8 @@ struct script_function buildin_func[] = {
 
 	BUILDIN_DEF(is_clientver,"ii?"),
 	BUILDIN_DEF(getserverdef,"i"),
+	BUILDIN_DEF2(montransform, "transform", "vii????"), // Monster Transform [malufett/Hercules]
+	BUILDIN_DEF(bonus_script,"si???"),
 
 #include "../custom/script_def.inc"
 

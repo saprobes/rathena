@@ -41,6 +41,9 @@ int chrif_scdata_request(int account_id, int char_id);
 int chrif_skillcooldown_request(int account_id, int char_id);
 int chrif_skillcooldown_save(struct map_session_data *sd);
 int chrif_skillcooldown_load(int fd);
+int chrif_bankdata_request(int account_id, int char_id);
+int chrif_load_bankdata(int fd);
+int chrif_save_bankdata(struct map_session_data *sd);
 int chrif_save(struct map_session_data* sd, int flag);
 int chrif_charselectreq(struct map_session_data* sd, uint32 s_ip);
 int chrif_changemapserver(struct map_session_data* sd, uint32 ip, uint16 port);
@@ -63,6 +66,10 @@ int chrif_divorce(int partner_id1, int partner_id2);
 
 int chrif_removefriend(int char_id, int friend_id);
 int chrif_send_report(char* buf, int len);
+
+int chrif_bsdata_request(int char_id);
+int chrif_save_bsdata(struct map_session_data *sd);
+int chrif_load_bsdata(int fd);
 
 int do_final_chrif(void);
 int do_init_chrif(void);

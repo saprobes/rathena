@@ -25,9 +25,8 @@ typedef int (*TimerFunc)(int tid, unsigned int tick, int id, intptr_t data);
 struct TimerData {
 	unsigned int tick;
 	TimerFunc func;
-	int type;
+	unsigned int type;
 	int interval;
-	int heap_pos;
 
 	// general-purpose storage
 	int id;
@@ -50,6 +49,10 @@ int settick_timer(int tid, unsigned int tick);
 int add_timer_func_list(TimerFunc func, char* name);
 
 unsigned long get_uptime(void);
+
+void time2str(char* timestr, char* format, int timein);
+void split_time(int time, int* year, int* month, int* day, int* hour, int* minute, int* second);
+double solve_time(char* modif_p);
 
 int do_timer(unsigned int tick);
 void timer_init(void);

@@ -34,18 +34,20 @@
 #include <time.h>
 
 static int check_connect_char_server(int tid, unsigned int tick, int id, intptr_t data);
+int chrif_save_bankdata(struct map_session_data *sd);
 
 static struct eri *auth_db_ers; //For reutilizing player login structures.
 static DBMap* auth_db; // int id -> struct auth_node*
 
 static const int packet_len_table[0x3d] = { // U - used, F - free
 	60, 3,-1,27,10,-1, 6,-1,	// 2af8-2aff: U->2af8, U->2af9, U->2afa, U->2afb, U->2afc, U->2afd, U->2afe, U->2aff
-	 6,-1,18, 7,-1,39,30, 10,	// 2b00-2b07: U->2b00, U->2b01, U->2b02, U->2b03, U->2b04, U->2b05, U->2b06, U->2b07
+	 6,-1,19, 7,-1,39,30, 10,	// 2b00-2b07: U->2b00, U->2b01, U->2b02, U->2b03, U->2b04, U->2b05, U->2b06, U->2b07
 	 6,30, 10, -1,86, 7,44,34,	// 2b08-2b0f: U->2b08, U->2b09, U->2b0a, U->2b0b, U->2b0c, U->2b0d, U->2b0e, U->2b0f
 	11,10,10, 0,11, -1,266,10,	// 2b10-2b17: U->2b10, U->2b11, U->2b12, F->2b13, U->2b14, U->2b15, U->2b16, U->2b17
 	 2,10, 2,-1,-1,-1, 2, 7,	// 2b18-2b1f: U->2b18, U->2b19, U->2b1a, U->2b1b, U->2b1c, U->2b1d, U->2b1e, U->2b1f
 	-1,10, 8, 2, 2,14,19,19,	// 2b20-2b27: U->2b20, U->2b21, U->2b22, U->2b23, U->2b24, U->2b25, U->2b26, U->2b27
-};
+	10,10, 6, 0, 0, 6, -1, -1,	// 2b28-2b2f: U->2b28, U->2b29, U->2b2a, F->2b2b, F->2b2c, U->2b2d, U->2b2e, U->2b2f
+ };
 
 //Used Packets:
 //2af8: Outgoing, chrif_connect -> 'connect to charserver / auth @ charserver'
@@ -66,8 +68,8 @@ static const int packet_len_table[0x3d] = { // U - used, F - free
 //2b07: Outgoing, chrif_removefriend -> 'Tell charserver to remove friend_id from char_id friend list'
 //2b08: Outgoing, chrif_searchcharid -> '...'
 //2b09: Incoming, map_addchariddb -> 'Adds a name to the nick db'
-//2b0a: FREE
-//2b0b: FREE
+//2b0a: Outgoing, chrif_skillcooldown_request -> requesting the list of skillcooldown for char
+//2b0b: Incoming, chrif_skillcooldown_load -> received the list of cooldown for char
 //2b0c: Outgoing, chrif_changeemail -> 'change mail address ...'
 //2b0d: Incoming, chrif_changedsex -> 'Change sex of acc XY'
 //2b0e: Outgoing, chrif_char_ask_name -> 'Do some operations (change sex, ban / unban etc)'
@@ -77,7 +79,7 @@ static const int packet_len_table[0x3d] = { // U - used, F - free
 //2b12: Incoming, chrif_divorceack -> 'divorce chars
 //2b13: FREE
 //2b14: Incoming, chrif_accountban -> 'not sure: kick the player with message XY'
-//2b15: FREE
+//2b15: Outgoing, chrif_skillcooldown_save -> request to save skillcooldown
 //2b16: Outgoing, chrif_ragsrvinfo -> 'sends base / job / drop rates ....'
 //2b17: Outgoing, chrif_char_offline -> 'tell the charserver that the char is now offline'
 //2b18: Outgoing, chrif_char_reset_offline -> 'set all players OFF!'
@@ -96,6 +98,14 @@ static const int packet_len_table[0x3d] = { // U - used, F - free
 //2b25: Incoming, chrif_deadopt -> 'Removes baby from Father ID and Mother ID'
 //2b26: Outgoing, chrif_authreq -> 'client authentication request'
 //2b27: Incoming, chrif_authfail -> 'client authentication failed'
+//2b28: Outgoing, chrif_save_bankdata -> 'send bank data to be saved'
+//2b29: Incoming, chrif_load_bankdata -> 'received bank data for playeer to be loaded'
+//2b2a: Outgoing, chrif_bankdata_request -> 'request bank data for charid'
+//2b2b: FREE
+//2b2c: FREE
+//2b2d: Outgoing, chrif_bsdata_request -> request bonus_script for pc_authok'ed char.
+//2b2e: Outgoing, chrif_save_bsdata -> Send bonus_script of player for saving.
+//2b2f: Incoming, chrif_load_bsdata -> received bonus_script of player for loading.
 
 int chrif_connected = 0;
 int char_fd = -1;
@@ -275,10 +285,12 @@ int chrif_save(struct map_session_data *sd, int flag) {
 
 	if (flag && sd->state.active) { //Store player data which is quitting
 		//FIXME: SC are lost if there's no connection at save-time because of the way its related data is cleared immediately after this function. [Skotlex]
-        if (chrif_isconnected()) {
-            chrif_save_scdata(sd);
-            chrif_skillcooldown_save(sd);
-        }
+	if (chrif_isconnected()) {
+		chrif_save_scdata(sd);
+		chrif_skillcooldown_save(sd);
+		chrif_save_bankdata(sd);
+		chrif_save_bsdata(sd);
+	}
 		if ( !chrif_auth_logout(sd,flag == 1 ? ST_LOGOUT : ST_MAPCHANGE) )
 			ShowError("chrif_save: Failed to set up player %d:%d for proper quitting!\n", sd->status.account_id, sd->status.char_id);
 	}
@@ -577,20 +589,20 @@ int chrif_scdata_request(int account_id, int char_id) {
 	WFIFOL(char_fd,6) = char_id;
 	WFIFOSET(char_fd,10);
 #endif
-    return 0;
+	return 0;
 }
 
 /*==========================================
  * Request skillcooldown from charserver
  *------------------------------------------*/
 int chrif_skillcooldown_request(int account_id, int char_id) {
-    chrif_check(-1);
-    WFIFOHEAD(char_fd, 10);
-    WFIFOW(char_fd, 0) = 0x2b0a;
-    WFIFOL(char_fd, 2) = account_id;
-    WFIFOL(char_fd, 6) = char_id;
-    WFIFOSET(char_fd, 10);
-    return 0;
+	chrif_check(-1);
+	WFIFOHEAD(char_fd, 10);
+	WFIFOW(char_fd, 0) = 0x2b0a;
+	WFIFOL(char_fd, 2) = account_id;
+	WFIFOL(char_fd, 6) = char_id;
+	WFIFOSET(char_fd, 10);
+	return 0;
 }
 
 /*==========================================
@@ -751,13 +763,14 @@ int chrif_charselectreq(struct map_session_data* sd, uint32 s_ip) {
 
 	chrif_check(-1);
 
-	WFIFOHEAD(char_fd,18);
+	WFIFOHEAD(char_fd,19);
 	WFIFOW(char_fd, 0) = 0x2b02;
 	WFIFOL(char_fd, 2) = sd->bl.id;
 	WFIFOL(char_fd, 6) = sd->login_id1;
 	WFIFOL(char_fd,10) = sd->login_id2;
 	WFIFOL(char_fd,14) = htonl(s_ip);
-	WFIFOSET(char_fd,18);
+	WFIFOB(char_fd,18) = sd->packet_ver;
+	WFIFOSET(char_fd,19);
 
 	return 0;
 }
@@ -1184,6 +1197,45 @@ int chrif_updatefamelist_ack(int fd) {
 	return 1;
 }
 
+int chrif_bankdata_request(int account_id, int char_id) {
+
+	chrif_check(-1);
+
+	WFIFOHEAD(char_fd,6);
+	WFIFOW(char_fd,0) = 0x2b2a;
+	WFIFOL(char_fd,2) = account_id;
+	WFIFOSET(char_fd,6);
+ 	return 0;
+}
+
+int chrif_load_bankdata(int fd){
+	struct map_session_data *sd;
+	int aid, bank_vault;
+
+	aid = RFIFOL(fd,2); //Player Account ID
+	bank_vault = RFIFOL(fd,6); //Player money in bank
+
+	sd = map_id2sd(aid);
+
+	if ( !sd ) {
+		ShowError("chrif_load_bankdata: Player of AID %d not found!\n", aid);
+		return -1;
+	}
+	sd->status.bank_vault = bank_vault;
+ 	return 1;
+}
+
+int chrif_save_bankdata(struct map_session_data *sd){
+	if( CheckForCharServer() )
+		return 0;
+	WFIFOHEAD(char_fd,10);
+	WFIFOW(char_fd,0) = 0x2b28;
+	WFIFOL(char_fd,2) = sd->status.account_id;
+	WFIFOL(char_fd,6) = sd->status.bank_vault;
+	WFIFOSET(char_fd,10);
+ 	return 1;
+}
+
 int chrif_save_scdata(struct map_session_data *sd) { //parses the sc_data of the player and sends it to the char-server for saving. [Skotlex]
 
 #ifdef ENABLE_SC_SAVING
@@ -1228,7 +1280,7 @@ int chrif_save_scdata(struct map_session_data *sd) { //parses the sc_data of the
 	WFIFOW(char_fd,2) = 14 +count*sizeof(struct status_change_data); //Total packet size
 	WFIFOSET(char_fd,WFIFOW(char_fd,2));
 #endif
-    return 0;
+	return 0;
 }
 
 int chrif_skillcooldown_save(struct map_session_data *sd) {
@@ -1300,35 +1352,35 @@ int chrif_load_scdata(int fd) {
 		status_change_start(NULL,&sd->bl, (sc_type)data->type, 10000, data->val1, data->val2, data->val3, data->val4, data->tick, 1|2|4|8);
 	}
 #endif
-    return 0;
+	return 0;
 }
 
 //Retrieve and load skillcooldown for a player
 
 int chrif_skillcooldown_load(int fd) {
-    struct map_session_data *sd;
-    struct skill_cooldown_data *data;
-    int aid, cid, i, count;
+	struct map_session_data *sd;
+	struct skill_cooldown_data *data;
+	int aid, cid, i, count;
 
-    aid = RFIFOL(fd, 4);
-    cid = RFIFOL(fd, 8);
+	aid = RFIFOL(fd, 4);
+	cid = RFIFOL(fd, 8);
 
 
-    sd = map_id2sd(aid);
-    if (!sd) {
-        ShowError("chrif_skillcooldown_load: Player of AID %d not found!\n", aid);
-        return -1;
-    }
-    if (sd->status.char_id != cid) {
-        ShowError("chrif_skillcooldown_load: Receiving data for account %d, char id does not matches (%d != %d)!\n", aid, sd->status.char_id, cid);
-        return -1;
-    }
-    count = RFIFOW(fd, 12); //sc_count
-    for (i = 0; i < count; i++) {
-        data = (struct skill_cooldown_data*) RFIFOP(fd, 14 + i * sizeof (struct skill_cooldown_data));
-        skill_blockpc_start(sd, data->skill_id, data->tick);
-    }
-    return 0;
+	sd = map_id2sd(aid);
+	if (!sd) {
+		ShowError("chrif_skillcooldown_load: Player of AID %d not found!\n", aid);
+		return -1;
+	}
+	if (sd->status.char_id != cid) {
+		ShowError("chrif_skillcooldown_load: Receiving data for account %d, char id does not matches (%d != %d)!\n", aid, sd->status.char_id, cid);
+		return -1;
+	}
+	count = RFIFOW(fd, 12); //sc_count
+	for (i = 0; i < count; i++) {
+		data = (struct skill_cooldown_data*) RFIFOP(fd, 14 + i * sizeof (struct skill_cooldown_data));
+		skill_blockpc_start(sd, data->skill_id, data->tick);
+	}
+	return 0;
 }
 
 /*==========================================
@@ -1522,7 +1574,7 @@ int chrif_parse(int fd) {
 			case 0x2b04: chrif_recvmap(fd); break;
 			case 0x2b06: chrif_changemapserverack(RFIFOL(fd,2), RFIFOL(fd,6), RFIFOL(fd,10), RFIFOL(fd,14), RFIFOW(fd,18), RFIFOW(fd,20), RFIFOW(fd,22), RFIFOL(fd,24), RFIFOW(fd,28)); break;
 			case 0x2b09: map_addnickdb(RFIFOL(fd,2), (char*)RFIFOP(fd,6)); break;
-            case 0x2b0b: chrif_skillcooldown_load(fd); break;
+			case 0x2b0b: chrif_skillcooldown_load(fd); break;
 			case 0x2b0d: chrif_changedsex(fd); break;
 			case 0x2b0f: chrif_char_ask_name_answer(RFIFOL(fd,2), (char*)RFIFOP(fd,6), RFIFOW(fd,30), RFIFOW(fd,32)); break;
 			case 0x2b12: chrif_divorceack(RFIFOL(fd,2), RFIFOL(fd,6)); break;
@@ -1537,6 +1589,8 @@ int chrif_parse(int fd) {
 			case 0x2b24: chrif_keepalive_ack(fd); break;
 			case 0x2b25: chrif_deadopt(RFIFOL(fd,2), RFIFOL(fd,6), RFIFOL(fd,10)); break;
 			case 0x2b27: chrif_authfail(fd); break;
+			case 0x2b29: chrif_load_bankdata(fd); break;
+			case 0x2b2f: chrif_load_bsdata(fd); break;
 			default:
 				ShowError("chrif_parse : unknown packet (session #%d): 0x%x. Disconnecting.\n", fd, cmd);
 				set_eof(fd);
@@ -1655,6 +1709,110 @@ int chrif_send_report(char* buf, int len) {
 	WFIFOSET(char_fd,len + 2);
 	flush_fifo(char_fd); /* ensure it's sent now. */
 #endif
+	return 0;
+}
+
+/** [Cydh]
+* Requets bonus_script datas
+* @param char_id
+*/
+int chrif_bsdata_request(int char_id) {
+	chrif_check(-1);
+	WFIFOHEAD(char_fd,6);
+	WFIFOW(char_fd,0) = 0x2b2d;
+	WFIFOL(char_fd,2) = char_id;
+	WFIFOSET(char_fd,6);
+	return 0;
+}
+
+/** [Cydh]
+* Stores bonus_script data(s) to the table
+* @param sd
+*/
+int chrif_save_bsdata(struct map_session_data *sd) {
+	int i, count=0;
+	unsigned int tick;
+	struct bonus_script_data bs;
+	const struct TimerData *timer;
+
+	chrif_check(-1);
+	tick = gettick();
+
+	WFIFOHEAD(char_fd,10+MAX_PC_BONUS_SCRIPT*sizeof(struct bonus_script_data));
+	WFIFOW(char_fd,0) = 0x2b2e;
+	WFIFOL(char_fd,4) = sd->status.char_id;
+	
+	//Clear un-saved data
+	pc_bonus_script_check(sd,BONUS_FLAG_REM_ON_LOGOUT);
+
+	for (i = 0; i < MAX_PC_BONUS_SCRIPT; i++) {
+		if (!(&sd->bonus_script[i]) || !sd->bonus_script[i].script || strlen(sd->bonus_script[i].script_str) == 0)
+			continue;
+
+		timer = get_timer(sd->bonus_script[i].tid);
+		if (timer == NULL || DIFF_TICK(timer->tick,tick) < 0)
+			continue;
+
+		memcpy(bs.script,sd->bonus_script[i].script_str,strlen(sd->bonus_script[i].script_str)+1);
+		bs.tick = DIFF_TICK(timer->tick,tick);
+		bs.flag = sd->bonus_script[i].flag;
+		bs.type = (sd->bonus_script[i].isBuff) ? 1 : 0;
+		
+		memcpy(WFIFOP(char_fd,10+count*sizeof(struct bonus_script_data)),&bs,sizeof(struct bonus_script_data));
+		delete_timer(sd->bonus_script[i].tid,pc_bonus_script_timer);
+		count++;
+	}
+
+	if (count == 0)
+		return 0;
+
+	WFIFOW(char_fd,8) = count;
+	WFIFOW(char_fd,2) = 10+count*sizeof(struct bonus_script_data);
+	WFIFOSET(char_fd,WFIFOW(char_fd,2));
+	return 0;
+}
+
+/** [Cydh]
+* Loads bonus_script datas
+* @param fd
+*/
+int chrif_load_bsdata(int fd) {
+	struct map_session_data *sd;
+	struct bonus_script_data *bs;
+	int cid, count;
+	uint8 i, count_ = 0;
+
+	cid = RFIFOL(fd,4);
+	sd = map_charid2sd(cid);
+
+	if (!sd) {
+		ShowError("chrif_load_bsdata: Player with CID %d not found!\n",cid);
+		return -1;
+	}
+
+	if (sd->status.char_id != cid) {
+		ShowError("chrif_load_bsdata: Receiving data for char id does not matches (%d != %d)!\n",sd->status.char_id,cid);
+		return -1;
+	}
+
+	count = RFIFOW(fd,8);
+
+	for (i = 0; i < count; i++) {
+		struct script_code *script;
+		bs = (struct bonus_script_data*)RFIFOP(fd,10 + i*sizeof(struct bonus_script_data));
+
+		if (!(script = parse_script(bs->script,"chrif_load_bsdata",1,1)))
+			continue;
+
+		memcpy(sd->bonus_script[i].script_str,bs->script,strlen(bs->script));
+		sd->bonus_script[i].script = script;
+		sd->bonus_script[i].tick = gettick() + bs->tick;
+		sd->bonus_script[i].flag = (uint8)bs->flag;
+		sd->bonus_script[i].isBuff = (bs->type) ? true : false;
+		count_++;
+	}
+	if (count_)
+		status_calc_pc(sd,false);
 	return 0;
 }
 

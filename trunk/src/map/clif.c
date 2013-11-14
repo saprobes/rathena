@@ -64,6 +64,7 @@ struct Clif_Config {
 } clif_config;
 
 struct s_packet_db packet_db[MAX_PACKET_VER + 1][MAX_PACKET_DB + 1];
+int packet_db_ack[MAX_PACKET_VER + 1][MAX_ACK_FUNC + 1];
 
 //Converts item type in case of pet eggs.
 static inline int itemtype(int type) {
@@ -1344,6 +1345,15 @@ int clif_spawn(struct block_list *bl)
 		#endif
 			if (sd->status.robe)
 				clif_refreshlook(bl,bl->id,LOOK_ROBE,sd->status.robe,AREA);
+
+			if( sd->sc.data[SC_CAMOUFLAGE] )
+				clif_status_load(bl,SI_CAMOUFLAGE,1);
+			if( sd->sc.data[SC_MONSTER_TRANSFORM] )
+				clif_status_change(bl,SI_MONSTER_TRANSFORM,1,0,sd->sc.data[SC_MONSTER_TRANSFORM]->val1,0,0);
+			if( sd->sc.data[SC_MOONSTAR] )
+				clif_status_load(bl,SI_MOONSTAR,1);
+			if( sd->sc.data[SC_SUPER_STAR] )
+				clif_status_load(bl,SI_SUPER_STAR,1);
 		}
 		break;
 	case BL_MOB:
@@ -2804,7 +2814,8 @@ void clif_updatestatus(struct map_session_data *sd,int type)
 	case SP_HP:
 		WFIFOL(fd,4)=sd->battle_status.hp;
 		// TODO: Won't these overwrite the current packet?
-		clif_hpmeter(sd);
+		if( map[sd->bl.m].hpmeter_visible )
+			clif_hpmeter(sd);
 		if( !battle_config.party_hp_mode && sd->status.party_id )
 			clif_party_hp(sd);
 		if( sd->bg_id )
@@ -4154,10 +4165,17 @@ void clif_getareachar_unit(struct map_session_data* sd,struct block_list *bl)
 				clif_specialeffect_single(bl,421,sd->fd);
 			if( tsd->bg_id && map[tsd->bl.m].flag.battleground )
 				clif_sendbgemblem_single(sd->fd,tsd);
-			if( tsd->sc.data[SC_CAMOUFLAGE] )
-				clif_status_load(bl,SI_CAMOUFLAGE,1);
 			if ( tsd->status.robe )
 				clif_refreshlook(&sd->bl,bl->id,LOOK_ROBE,tsd->status.robe,SELF);
+			
+			if( tsd->sc.data[SC_CAMOUFLAGE] )
+				clif_status_load(bl,SI_CAMOUFLAGE,1);
+			if( tsd->sc.data[SC_MONSTER_TRANSFORM] )
+				clif_status_change(bl,SI_MONSTER_TRANSFORM,1,0,tsd->sc.data[SC_MONSTER_TRANSFORM]->val1,0,0);
+			if( tsd->sc.data[SC_MOONSTAR] )
+				clif_status_load(bl,SI_MOONSTAR,1);
+			if( tsd->sc.data[SC_SUPER_STAR] )
+				clif_status_load(bl,SI_SUPER_STAR,1);
 		}
 		break;
 	case BL_MER: // Devotion Effects
@@ -6116,8 +6134,14 @@ void clif_cart_additem(struct map_session_data *sd,int n,int amount,int fail)
 #endif
 }
 
-// [Ind/Hercules] - Data Thanks to Yommy
-void clif_cart_additem_ack(struct map_session_data *sd, int flag)
+// [Ind/Hercules] - Data Thanks to Yommy (ZC_ACK_ADDITEM_TO_CART)
+/* Acknowledge an item have been added to cart
+ * 012c <result>B
+ * result :
+ * 0 = ADDITEM_TO_CART_FAIL_WEIGHT
+ * 1 = ADDITEM_TO_CART_FAIL_COUNT
+ */
+void clif_cart_additem_ack(struct map_session_data *sd, uint8 flag)
 {
 	int fd;
 	unsigned char *buf;
@@ -6126,8 +6150,215 @@ void clif_cart_additem_ack(struct map_session_data *sd, int flag)
 	fd = sd->fd;
 	buf = WFIFOP(fd,0);
 	WBUFW(buf,0) = 0x12c;
-	WBUFL(buf,2) = flag;
+	WBUFB(buf,2) = flag;
 	clif_send(buf,packet_len(0x12c),&sd->bl,SELF);
+}
+
+// 09B7 <unknow data> (ZC_ACK_OPEN_BANKING) 
+void clif_bank_open(struct map_session_data *sd){
+	int fd;
+        
+        nullpo_retv(sd);
+        fd = sd->fd;
+	
+	WFIFOHEAD(fd,4);
+	WFIFOW(fd,0) = 0x09b7;
+	WFIFOW(fd,2) = 0;
+	WFIFOSET(fd,4);
+}
+
+/*
+ * Request to Open the banking system
+ * 09B6 <aid>L ??? (dunno just wild guess checkme)
+ */
+void clif_parse_BankOpen(int fd, struct map_session_data* sd) {
+	//TODO check if preventing trade or stuff like that
+	//also mark something in case char ain't available for saving, should we check now ?
+        nullpo_retv(sd);
+	if( !battle_config.feature_banking ) {
+		clif_colormes(sd,color_table[COLOR_RED],msg_txt(sd,1496)); //Banking is disabled
+		return;
+	}    
+	else {
+		struct s_packet_db* info = &packet_db[sd->packet_ver][RFIFOW(fd,0)];
+		int aid = RFIFOL(fd,info->pos[0]); //unused should we check vs fd ?
+                if(sd->status.account_id == aid){
+			sd->state.banking = 1;
+                        //request save ?
+                        //chrif_bankdata_request(sd->status.account_id, sd->status.char_id); 
+                        //on succes open bank ?
+                        clif_bank_open(sd);
+                }
+	}
+}
+
+// 09B9 <unknow data> (ZC_ACK_CLOSE_BANKING) 
+
+void clif_bank_close(struct map_session_data *sd){
+	int fd;
+        
+	nullpo_retv(sd);
+        fd = sd->fd;
+        
+	WFIFOHEAD(fd,4);
+	WFIFOW(fd,0) = 0x09B9;
+	WFIFOW(fd,2) = 0;
+	WFIFOSET(fd,4);
+}
+
+/*
+ * Request to close the banking system
+ * 09B8 <aid>L ??? (dunno just wild guess checkme)
+ */
+void clif_parse_BankClose(int fd, struct map_session_data* sd) {       
+	struct s_packet_db* info = &packet_db[sd->packet_ver][RFIFOW(fd,0)];
+	int aid = RFIFOL(fd,info->pos[0]); //unused should we check vs fd ?
+        
+        nullpo_retv(sd);
+	if( !battle_config.feature_banking ) {
+		clif_colormes(sd,color_table[COLOR_RED],msg_txt(sd,1496)); //Banking is disabled
+		//still allow to go trough to not stuck player if we have disable it while they was in
+	}
+        if(sd->status.account_id == aid){
+            sd->state.banking = 0;
+            clif_bank_close(sd);
+        }
+}
+
+/*
+ * Display how much we got in bank (I suppose)
+  09A6 <Bank_Vault>Q <Reason>W (PACKET_ZC_BANKING_CHECK)
+ */
+void clif_Bank_Check(struct map_session_data* sd) {
+	unsigned char buf[13];
+	struct s_packet_db* info;
+	int16 len;
+	int cmd = 0;
+	
+	nullpo_retv(sd);
+	
+	cmd = packet_db_ack[sd->packet_ver][ZC_BANKING_CHECK];
+	if(!cmd) cmd = 0x09A6; //default
+	info = &packet_db[sd->packet_ver][cmd]; 
+	len = info->len;
+//        sd->state.banking = 1; //mark opening and closing
+
+	WBUFW(buf,0) = cmd;
+	WBUFQ(buf,info->pos[0]) = sd->status.bank_vault; //testig value
+	WBUFW(buf,info->pos[1]) = 0; //reason
+	clif_send(buf,len,&sd->bl,SELF);       
+}
+
+/*
+ * Requesting the data in bank
+ * 09AB <aid>L (PACKET_CZ_REQ_BANKING_CHECK)
+ */
+void clif_parse_BankCheck(int fd, struct map_session_data* sd) {  
+	nullpo_retv(sd);
+	
+	if( !battle_config.feature_banking ) {
+		clif_colormes(sd,color_table[COLOR_RED],msg_txt(sd,1496)); //Banking is disabled
+		return;
+	}
+	else {
+		struct s_packet_db* info = &packet_db[sd->packet_ver][RFIFOW(fd,0)];
+		int aid = RFIFOL(fd,info->pos[0]); //unused should we check vs fd ?
+                if(sd->status.account_id == aid) //since we have it let check it for extra security
+                        clif_Bank_Check(sd);
+	}
+}
+
+/*
+ * Acknowledge of deposit some money in bank
+  09A8 <Reason>W <Money>Q <balance>L (PACKET_ZC_ACK_BANKING_DEPOSIT)
+ */
+void clif_bank_deposit(struct map_session_data *sd, enum e_BANKING_DEPOSIT_ACK reason) {
+	unsigned char buf[17];
+	struct s_packet_db* info;
+	int16 len;
+	int cmd =0;
+	
+	nullpo_retv(sd);
+	
+	cmd = packet_db_ack[sd->packet_ver][ZC_ACK_BANKING_DEPOSIT];
+	if(!cmd) cmd = 0x09A8;
+	info = &packet_db[sd->packet_ver][cmd]; 
+	len = info->len;
+	
+	WBUFW(buf,0) = cmd;
+	WBUFW(buf,info->pos[0]) = (short)reason;	
+	WBUFQ(buf,info->pos[1]) = sd->status.bank_vault;/* money in the bank */
+	WBUFL(buf,info->pos[2]) = sd->status.zeny;/* how much zeny char has after operation */
+	clif_send(buf,len,&sd->bl,SELF);
+}
+
+/*
+ * Request saving some money in bank
+ * @author : original [Yommy/Hercules]
+ * 09A7 <AID>L <Money>L (PACKET_CZ_REQ_BANKING_DEPOSIT)
+ */
+void clif_parse_BankDeposit(int fd, struct map_session_data* sd) {
+        nullpo_retv(sd);
+	if( !battle_config.feature_banking ) {
+		clif_colormes(sd,color_table[COLOR_RED],msg_txt(sd,1496)); //Banking is disabled
+		return;
+	}
+	else {
+		struct s_packet_db* info = &packet_db[sd->packet_ver][RFIFOW(fd,0)];
+		int aid = RFIFOL(fd,info->pos[0]); //unused should we check vs fd ?
+		int money = RFIFOL(fd,info->pos[1]);
+                
+		if(sd->status.account_id == aid){
+			enum e_BANKING_DEPOSIT_ACK reason = pc_bank_deposit(sd,max(0,money));
+			clif_bank_deposit(sd,reason);
+		}
+	}
+}
+
+/*
+ * Acknowledge of withdrawing some money from bank
+  09AA <Reason>W <Money>Q <balance>L (PACKET_ZC_ACK_BANKING_WITHDRAW)
+ */
+void clif_bank_withdraw(struct map_session_data *sd,enum e_BANKING_WITHDRAW_ACK reason) {
+	unsigned char buf[17];
+	struct s_packet_db* info;
+	int16 len;
+	int cmd;
+
+	nullpo_retv(sd);
+        
+	cmd = packet_db_ack[sd->packet_ver][ZC_ACK_BANKING_WITHDRAW];
+	if(!cmd) cmd = 0x09AA;
+	info = &packet_db[sd->packet_ver][cmd]; 
+	len = info->len;
+
+	WBUFW(buf,0) = cmd;
+	WBUFW(buf,info->pos[0]) = (short)reason;	
+	WBUFQ(buf,info->pos[1]) = sd->status.bank_vault;/* money in the bank */
+	WBUFL(buf,info->pos[2]) = sd->status.zeny;/* how much zeny char has after operation */
+
+	clif_send(buf,len,&sd->bl,SELF);
+}
+
+/*
+ * Request Withdrawing some money from bank
+ * 09A9 <AID>L <Money>L (PACKET_CZ_REQ_BANKING_WITHDRAW)
+ */
+void clif_parse_BankWithdraw(int fd, struct map_session_data* sd) {
+        nullpo_retv(sd);
+	if( !battle_config.feature_banking ) {
+		clif_colormes(sd,color_table[COLOR_RED],msg_txt(sd,1496)); //Banking is disabled
+		return;
+	}
+	else {
+		struct s_packet_db* info = &packet_db[sd->packet_ver][RFIFOW(fd,0)];
+		int aid = RFIFOL(fd,info->pos[0]); //unused should we check vs fd ?
+		int money = RFIFOL(fd,info->pos[1]);
+		if(sd->status.account_id == aid){
+			enum e_BANKING_WITHDRAW_ACK reason = pc_bank_withdraw(sd,max(0,money));
+			clif_bank_withdraw(sd,reason);
+		}
+	}
 }
 
 /// Deletes an item from character's cart (ZC_DELETE_ITEM_FROM_CART).
@@ -9397,6 +9628,11 @@ void clif_parse_LoadEndAck(int fd,struct map_session_data *sd)
 			clif_broadcast(&sd->bl, output, strlen(output) + 1, 0x10, SELF);
 		}
 
+		if( pc_has_permission(sd,PC_PERM_VIEW_HPMETER) ) {
+			map[sd->bl.m].hpmeter_visible++;
+			sd->state.hpmeter_visible = 1;
+		}
+
 		map_iwall_get(sd); // Updates Walls Info on this Map to Client
 		status_calc_pc(sd, false); // Some conditions are map-dependent so we must recalculate
 		sd->state.changemap = false;
@@ -9432,6 +9668,11 @@ void clif_parse_LoadEndAck(int fd,struct map_session_data *sd)
 
 	if (sd->sc.opt2) //Client loses these on warp.
 		clif_changeoption(&sd->bl);
+
+	if (battle_config.mon_trans_disable_in_gvg && map_flag_gvg2(sd->bl.m)) {
+		status_change_end(&sd->bl, SC_MONSTER_TRANSFORM, INVALID_TIMER);
+		clif_displaymessage(sd->fd, msg_txt(sd,1500)); // Transforming into monster is not allowed in Guild Wars.
+	}
 
 	clif_weather_check(sd);
 
@@ -14119,7 +14360,7 @@ void clif_parse_Mail_send(int fd, struct map_session_data *sd)
 	}
 
 	if (body_len)
-		safestrncpy(msg.body, (char*)RFIFOP(fd,RFIFOW(fd,info->pos[4])), body_len + 1);
+		safestrncpy(msg.body, (char*)RFIFOP(fd,info->pos[4]), body_len + 1);
 	else
 		memset(msg.body, 0x00, MAIL_BODY_LENGTH);
 
@@ -14258,7 +14499,8 @@ void clif_parse_Auction_setitem(int fd, struct map_session_data *sd){
 
 	if( !pc_can_give_items(sd) || sd->status.inventory[idx].expire_time ||
 			!sd->status.inventory[idx].identify ||
-				!itemdb_canauction(&sd->status.inventory[idx],pc_get_group_level(sd)) ) { // Quest Item or something else
+			!itemdb_available(sd->status.inventory[idx].nameid) ||
+			!itemdb_canauction(&sd->status.inventory[idx],pc_get_group_level(sd)) ) { // Quest Item or something else
 		clif_Auction_setitem(sd->fd, idx, true);
 		return;
 	}
@@ -16341,6 +16583,7 @@ int clif_autoshadowspell_list(struct map_session_data *sd) {
 
 	return 1;
 }
+
 /*===========================================
  * Skill list for Four Elemental Analysis
  * and Change Material skills.
@@ -17069,9 +17312,9 @@ void packetdb_readdb(void)
 		0,  0,  0,  0,  0,  0,  0, 14,  6, 50,  0,  0,  0,  0,  0,  0,
 	//#0x0980
 		0,  0,  0, 29,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-		31,  0,  0,  0,  0,  0,  0,  -1,  8,  11,  9,  8,  0,  0,  0,  0,
-		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-		0,  0,  0,  0,  0,  0,  0, 14,  0,  0,  0,  0,  0,  0,  0,  0,
+		31, 0,  0,  0,  0,  0,  0, -1,  8, 11,  9,  8,  0,  0,  0,  0,
+		0,  0,  0,  0,  0,  0, 12, 10, 14, 10, 14,  6,  0,  0,  0,  0,
+		0,  0,  0,  0,  0,  0,  6,  4,  6,  4,  0,  0,  0,  0,  0,  0,
 
 	};
 	struct {
@@ -17261,6 +17504,12 @@ void packetdb_readdb(void)
 		{clif_parse_PartyBookingUpdateReq,"bookingupdatereq"},
 		{clif_parse_PartyBookingDeleteReq,"bookingdelreq"},
 #endif
+		{clif_parse_BankCheck,"bankcheck"},
+		{clif_parse_BankDeposit,"bankdeposit"},
+		{clif_parse_BankWithdraw,"bankwithdrawal"},
+		{clif_parse_BankOpen,"bankopen"},
+		{clif_parse_BankClose,"bankclose"},
+
 		{clif_parse_PVPInfo,"pvpinfo"},
 		{clif_parse_LessEffect,"lesseffect"},
 		// Buying Store
@@ -17288,6 +17537,15 @@ void packetdb_readdb(void)
 		{ clif_parse_ranklist, "ranklist"},
 		{NULL,NULL}
 	};
+        struct {
+		char *name; //function name
+                int funcidx; //
+	} clif_ack_func[]={ //hash
+            { "ZC_ACK_OPEN_BANKING", ZC_ACK_OPEN_BANKING},
+            { "ZC_ACK_BANKING_DEPOSIT", ZC_ACK_BANKING_DEPOSIT},
+            { "ZC_ACK_BANKING_WITHDRAW", ZC_ACK_BANKING_WITHDRAW},
+            { "ZC_BANKING_CHECK", ZC_BANKING_CHECK},
+        };
 
 	// initialize packet_db[SERVER] from hardcoded packet_len_table[] values
 	memset(packet_db,0,sizeof(packet_db));
@@ -17344,6 +17602,7 @@ void packetdb_readdb(void)
 				// copy from previous version into new version and continue
 				// - indicating all following packets should be read into the newer version
 				memcpy(&packet_db[packet_ver], &packet_db[prev_ver], sizeof(packet_db[0]));
+                                memcpy(&packet_db_ack[packet_ver], &packet_db_ack[prev_ver], sizeof(packet_db_ack[0]));
 				continue;
 			} else if(strcmpi(w1,"packet_db_ver")==0) {
 				if(strcmpi(w2,"default")==0) //This is the preferred version.
@@ -17390,7 +17649,15 @@ void packetdb_readdb(void)
 		ARR_FIND( 0, ARRAYLENGTH(clif_parse_func), j, clif_parse_func[j].name != NULL && strcmp(str[2],clif_parse_func[j].name)==0 );
 		if( j < ARRAYLENGTH(clif_parse_func) )
 			packet_db[packet_ver][cmd].func = clif_parse_func[j].func;
-
+                else { //search if it's a mapped ack func
+                        ARR_FIND( 0, ARRAYLENGTH(clif_ack_func), j, clif_ack_func[j].name != NULL && strcmp(str[2],clif_ack_func[j].name)==0 );
+                        if( j < ARRAYLENGTH(clif_ack_func)) {
+                                int fidx = clif_ack_func[j].funcidx;
+                                packet_db_ack[packet_ver][fidx] = cmd;
+                                //ShowInfo("Added %s, <=> %X i=%d for v=%d\n",clif_ack_func[j].name,cmd,fidx,packet_ver);
+                        }
+                }
+                
 		// set the identifying cmd for the packet_db version
 		if (strcmp(str[2],"wanttoconnection")==0)
 			clif_config.connect_cmd[packet_ver] = cmd;
