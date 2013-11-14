@@ -179,6 +179,7 @@ static char map_ip_str[128];
 static uint32 map_ip;
 static uint32 bind_ip = INADDR_ANY;
 static uint16 map_port = 5121;
+static bool clif_ally_only = false;
 int map_fd;
 
 static int clif_parse (int fd);
@@ -307,7 +308,7 @@ static int clif_send_sub(struct block_list *bl, va_list ap)
 	break;
 	case AREA_WOSC:
 	{
-		if(src_bl->type == BL_PC){
+		if(src_bl->type == BL_PC) {
 			struct map_session_data *ssd = (struct map_session_data *)src_bl;
 			if (ssd && sd->chatID && (sd->chatID == ssd->chatID))
 			return 0;
@@ -322,6 +323,10 @@ static int clif_send_sub(struct block_list *bl, va_list ap)
 	}
 
 	if (session[fd] == NULL)
+		return 0;
+
+	/* unless visible, hold it here */
+	if (clif_ally_only && !sd->special_state.intravision && battle_check_target(src_bl,&sd->bl,BCT_ENEMY) > 0)
 		return 0;
 
 	WFIFOHEAD(fd, len);
@@ -1559,6 +1564,10 @@ static void clif_move2(struct block_list *bl, struct view_data *vd, struct unit_
 {
 	uint8 buf[128];
 	int len;
+	struct status_change *sc = NULL;
+
+	if ((sc = status_get_sc(bl)) && sc->option&(OPTION_HIDE|OPTION_CLOAK|OPTION_INVISIBLE|OPTION_CHASEWALK))
+		clif_ally_only = true;
 
 	len = clif_set_unit_walking(bl,ud,buf);
 	clif_send(buf,len,bl,AREA_WOS);
@@ -1568,8 +1577,7 @@ static void clif_move2(struct block_list *bl, struct view_data *vd, struct unit_
 	if(vd->cloth_color)
 		clif_refreshlook(bl,bl->id,LOOK_CLOTHES_COLOR,vd->cloth_color,AREA_WOS);
 
-	switch(bl->type)
-	{
+	switch(bl->type) {
 	case BL_PC:
 		{
 			TBL_PC *sd = ((TBL_PC*)bl);
@@ -1590,12 +1598,11 @@ static void clif_move2(struct block_list *bl, struct view_data *vd, struct unit_
 		}
 		break;
 	case BL_PET:
-		if( vd->head_bottom )
-		{// needed to display pet equip properly
+		if(vd->head_bottom) // needed to display pet equip properly
 			clif_pet_equip_area((TBL_PET*)bl);
-		}
 		break;
 	}
+	clif_ally_only = false;
 }
 
 
@@ -1607,6 +1614,7 @@ void clif_move(struct unit_data *ud)
 	unsigned char buf[16];
 	struct view_data* vd;
 	struct block_list* bl = ud->bl;
+	struct status_change *sc = NULL;
 
 	vd = status_get_viewdata(bl);
 	if (!vd || vd->class_ == INVISIBLE_CLASS)
@@ -1626,16 +1634,19 @@ void clif_move(struct unit_data *ud)
 		return;
 	}
 
+	if ((sc = status_get_sc(bl)) && sc->option&(OPTION_HIDE|OPTION_CLOAK|OPTION_INVISIBLE|OPTION_CHASEWALK))
+		clif_ally_only = true;
+
 	WBUFW(buf,0)=0x86;
 	WBUFL(buf,2)=bl->id;
 	WBUFPOS2(buf,6,bl->x,bl->y,ud->to_x,ud->to_y,8,8);
 	WBUFL(buf,12)=gettick();
 	clif_send(buf, packet_len(0x86), bl, AREA_WOS);
-	if (disguised(bl))
-	{
+	if (disguised(bl)) {
 		WBUFL(buf,2)=-bl->id;
 		clif_send(buf, packet_len(0x86), bl, SELF);
 	}
+	clif_ally_only = false;
 }
 
 
@@ -6307,7 +6318,7 @@ void clif_parse_BankDeposit(int fd, struct map_session_data* sd) {
 		struct s_packet_db* info = &packet_db[sd->packet_ver][RFIFOW(fd,0)];
 		int aid = RFIFOL(fd,info->pos[0]); //unused should we check vs fd ?
 		int money = RFIFOL(fd,info->pos[1]);
-                
+
 		if(sd->status.account_id == aid){
 			enum e_BANKING_DEPOSIT_ACK reason = pc_bank_deposit(sd,max(0,money));
 			clif_bank_deposit(sd,reason);
@@ -12409,19 +12420,30 @@ void clif_parse_GuildRequestEmblem(int fd,struct map_session_data *sd)
 
 
 /// Validates data of a guild emblem (compressed bitmap)
-static bool clif_validate_emblem(const uint8* emblem, unsigned long emblem_len)
-{
-	bool success;
+static bool clif_validate_emblem(const uint8* emblem, unsigned long emblem_len){
 	uint8 buf[1800];  // no well-formed emblem bitmap is larger than 1782 (24 bit) / 1654 (8 bit) bytes
 	unsigned long buf_len = sizeof(buf);
+	int i,j, transcount=1, offset=0, tmp[3];
 
-	success = ( decode_zip(buf, &buf_len, emblem, emblem_len) == 0 && buf_len >= 18 )  // sizeof(BITMAPFILEHEADER) + sizeof(biSize) of the following info header struct
-			&& RBUFW(buf,0) == 0x4d42   // BITMAPFILEHEADER.bfType (signature)
-			&& RBUFL(buf,2) == buf_len  // BITMAPFILEHEADER.bfSize (file size)
-			&& RBUFL(buf,10) < buf_len  // BITMAPFILEHEADER.bfOffBits (offset to bitmap bits)
-			;
+	if(!(( decode_zip(buf, &buf_len, emblem, emblem_len) == 0 && buf_len >= 18 )  // sizeof(BITMAPFILEHEADER) + sizeof(biSize) of the following info header struct
+		&& RBUFW(buf,0) == 0x4d42   // BITMAPFILEHEADER.bfType (signature)
+		&& RBUFL(buf,2) == buf_len  // BITMAPFILEHEADER.bfSize (file size)
+		&& (offset = RBUFL(buf,10)) < buf_len  // BITMAPFILEHEADER.bfOffBits (offset to bitmap bits)
+		))
+		return -1;
 
-	return success;
+	if(battle_config.emblem_transparency_limit != 100){
+		for(i=offset; i<buf_len-1; i++){
+			j = i%3;
+			tmp[j] = RBUFL(buf,i);
+			if(j==2 && (tmp[0] == 0xFFFF00FF) && (tmp[1] == 0xFFFF00) && (tmp[2] == 0xFF00FFFF)) //if pixel is transparent
+				transcount++;
+		}
+		if(((transcount*300)/(buf_len-offset)) > battle_config.emblem_transparency_limit) //convert in % to chk
+			return -2;
+	}
+	
+	return 0;
 }
 
 
@@ -12431,13 +12453,24 @@ void clif_parse_GuildChangeEmblem(int fd,struct map_session_data *sd){
 	struct s_packet_db* info = &packet_db[sd->packet_ver][RFIFOW(fd,0)];
 	unsigned long emblem_len = RFIFOW(fd,info->pos[0])-4;
 	const uint8* emblem = RFIFOP(fd,info->pos[1]);
+	int emb_val=0;
 
 	if( !emblem_len || !sd->state.gmaster_flag )
 		return;
 
-	if( !clif_validate_emblem(emblem, emblem_len) )
-	{
+	if(!(battle_config.emblem_woe_change) && (agit_flag || agit2_flag) ){
+		clif_colormes(sd,color_table[COLOR_RED],msg_txt(sd,385)); //"You not allowed to change emblem during woe"
+		return;
+	}
+	emb_val = clif_validate_emblem(emblem, emblem_len);
+	if(emb_val ==-1 ){
 		ShowWarning("clif_parse_GuildChangeEmblem: Rejected malformed guild emblem (size=%lu, accound_id=%d, char_id=%d, guild_id=%d).\n", emblem_len, sd->status.account_id, sd->status.char_id, sd->status.guild_id);
+		clif_colormes(sd,color_table[COLOR_RED],msg_txt(sd,386)); //"The chosen emblem was detected invalid\n"
+		return;
+	} else if(emb_val == -2){
+		char output[128];
+		safesnprintf(output,sizeof(output),msg_txt(sd,387),battle_config.emblem_transparency_limit);
+		clif_colormes(sd,color_table[COLOR_RED],output); //"The chosen emblem was detected invalid as it contain too much transparency (limit=%d)\n"
 		return;
 	}
 
@@ -17602,7 +17635,7 @@ void packetdb_readdb(void)
 				// copy from previous version into new version and continue
 				// - indicating all following packets should be read into the newer version
 				memcpy(&packet_db[packet_ver], &packet_db[prev_ver], sizeof(packet_db[0]));
-                                memcpy(&packet_db_ack[packet_ver], &packet_db_ack[prev_ver], sizeof(packet_db_ack[0]));
+				memcpy(&packet_db_ack[packet_ver], &packet_db_ack[prev_ver], sizeof(packet_db_ack[0]));
 				continue;
 			} else if(strcmpi(w1,"packet_db_ver")==0) {
 				if(strcmpi(w2,"default")==0) //This is the preferred version.
@@ -17649,15 +17682,15 @@ void packetdb_readdb(void)
 		ARR_FIND( 0, ARRAYLENGTH(clif_parse_func), j, clif_parse_func[j].name != NULL && strcmp(str[2],clif_parse_func[j].name)==0 );
 		if( j < ARRAYLENGTH(clif_parse_func) )
 			packet_db[packet_ver][cmd].func = clif_parse_func[j].func;
-                else { //search if it's a mapped ack func
-                        ARR_FIND( 0, ARRAYLENGTH(clif_ack_func), j, clif_ack_func[j].name != NULL && strcmp(str[2],clif_ack_func[j].name)==0 );
-                        if( j < ARRAYLENGTH(clif_ack_func)) {
-                                int fidx = clif_ack_func[j].funcidx;
-                                packet_db_ack[packet_ver][fidx] = cmd;
-                                //ShowInfo("Added %s, <=> %X i=%d for v=%d\n",clif_ack_func[j].name,cmd,fidx,packet_ver);
-                        }
-                }
-                
+		else { //search if it's a mapped ack func
+			ARR_FIND( 0, ARRAYLENGTH(clif_ack_func), j, clif_ack_func[j].name != NULL && strcmp(str[2],clif_ack_func[j].name)==0 );
+			if( j < ARRAYLENGTH(clif_ack_func)) {
+				int fidx = clif_ack_func[j].funcidx;
+				packet_db_ack[packet_ver][fidx] = cmd;
+				//ShowInfo("Added %s, <=> %X i=%d for v=%d\n",clif_ack_func[j].name,cmd,fidx,packet_ver);
+			}
+		}
+
 		// set the identifying cmd for the packet_db version
 		if (strcmp(str[2],"wanttoconnection")==0)
 			clif_config.connect_cmd[packet_ver] = cmd;

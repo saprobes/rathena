@@ -2026,8 +2026,7 @@ void mmo_char_send(int fd, struct char_session_data* sd){
 		char_charlist_notify(fd,sd);
 		char_block_character(fd,sd);
 	}
-	//@FIXME dump from kro doesn't show 6b transmission
-	mmo_char_send006b(fd,sd);
+	else mmo_char_send006b(fd,sd);
 }
 
 int char_married(int pl1, int pl2)
@@ -2235,7 +2234,7 @@ int mapif_parse_ReqBankInfo(int fd){
 	else {
 		uint32 aid = RFIFOL(fd,2);
 		RFIFOSKIP(fd,6);
-   		loginif_BankingReq(aid, 1, 0);  
+		loginif_BankingReq(aid, 1, 0);  
 	}
 	return 1;
 }
@@ -5042,7 +5041,7 @@ void bonus_script_get(int fd) {
 }
 
 /** [Cydh]
-* Svae bonus_script data(s) to the table
+* Save bonus_script data(s) to the table
 * @param fd
 */
 void bonus_script_save(int fd) {
