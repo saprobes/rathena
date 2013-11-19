@@ -2636,10 +2636,10 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 				wa->atk2 = refine_info[wlv].bonus[r-1] / 100;
 
 #ifdef RENEWAL
-            wa->matk += sd->inventory_data[index]->matk;
-            wa->wlv = wlv;
-            if( r ) // Renewal magic attack refine bonus
-                wa->matk += refine_info[wlv].bonus[r-1] / 100;
+			wa->matk += sd->inventory_data[index]->matk;
+			wa->wlv = wlv;
+			if( r ) // Renewal magic attack refine bonus
+				wa->matk += refine_info[wlv].bonus[r-1] / 100;
 #endif
 
 			// Overrefine bonus.
@@ -2682,6 +2682,11 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 					return 1;
 			}
 		}
+		else if( sd->inventory_data[index]->type == IT_SHADOWGEAR ) { // Shadow System
+			run_script(sd->inventory_data[index]->script,0,sd->bl.id,0);
+			if( !calculating )
+				return 1;
+		}
 	}
 
 	if(sd->equip_index[EQI_AMMO] >= 0) {
@@ -2699,27 +2704,24 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 
 	// We've got combos to process and check
 	if( sd->combos.count ) {
+		DBMap *combo_db = itemdb_get_combodb();
 		for (i = 0; i < sd->combos.count; i++) {
-			uint8 j;
+			uint8 j = 0;
 			bool no_run = false;
-			struct s_combo_pair *ids;
+			struct item_combo *combo = (struct item_combo *)idb_get(combo_db,sd->combos.id[i]);
+
 			if (!sd->combos.bonus[i])
 				continue;
 			// Check combo items
-			CREATE(ids,struct s_combo_pair,1);
-			memcpy(ids, &sd->combos.pair[i], sizeof(ids));
-			for (j = 0; j < MAX_ITEMS_PER_COMBO; j++) {
-				uint16 nameid = ids->nameid[j];
-				struct item_data *id = NULL;
-				if (!nameid || !(id = itemdb_exists(nameid)))
-					continue;
-				// Don't run the script if the items has restriction
-				if (!pc_has_permission(sd, PC_PERM_USE_ALL_EQUIPMENT) && itemdb_isNoEquip(id, sd->bl.m)) {
+			while (j < combo->count) {
+				struct item_data *id = itemdb_exists(combo->nameid[j]);
+				// Don't run the script if at least one of combo's pair has restriction
+				if (id && !pc_has_permission(sd, PC_PERM_USE_ALL_EQUIPMENT) && itemdb_isNoEquip(id, sd->bl.m)) {
 					no_run = true;
 					break;
 				}
+				j++;
 			}
-			aFree(ids);
 			if (no_run)
 				continue;
 			run_script(sd->combos.bonus[i],0,sd->bl.id,0);
@@ -4603,6 +4605,10 @@ static unsigned short status_calc_vit(struct block_list *bl, struct status_chang
 		vit -= vit * sc->data[SC_STRIPARMOR]->val2/100;
 	if(sc->data[SC_FULL_THROTTLE])
 		vit += vit * 20 / 100;
+#ifdef RENEWAL
+	if(sc->data[SC_DEFENCE])
+		vit += sc->data[SC_DEFENCE]->val2;
+#endif
 
 	return (unsigned short)cap_value(vit,0,USHRT_MAX);
 }
@@ -4982,7 +4988,7 @@ static unsigned short status_calc_ematk(struct block_list *bl, struct status_cha
 		matk += 40 + 30 * sc->data[SC_ODINS_POWER]->val1; // 70 lvl1, 100lvl2
 	if(sc->data[SC_IZAYOI])
 		matk += 50 * sc->data[SC_IZAYOI]->val1;
-    return (unsigned short)cap_value(matk,0,USHRT_MAX);
+	return (unsigned short)cap_value(matk,0,USHRT_MAX);
 }
 #endif
 /**
@@ -5270,8 +5276,10 @@ static defType status_calc_def(struct block_list *bl, struct status_change *sc, 
 		def += sc->data[SC_ARMORCHANGE]->val2;
 	if(sc->data[SC_DRUMBATTLE])
 		def += sc->data[SC_DRUMBATTLE]->val3;
+#ifndef RENEWAL
 	if(sc->data[SC_DEFENCE])
 		def += sc->data[SC_DEFENCE]->val2 ;
+#endif
 	if(sc->data[SC_INCDEFRATE])
 		def += def * sc->data[SC_INCDEFRATE]->val1/100;
 	if(sc->data[SC_EARTH_INSIGNIA] && sc->data[SC_EARTH_INSIGNIA]->val1 == 2)
@@ -8558,7 +8566,11 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 			// val2 = 10*val1; // Speed change rate.
 			break;
 		case SC_DEFENCE:
+#ifdef RENEWAL
+			val2 = 5 + (val1 * 5); // Vit bonus
+#else
 			val2 = 2*val1; // Def bonus
+#endif
 			break;
 		case SC_BLOODLUST:
 			val2 = 20+10*val1; // Atk rate change.

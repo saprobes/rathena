@@ -68,7 +68,7 @@ struct fame_list smith_fame_list[MAX_FAME_LIST];
 struct fame_list chemist_fame_list[MAX_FAME_LIST];
 struct fame_list taekwon_fame_list[MAX_FAME_LIST];
 
-static unsigned short equip_pos[EQI_MAX]={EQP_ACC_L,EQP_ACC_R,EQP_SHOES,EQP_GARMENT,EQP_HEAD_LOW,EQP_HEAD_MID,EQP_HEAD_TOP,EQP_ARMOR,EQP_HAND_L,EQP_HAND_R,EQP_COSTUME_HEAD_TOP,EQP_COSTUME_HEAD_MID,EQP_COSTUME_HEAD_LOW,EQP_COSTUME_GARMENT,EQP_AMMO};
+static unsigned int equip_pos[EQI_MAX]={EQP_ACC_L,EQP_ACC_R,EQP_SHOES,EQP_GARMENT,EQP_HEAD_LOW,EQP_HEAD_MID,EQP_HEAD_TOP,EQP_ARMOR,EQP_HAND_L,EQP_HAND_R,EQP_COSTUME_HEAD_TOP,EQP_COSTUME_HEAD_MID,EQP_COSTUME_HEAD_LOW,EQP_COSTUME_GARMENT,EQP_AMMO,EQP_SHADOW_ARMOR,EQP_SHADOW_WEAPON,EQP_SHADOW_SHIELD,EQP_SHADOW_SHOES,EQP_SHADOW_ACC_R,EQP_SHADOW_ACC_L};
 
 #define MOTD_LINE_SIZE 128
 static char motd_text[MOTD_LINE_SIZE][CHAT_SIZE_MAX]; // Message of the day buffer [Valaris]
@@ -1276,6 +1276,8 @@ int pc_reg_received(struct map_session_data *sd)
 	chrif_skillcooldown_request(sd->status.account_id, sd->status.char_id);
 	chrif_bankdata_request(sd->status.account_id, sd->status.char_id);
 	chrif_bsdata_request(sd->status.char_id);
+	sd->storage_size = MIN_STORAGE; //default to min
+	chrif_req_vipActive(sd, 0, 1); // request VIP informations
 	intif_Mail_requestinbox(sd->status.char_id, 0); // MAIL SYSTEM - Request Mail Inbox
 	intif_request_questlog(sd);
 
@@ -2489,7 +2491,7 @@ int pc_bonus(struct map_session_data *sd,int type,int val)
 			sd->special_state.no_misc_damage = cap_value(val,0,100);
 			break;
 		case SP_NO_GEMSTONE:
-			if(sd->state.lr_flag != 2)
+			if(sd->state.lr_flag != 2 && sd->special_state.no_gemstone != 2)
 				sd->special_state.no_gemstone = 1;
 			break;
 		case SP_INTRAVISION: // Maya Purple Card effect allowing to see Hiding/Cloaking people [DracoRPG]
@@ -5877,8 +5879,11 @@ static void pc_calcexp(struct map_session_data *sd, unsigned int *base_exp, unsi
 		(int)(status_get_lv(src) - sd->status.base_level) >= 20)
 		bonus += 15; // pk_mode additional exp if monster >20 levels [Valaris]
 
-	if (sd->sc.data[SC_EXPBOOST])
-		bonus += sd->sc.data[SC_EXPBOOST]->val1;
+	if (sd->sc.data[SC_EXPBOOST]) {	
+ 		bonus += sd->sc.data[SC_EXPBOOST]->val1;
+		if( battle_config.vip_bm_increase && pc_isvip(sd) ) // Increase Battle Manual EXP rate for VIP.
+			bonus += ( sd->sc.data[SC_EXPBOOST]->val1 / battle_config.vip_bm_increase );
+	}
 
 	*base_exp = (unsigned int) cap_value(*base_exp + (double)*base_exp * bonus/100., 1, UINT_MAX);
 
@@ -6928,37 +6933,38 @@ int pc_dead(struct map_session_data *sd,struct block_list *src)
 		&& !map[sd->bl.m].flag.noexppenalty && !map_flag_gvg(sd->bl.m)
 		&& !sd->sc.data[SC_BABY] && !sd->sc.data[SC_LIFEINSURANCE])
 	{
-		unsigned int base_penalty =0;
-		if (battle_config.death_penalty_base > 0) {
+		unsigned int base_penalty = battle_config.death_penalty_base, job_penalty = battle_config.death_penalty_job;
+#ifdef VIP_ENABLE
+		if(pc_isvip(sd)){
+			base_penalty = base_penalty*battle_config.vip_exp_penalty_base;
+			job_penalty = job_penalty*battle_config.vip_exp_penalty_job;
+		}
+		else {
+			base_penalty = base_penalty*battle_config.vip_exp_penalty_base_normal;
+			job_penalty = job_penalty*battle_config.vip_exp_penalty_job_normal;
+		}
+#endif
+		if (base_penalty > 0) {
 			switch (battle_config.death_penalty_type) {
-				case 1:
-					base_penalty = (unsigned int) ((double)pc_nextbaseexp(sd) * (double)battle_config.death_penalty_base/10000);
-				break;
-				case 2:
-					base_penalty = (unsigned int) ((double)sd->status.base_exp * (double)battle_config.death_penalty_base/10000);
-				break;
+				case 1: base_penalty = (uint32) ((double)(pc_nextbaseexp(sd) * base_penalty)/10000); break;
+				case 2: base_penalty = (uint32) ((double)(sd->status.base_exp * base_penalty)/10000); break;
 			}
-			if(base_penalty) {
+			if (base_penalty > 0){ //recheck after altering to speedup
 				if (battle_config.pk_mode && src && src->type==BL_PC)
 					base_penalty*=2;
 				sd->status.base_exp -= min(sd->status.base_exp, base_penalty);
 				clif_updatestatus(sd,SP_BASEEXP);
 			}
 		}
-		if(battle_config.death_penalty_job > 0) {
-			base_penalty = 0;
+		if(job_penalty > 0) {
 			switch (battle_config.death_penalty_type) {
-				case 1:
-					base_penalty = (unsigned int) ((double)pc_nextjobexp(sd) * (double)battle_config.death_penalty_job/10000);
-				break;
-				case 2:
-					base_penalty = (unsigned int) ((double)sd->status.job_exp * (double)battle_config.death_penalty_job/10000);
-				break;
+				case 1: job_penalty = (uint32) ((double)(pc_nextjobexp(sd) * job_penalty)/10000); break;
+				case 2: job_penalty = (uint32) ((double)(sd->status.job_exp * job_penalty)/10000); break;
 			}
-			if(base_penalty) {
+			if(job_penalty) {
 				if (battle_config.pk_mode && src && src->type==BL_PC)
-					base_penalty*=2;
-				sd->status.job_exp -= min(sd->status.job_exp, base_penalty);
+					job_penalty*=2;
+				sd->status.job_exp -= min(sd->status.job_exp, job_penalty);
 				clif_updatestatus(sd,SP_JOBEXP);
 			}
 		}
@@ -8462,15 +8468,18 @@ int pc_cleareventtimer(struct map_session_data *sd)
 		}
 	return 0;
 }
-/* called when a item with combo is worn */
-int pc_checkcombo(struct map_session_data *sd, struct item_data *data ) {
+
+/**
+* Called when an item with combo is worn
+* @param *sd
+* @param *data struct item_data
+* @return success numbers of succeed combo
+*/
+int pc_checkcombo(struct map_session_data *sd, struct item_data *data) {
 	int i, j, k, z;
 	int index, idx, success = 0;
 
 	for( i = 0; i < data->combos_count; i++ ) {
-		struct s_combo_pair *pair;
-		uint8 pair_idx = 0;
-
 		/* ensure this isn't a duplicate combo */
 		if( sd->combos.bonus != NULL ) {
 			int x;
@@ -8481,7 +8490,6 @@ int pc_checkcombo(struct map_session_data *sd, struct item_data *data ) {
 				continue;
 		}
 
-		CREATE(pair,struct s_combo_pair,1);
 		for( j = 0; j < data->combos[i]->count; j++ ) {
 			int id = data->combos[i]->nameid[j];
 			bool found = false;
@@ -8499,66 +8507,51 @@ int pc_checkcombo(struct map_session_data *sd, struct item_data *data ) {
 				if ( itemdb_type(id) != IT_CARD ) {
 					if ( sd->inventory_data[index]->nameid != id )
 						continue;
-
 					found = true;
-					pair->nameid[pair_idx] = id;
-					pair_idx ++;
 					break;
 				} else { //Cards
 					if ( sd->inventory_data[index]->slot == 0 || itemdb_isspecial(sd->status.inventory[index].card[0]) )
 						continue;
-
 					for (z = 0; z < sd->inventory_data[index]->slot; z++) {
-
 						if (sd->status.inventory[index].card[z] != id)
 							continue;
-
-						// We have found a match
 						found = true;
-						pair->nameid[pair_idx] = id;
-						pair_idx ++;
 						break;
 					}
 				}
-
 			}
-
 			if( !found )
 				break;/* we haven't found all the ids for this combo, so we can return */
 		}
 
 		/* means we broke out of the count loop w/o finding all ids, we can move to the next combo */
-		if( j < data->combos[i]->count ) {
-			aFree(pair);
+		if( j < data->combos[i]->count )
 			continue;
-		}
-
 		/* we got here, means all items in the combo are matching */
 		idx = sd->combos.count;
 		if( sd->combos.bonus == NULL ) {
 			CREATE(sd->combos.bonus, struct script_code *, 1);
 			CREATE(sd->combos.id, unsigned short, 1);
 			sd->combos.count = 1;
-			CREATE(sd->combos.pair, struct s_combo_pair *, 1);
 		} else {
 			RECREATE(sd->combos.bonus, struct script_code *, ++sd->combos.count);
 			RECREATE(sd->combos.id, unsigned short, sd->combos.count);
-			RECREATE(sd->combos.pair, struct s_combo_pair *, sd->combos.count);
 		}
 		/* we simply copy the pointer */
 		sd->combos.bonus[idx] = data->combos[i]->script;
 		/* save this combo's id */
 		sd->combos.id[idx] = data->combos[i]->id;
-		/* store the items id that trigger this combo */
-		memcpy(&sd->combos.pair[idx], pair, sizeof(pair));
-		aFree(pair);
-
 		success++;
 	}
 	return success;
 }
 
-/* called when a item with combo is removed */
+/**
+* Called when an item with combo is removed
+* @param *sd
+* @param *data struct item_data
+* @return retval numbers of removed combo
+*/
 int pc_removecombo(struct map_session_data *sd, struct item_data *data ) {
 	int i, retval = 0;
 
@@ -8574,7 +8567,6 @@ int pc_removecombo(struct map_session_data *sd, struct item_data *data ) {
 
 		sd->combos.bonus[x] = NULL;
 		sd->combos.id[x] = 0;
-		sd->combos.pair[x] = NULL;
 		retval++;
 
 		/* move next value to empty slot */
@@ -8585,7 +8577,6 @@ int pc_removecombo(struct map_session_data *sd, struct item_data *data ) {
 			if( cursor != j ) {
 				sd->combos.bonus[cursor] = sd->combos.bonus[j];
 				sd->combos.id[cursor]    = sd->combos.id[j];
-				sd->combos.pair[cursor]  = sd->combos.pair[j];
 			}
 			cursor++;
 		}
@@ -8598,16 +8589,20 @@ int pc_removecombo(struct map_session_data *sd, struct item_data *data ) {
 		if( (sd->combos.count = cursor) == 0 ) {
 			aFree(sd->combos.bonus);
 			aFree(sd->combos.id);
-			aFree(sd->combos.pair);
 			sd->combos.bonus = NULL;
 			sd->combos.id = NULL;
-			sd->combos.pair = NULL;
 			return retval; /* we also can return at this point for we have no more combos to check */
 		}
 	}
 
 	return retval;
 }
+
+/**
+* Load combo data(s) of player
+* @param *sd
+* @return ret numbers of succeed combo
+*/
 int pc_load_combo(struct map_session_data *sd) {
 	int i, ret = 0;
 	for( i = 0; i < EQI_MAX; i++ ) {
@@ -8661,7 +8656,8 @@ int pc_equipitem(struct map_session_data *sd,int n,int req_pos)
 		return 0;
 	}
 
-	id = sd->inventory_data[n];
+	if (!(id = sd->inventory_data[n]))
+		return 0;
 	pos = pc_equippoint(sd,n); //With a few exceptions, item should go in all specified slots.
 
 	if(battle_config.battle_log)
@@ -8677,6 +8673,12 @@ int pc_equipitem(struct map_session_data *sd,int n,int req_pos)
 		pos = req_pos&EQP_ACC;
 		if (pos == EQP_ACC) //User specified both slots..
 			pos = sd->equip_index[EQI_ACC_R] >= 0 ? EQP_ACC_L : EQP_ACC_R;
+	}
+
+	if(pos == EQP_SHADOW_ACC) { // Shadow System
+		pos = req_pos&EQP_SHADOW_ACC;
+		if (pos == EQP_SHADOW_ACC)
+			pos = sd->equip_index[EQI_SHADOW_ACC_L] >= 0 ? EQP_SHADOW_ACC_R : EQP_SHADOW_ACC_L;
 	}
 
 	if(pos == EQP_ARMS && id->equip == EQP_HAND_R) { //Dual wield capable weapon.
@@ -8796,20 +8798,18 @@ int pc_equipitem(struct map_session_data *sd,int n,int req_pos)
 	iflag = sd->npc_item_flag;
 
 	/* check for combos (MUST be before status_calc_pc) */
-	if ( id ) {
-		if( id->combos_count )
-			pc_checkcombo(sd,id);
-		if(itemdb_isspecial(sd->status.inventory[n].card[0]))
-			; //No cards
-		else {
-			for( i = 0; i < id->slot; i++ ) {
-				struct item_data *data;
-				if (!sd->status.inventory[n].card[i])
-					continue;
-				if ( ( data = itemdb_exists(sd->status.inventory[n].card[i]) ) != NULL ) {
-					if( data->combos_count )
-						pc_checkcombo(sd,data);
-				}
+	if( id->combos_count )
+		pc_checkcombo(sd,id);
+	if(itemdb_isspecial(sd->status.inventory[n].card[0]))
+		; //No cards
+	else {
+		for( i = 0; i < id->slot; i++ ) {
+			struct item_data *data;
+			if (!sd->status.inventory[n].card[i])
+				continue;
+			if ( ( data = itemdb_exists(sd->status.inventory[n].card[i]) ) != NULL ) {
+				if( data->combos_count )
+					pc_checkcombo(sd,data);
 			}
 		}
 	}
@@ -9093,7 +9093,7 @@ int pc_check_available_item(struct map_session_data *sd) {
 	}
 
 	if( battle_config.item_check&4 ) { // Check for invalid(ated) items in storage.
-		for( i = 0; i < MAX_STORAGE; i++ ) {
+		for( i = 0; i < sd->storage_size; i++ ) {
 			it = sd->status.storage.items[i].nameid;
 
 			if( it && !itemdb_available(it) ) {
@@ -10415,6 +10415,7 @@ void pc_bonus_script_remove(struct map_session_data *sd, uint8 i) {
 	if (!sd || i >= MAX_PC_BONUS_SCRIPT)
 		return;
 
+	script_free_code(sd->bonus_script[i].script);
 	memset(&sd->bonus_script[i].script,0,sizeof(sd->bonus_script[i].script));
 	memset(sd->bonus_script[i].script_str,'\0',sizeof(sd->bonus_script[i].script_str));
 	sd->bonus_script[i].tick = 0;
