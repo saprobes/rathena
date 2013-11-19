@@ -111,7 +111,6 @@ char unknown_char_name[NAME_LENGTH] = "Unknown"; // Name to use when the request
 #define TRIM_CHARS "\255\xA0\032\t\x0A\x0D " //The following characters are trimmed regardless because they cause confusion and problems on the servers. [Skotlex]
 char char_name_letters[1024] = ""; // list of letters/symbols allowed (or not) in a character name. by [Yor]
 
-int char_per_account = 0; //Maximum chars per account (default unlimited) [Sirius]
 int char_del_level = 0; //From which level u can delete character [Lupus]
 int char_del_delay = 86400;
 
@@ -133,7 +132,9 @@ struct char_session_data {
 	char email[40]; // e-mail (default: a@a.com) by [Yor]
 	time_t expiration_time; // # of seconds 1/1/1970 (timestamp): Validity limit of the account (0 = unlimited)
 	int group_id; // permission
-	uint8 char_slots;
+	uint8 char_slots; // total number of characters that can be created
+	uint8 chars_vip;
+	uint8 chars_billing;
 	uint32 version;
 	uint8 clienttype;
 	char new_name[NAME_LENGTH];
@@ -146,6 +147,8 @@ struct char_session_data {
 	// Addon system
 	int bank_vault;
 	unsigned int char_moves[MAX_CHARS]; // character moves left
+	uint8 isvip;
+	time_t unban_time[MAX_CHARS];
 };
 
 struct startitem {
@@ -182,6 +185,11 @@ void pincode_notifyLoginPinUpdate( int account_id, char* pin );
 void pincode_notifyLoginPinError( int account_id );
 void pincode_decrypt( uint32 userSeed, char* pin );
 int pincode_compare( int fd, struct char_session_data* sd, char* pin );
+
+int mapif_parse_vipactive(int fd);
+int mapif_vipack(uint32 aid, uint32 vip_time, uint8 isvip, uint32 groupid);
+int logif_reqviddata(uint32 aid, uint8 type, uint32 add_vip_time);
+int logif_parse_vipack(int fd);
 
 // Addon system
 bool char_move_enabled = true;
@@ -536,7 +544,7 @@ int mmo_char_tosql(int char_id, struct mmo_charstatus* p)
 		(p->pet_id != cp->pet_id) || (p->weapon != cp->weapon) || (p->hom_id != cp->hom_id) ||
 		(p->ele_id != cp->ele_id) || (p->shield != cp->shield) || (p->head_top != cp->head_top) ||
 		(p->head_mid != cp->head_mid) || (p->head_bottom != cp->head_bottom) || (p->delete_date != cp->delete_date) ||
-		(p->rename != cp->rename) || (p->robe != cp->robe) || (p->character_moves != cp->character_moves)
+		(p->rename != cp->rename) || (p->robe != cp->robe) || (p->character_moves != cp->character_moves) || (p->unban_time != cp->unban_time)
 	)
 	{	//Save status
 		if( SQL_ERROR == Sql_Query(sql_handle, "UPDATE `%s` SET `base_level`='%d', `job_level`='%d',"
@@ -546,7 +554,7 @@ int mmo_char_tosql(int char_id, struct mmo_charstatus* p)
 			"`option`='%d',`party_id`='%d',`guild_id`='%d',`pet_id`='%d',`homun_id`='%d',`elemental_id`='%d',"
 			"`weapon`='%d',`shield`='%d',`head_top`='%d',`head_mid`='%d',`head_bottom`='%d',"
 			"`last_map`='%s',`last_x`='%d',`last_y`='%d',`save_map`='%s',`save_x`='%d',`save_y`='%d', `rename`='%d',"
-			"`delete_date`='%lu',`robe`='%d',`moves`='%d'"
+			"`delete_date`='%lu',`robe`='%d',`moves`='%d', `unban_time`='%d'"
 			" WHERE  `account_id`='%d' AND `char_id` = '%d'",
 			char_db, p->base_level, p->job_level,
 			p->base_exp, p->job_exp, p->zeny,
@@ -557,7 +565,7 @@ int mmo_char_tosql(int char_id, struct mmo_charstatus* p)
 			mapindex_id2name(p->last_point.map), p->last_point.x, p->last_point.y,
 			mapindex_id2name(p->save_point.map), p->save_point.x, p->save_point.y, p->rename,
 			(unsigned long)p->delete_date,  // FIXME: platform-dependent size
-			p->robe,p->character_moves,
+			p->robe,p->character_moves,p->unban_time,
 			p->account_id, p->char_id) )
 		{
 			Sql_ShowDebug(sql_handle);
@@ -808,7 +816,7 @@ int memitemdata_to_sql(const struct item items[], int max, int id, int tableswit
 	SqlStmt_BindColumn(stmt, 0, SQLDT_INT,       &item.id,          0, NULL, NULL);
 	SqlStmt_BindColumn(stmt, 1, SQLDT_SHORT,     &item.nameid,      0, NULL, NULL);
 	SqlStmt_BindColumn(stmt, 2, SQLDT_SHORT,     &item.amount,      0, NULL, NULL);
-	SqlStmt_BindColumn(stmt, 3, SQLDT_USHORT,    &item.equip,       0, NULL, NULL);
+	SqlStmt_BindColumn(stmt, 3, SQLDT_UINT,      &item.equip,       0, NULL, NULL);
 	SqlStmt_BindColumn(stmt, 4, SQLDT_CHAR,      &item.identify,    0, NULL, NULL);
 	SqlStmt_BindColumn(stmt, 5, SQLDT_CHAR,      &item.refine,      0, NULL, NULL);
 	SqlStmt_BindColumn(stmt, 6, SQLDT_CHAR,      &item.attribute,   0, NULL, NULL);
@@ -954,7 +962,7 @@ int inventory_to_sql(const struct item items[], int max, int id) {
 	SqlStmt_BindColumn(stmt, 0, SQLDT_INT,       &item.id,          0, NULL, NULL);
 	SqlStmt_BindColumn(stmt, 1, SQLDT_SHORT,     &item.nameid,      0, NULL, NULL);
 	SqlStmt_BindColumn(stmt, 2, SQLDT_SHORT,     &item.amount,      0, NULL, NULL);
-	SqlStmt_BindColumn(stmt, 3, SQLDT_USHORT,    &item.equip,       0, NULL, NULL);
+	SqlStmt_BindColumn(stmt, 3, SQLDT_UINT,      &item.equip,       0, NULL, NULL);
 	SqlStmt_BindColumn(stmt, 4, SQLDT_CHAR,      &item.identify,    0, NULL, NULL);
 	SqlStmt_BindColumn(stmt, 5, SQLDT_CHAR,      &item.refine,      0, NULL, NULL);
 	SqlStmt_BindColumn(stmt, 6, SQLDT_CHAR,      &item.attribute,   0, NULL, NULL);
@@ -1088,7 +1096,7 @@ int mmo_chars_fromsql(struct char_session_data* sd, uint8* buf)
 		"`str`,`agi`,`vit`,`int`,`dex`,`luk`,`max_hp`,`hp`,`max_sp`,`sp`,"
 		"`status_point`,`skill_point`,`option`,`karma`,`manner`,`hair`,`hair_color`,"
 		"`clothes_color`,`weapon`,`shield`,`head_top`,`head_mid`,`head_bottom`,`last_map`,`rename`,`delete_date`,"
-		"`robe`,`moves`"
+		"`robe`,`moves`, `unban_time`"
 		" FROM `%s` WHERE `account_id`='%d' AND `char_num` < '%d'", char_db, sd->account_id, MAX_CHARS)
 	||	SQL_ERROR == SqlStmt_Execute(stmt)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 0,  SQLDT_INT,    &p.char_id, 0, NULL, NULL)
@@ -1128,6 +1136,7 @@ int mmo_chars_fromsql(struct char_session_data* sd, uint8* buf)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 34, SQLDT_UINT32, &p.delete_date, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 35, SQLDT_SHORT,  &p.robe, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 36, SQLDT_UINT,   &p.character_moves, 0, NULL, NULL)
+	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 37, SQLDT_LONG,   &p.unban_time, 0, NULL, NULL)
 	)
 	{
 		SqlStmt_ShowDebug(stmt);
@@ -1139,6 +1148,7 @@ int mmo_chars_fromsql(struct char_session_data* sd, uint8* buf)
 	{
 		p.last_point.map = mapindex_name2id(last_map);
 		sd->found_char[p.slot] = p.char_id;
+		sd->unban_time[p.slot] = p.unban_time;
 		j += mmo_char_tobuf(WBUFP(buf, j), &p);
 
 		// Addon System
@@ -1189,7 +1199,7 @@ int mmo_char_fromsql(int char_id, struct mmo_charstatus* p, bool load_everything
 		"`str`,`agi`,`vit`,`int`,`dex`,`luk`,`max_hp`,`hp`,`max_sp`,`sp`,"
 		"`status_point`,`skill_point`,`option`,`karma`,`manner`,`party_id`,`guild_id`,`pet_id`,`homun_id`,`elemental_id`,`hair`,"
 		"`hair_color`,`clothes_color`,`weapon`,`shield`,`head_top`,`head_mid`,`head_bottom`,`last_map`,`last_x`,`last_y`,"
-		"`save_map`,`save_x`,`save_y`,`partner_id`,`father`,`mother`,`child`,`fame`,`rename`,`delete_date`,`robe`, `moves`"
+		"`save_map`,`save_x`,`save_y`,`partner_id`,`father`,`mother`,`child`,`fame`,`rename`,`delete_date`,`robe`, `moves`, `unban_time`"
 		" FROM `%s` WHERE `char_id`=? LIMIT 1", char_db)
 	||	SQL_ERROR == SqlStmt_BindParam(stmt, 0, SQLDT_INT, &char_id, 0)
 	||	SQL_ERROR == SqlStmt_Execute(stmt)
@@ -1222,7 +1232,7 @@ int mmo_char_fromsql(int char_id, struct mmo_charstatus* p, bool load_everything
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 26, SQLDT_INT,    &p->guild_id, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 27, SQLDT_INT,    &p->pet_id, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 28, SQLDT_INT,    &p->hom_id, 0, NULL, NULL)
-	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 29, SQLDT_INT,	&p->ele_id, 0, NULL, NULL)
+	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 29, SQLDT_INT,    &p->ele_id, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 30, SQLDT_SHORT,  &p->hair, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 31, SQLDT_SHORT,  &p->hair_color, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 32, SQLDT_SHORT,  &p->clothes_color, 0, NULL, NULL)
@@ -1242,10 +1252,11 @@ int mmo_char_fromsql(int char_id, struct mmo_charstatus* p, bool load_everything
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 46, SQLDT_INT,    &p->mother, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 47, SQLDT_INT,    &p->child, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 48, SQLDT_INT,    &p->fame, 0, NULL, NULL)
-	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 49, SQLDT_SHORT,	&p->rename, 0, NULL, NULL)
+	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 49, SQLDT_SHORT,  &p->rename, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 50, SQLDT_UINT32, &p->delete_date, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 51, SQLDT_SHORT,  &p->robe, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 52, SQLDT_UINT32, &p->character_moves, 0, NULL, NULL)
+	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 53, SQLDT_LONG,   &p->unban_time, 0, NULL, NULL)
 	)
 	{
 		SqlStmt_ShowDebug(stmt);
@@ -1312,7 +1323,7 @@ int mmo_char_fromsql(int char_id, struct mmo_charstatus* p, bool load_everything
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 0, SQLDT_INT,       &tmp_item.id, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 1, SQLDT_SHORT,     &tmp_item.nameid, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 2, SQLDT_SHORT,     &tmp_item.amount, 0, NULL, NULL)
-	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 3, SQLDT_USHORT,    &tmp_item.equip, 0, NULL, NULL)
+	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 3, SQLDT_UINT,      &tmp_item.equip, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 4, SQLDT_CHAR,      &tmp_item.identify, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 5, SQLDT_CHAR,      &tmp_item.refine, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 6, SQLDT_CHAR,      &tmp_item.attribute, 0, NULL, NULL)
@@ -1344,7 +1355,7 @@ int mmo_char_fromsql(int char_id, struct mmo_charstatus* p, bool load_everything
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 0, SQLDT_INT,         &tmp_item.id, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 1, SQLDT_SHORT,       &tmp_item.nameid, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 2, SQLDT_SHORT,       &tmp_item.amount, 0, NULL, NULL)
-	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 3, SQLDT_USHORT,      &tmp_item.equip, 0, NULL, NULL)
+	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 3, SQLDT_UINT,        &tmp_item.equip, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 4, SQLDT_CHAR,        &tmp_item.identify, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 5, SQLDT_CHAR,        &tmp_item.refine, 0, NULL, NULL)
 	||	SQL_ERROR == SqlStmt_BindColumn(stmt, 6, SQLDT_CHAR,        &tmp_item.attribute, 0, NULL, NULL)
@@ -1440,8 +1451,6 @@ int mmo_char_fromsql(int char_id, struct mmo_charstatus* p, bool load_everything
 int mmo_char_sql_init(void)
 {
 	char_db_= idb_alloc(DB_OPT_RELEASE_DATA);
-
-	ShowStatus("Characters per Account: '%d'.\n", char_per_account);
 
 	//the 'set offline' part is now in check_login_conn ...
 	//if the server connects to loginserver
@@ -1581,9 +1590,9 @@ int make_new_char_sql(struct char_session_data* sd, char* name_, int str, int ag
 
 	//check other inputs
 #if PACKETVER >= 20120307
-	if(slot >= sd->char_slots)
+	if(slot < 0 || slot >= sd->char_slots)
 #else
-	if((slot >= sd->char_slots) // slots
+	if((slot < 0 || slot >= sd->char_slots) // slots
 	|| (str + agi + vit + int_ + dex + luk != 6*5 ) // stats
 	|| (str < 1 || str > 9 || agi < 1 || agi > 9 || vit < 1 || vit > 9 || int_ < 1 || int_ > 9 || dex < 1 || dex > 9 || luk < 1 || luk > 9) // individual stat values
 	|| (str + int_ != 10 || agi + luk != 10 || vit + dex != 10) ) // pairs
@@ -1596,12 +1605,10 @@ int make_new_char_sql(struct char_session_data* sd, char* name_, int str, int ag
 
 
 	// check the number of already existing chars in this account
-	if( char_per_account != 0 ) {
-		if( SQL_ERROR == Sql_Query(sql_handle, "SELECT 1 FROM `%s` WHERE `account_id` = '%d'", char_db, sd->account_id) )
-			Sql_ShowDebug(sql_handle);
-		if( Sql_NumRows(sql_handle) >= char_per_account )
-			return -2; // character account limit exceeded
-	}
+	if( SQL_ERROR == Sql_Query(sql_handle, "SELECT 1 FROM `%s` WHERE `account_id` = '%d'", char_db, sd->account_id) )
+		Sql_ShowDebug(sql_handle);
+	if( Sql_NumRows(sql_handle) >= sd->char_slots )
+		return -2; // character account limit exceeded
 
 	// check char slot
 	if( SQL_ERROR == Sql_Query(sql_handle, "SELECT 1 FROM `%s` WHERE `account_id` = '%d' AND `char_num` = '%d' LIMIT 1", char_db, sd->account_id, slot) )
@@ -1955,11 +1962,32 @@ void char_charlist_notify( int fd, struct char_session_data* sd ){
 	WFIFOSET(fd,6);
 }
 
+/*
+ * 0x20d <PacketLength>.W <TAG_CHARACTER_BLOCK_INFO>24B (HC_BLOCK_CHARACTER)
+ * <GID>L <szExpireDate>20B (TAG_CHARACTER_BLOCK_INFO)
+ */
 void char_block_character( int fd, struct char_session_data* sd ){
-	WFIFOHEAD(fd, 4);
-	WFIFOW(fd, 0) = 0x20d;
-	WFIFOW(fd, 2) = 4; //packet len
-	WFIFOSET(fd,4);
+	int i=0, len=4;
+	char szExpireDate[20];
+	time_t now = time(NULL);
+	
+	ARR_FIND(0, MAX_CHARS, i, sd->unban_time[i] > now); //should we use MAX_CHARS or sd->charslot
+	if(i < MAX_CHARS){
+		memset(szExpireDate,'\0',20);
+		WFIFOHEAD(fd, 4+MAX_CHARS*24);
+		WFIFOW(fd, 0) = 0x20d;
+
+		for(i=0; i<MAX_CHARS; i++){
+			if( sd->unban_time[i] > now ) {
+				WFIFOL(fd, 4+i*24) = sd->found_char[i]; //gid
+				timestamp2string(szExpireDate, 20, sd->unban_time[i], "%Y-%m-%d %H:%M:%S");
+				memcpy(WFIFOP(fd,8+i*24),szExpireDate,20);
+				len+=24;
+			}
+		}
+		WFIFOW(fd, 2) = len; //packet len
+		WFIFOSET(fd,len);
+	}
 }
 
 void mmo_char_send099d(int fd, struct char_session_data *sd) {
@@ -1979,7 +2007,7 @@ void char_parse_req_charlist(int fd, struct char_session_data* sd){
 //----------------------------------------
 int mmo_char_send006b(int fd, struct char_session_data* sd){
 	int j, offset = 0;
-	bool newvers = (sd->version >= (uint32)date2version(20100413));
+	bool newvers = (sd->version >= date2version(20100413));
 	if(newvers) //20100413
 		offset += 3;
 	if (save_log)
@@ -1989,11 +2017,16 @@ int mmo_char_send006b(int fd, struct char_session_data* sd){
 	WFIFOHEAD(fd,j + MAX_CHARS*MAX_CHAR_BUF);
 	WFIFOW(fd,0) = 0x6b;
 	if(newvers){ //20100413
-		WFIFOB(fd,4) = MAX_CHARS; // Max slots.
-		WFIFOB(fd,5) = sd->char_slots; // Available slots. (PremiumStartSlot)
-		WFIFOB(fd,6) = MAX_CHARS; // Premium slots. (Any existent chars past sd->char_slots but within MAX_CHARS will show a 'Premium Service' in red)
+		WFIFOB(fd,4) = MAX_CHARS; // Max slots
+		WFIFOB(fd,5) = MAX_CHARS - sd->chars_billing - sd->chars_vip; // PremiumStartSlot
+		WFIFOB(fd,6) = MAX_CHARS - sd->chars_billing; // PremiumEndSlot
+		/* this+0x7  char dummy1_beginbilling */
+		/* this+0x8  unsigned long code */
+		/* this+0xc  unsigned long time1 */
+		/* this+0x10  unsigned long time2 */
+		/* this+0x14  char dummy2_endbilling[7] */
 	}
-	memset(WFIFOP(fd,4 + offset), 0, 20); // unknown bytes
+	memset(WFIFOP(fd,4 + offset), 0, 20); // unknown bytes 4-24 7-27
 	j+=mmo_chars_fromsql(sd, WFIFOP(fd,j));
 	WFIFOW(fd,2) = j; // packet len
 	WFIFOSET(fd,j);
@@ -2010,23 +2043,25 @@ void mmo_char_send082d(int fd, struct char_session_data* sd) {
 	WFIFOHEAD(fd,29);
 	WFIFOW(fd,0) = 0x82d;
 	WFIFOW(fd,2) = 29;
-	WFIFOB(fd,4) = sd->char_slots;
-	WFIFOB(fd,5) = MAX_CHARS - sd->char_slots;
-	WFIFOB(fd,6) = MAX_CHARS - sd->char_slots;
-	WFIFOB(fd,7) = sd->char_slots;
-	WFIFOB(fd,8) = sd->char_slots;
+	WFIFOB(fd,4) = MAX_CHARS - sd->chars_billing - sd->chars_vip; //NormalSlotNum
+	WFIFOB(fd,5) = sd->chars_vip; //PremiumSlotNum
+	WFIFOB(fd,6) = sd->chars_billing; //BillingSlotNum
+	WFIFOB(fd,7) = sd->char_slots; //ProducibleSlotNum
+	WFIFOB(fd,8) = sd->char_slots; //ValidSlotNum
 	memset(WFIFOP(fd,9), 0, 20); // unused bytes
 	WFIFOSET(fd,29);
 }
 
 void mmo_char_send(int fd, struct char_session_data* sd){
 	//ShowInfo("sd->version = %d\n",sd->version);
-	if(sd->version > (uint32)date2version(20130000) ){
+	if(sd->version > date2version(20130000) ){
 		mmo_char_send082d(fd,sd);
 		char_charlist_notify(fd,sd);
 		char_block_character(fd,sd);
 	}
-	else mmo_char_send006b(fd,sd);
+	//else 
+	//@FIXME dump from kro doesn't show 6b transmission
+	mmo_char_send006b(fd,sd);
 }
 
 int char_married(int pl1, int pl2)
@@ -2170,7 +2205,7 @@ int loginif_BankingReq(int32 account_id, int8 type, int32 data){
 		WFIFOB(login_fd,6) = type;
 		WFIFOL(login_fd,7) = data;
 		WFIFOSET(login_fd,11);
-  		return 1;
+		return 1;
 	}
 	return 0;
 }
@@ -2239,6 +2274,76 @@ int mapif_parse_ReqBankInfo(int fd){
 	return 1;
 }
 
+/*
+ * ZH 0x2b2c
+ * HA 0x2742
+ * We received a request vip_info from map-server.
+ * Transmit it to login-serv as it's the one knowing the info
+ */
+int mapif_parse_vipactive(int fd) {
+#ifdef VIP_ENABLE
+	uint32 aid = RFIFOL(fd,2); //aid
+	uint8 type = RFIFOB(fd,6); //type
+	uint32 adddur = RFIFOL(fd,7); //req_inc_duration
+	RFIFOSKIP(fd,11);
+	logif_reqviddata(aid, type, adddur);
+#endif
+	return 0;
+}
+
+/*
+ * HZ 0x2b2b
+ * Transmist vip data to mapserv
+ */
+int mapif_vipack(uint32 aid, uint32 vip_time, uint8 isvip, uint32 groupid) {
+#ifdef VIP_ENABLE
+	uint8 buf[16];
+	WBUFW(buf,0) = 0x2b2b;
+	WBUFL(buf,2) = aid;
+	WBUFL(buf,6) = vip_time;
+	WBUFB(buf,10) = isvip;
+	WBUFL(buf,11) = groupid;
+	mapif_sendall(buf,15);  // inform all map-servers attached.
+#endif
+	return 0;
+}
+
+/*
+ * HZ 0x2b2b
+ * Request vip data from loginserv
+ */
+int logif_reqviddata(uint32 aid, uint8 type, uint32 add_vip_time) {
+#ifdef VIP_ENABLE
+	WFIFOHEAD(login_fd,11);
+	WFIFOW(login_fd,0) = 0x2742;
+	WFIFOL(login_fd,2) =  aid; //aid
+	WFIFOB(login_fd,6) = type; //type
+	WFIFOL(login_fd,7) =  add_vip_time; //req_inc_duration
+	WFIFOSET(login_fd,11);
+#endif
+	return 0;
+}
+
+/*
+ * AH 0x2743
+ * We received the info from login-serv, transmit it to map
+ */
+int logif_parse_vipack(int fd) {
+#ifdef VIP_ENABLE
+	if (RFIFOREST(fd) < 15)
+		return 0;
+	else {
+		uint32 aid = RFIFOL(fd,2); //aid
+		uint32 vip_time = RFIFOL(fd,6); //vip_time
+		uint8 isvip = RFIFOB(fd,10); //isvip
+		uint32 groupid = RFIFOL(fd,11); //new group id
+		RFIFOSKIP(fd,15);
+		mapif_vipack(aid,vip_time,isvip,groupid);
+	}
+#endif
+	return 1;
+}
+
 
 /// Resets all the data.
 void loginif_reset(void)
@@ -2288,31 +2393,30 @@ void loginif_on_ready(void)
 
 int logif_parse_reqpincode(int fd, struct char_session_data *sd){
 #if PACKETVER >=  20110309
-    if( pincode_enabled ){
-            // PIN code system enabled
-            if( strlen( sd->pincode ) <= 0 ){
-                // No PIN code has been set yet
-                if( pincode_force ) pincode_sendstate( fd, sd, PINCODE_NEW );
-                else pincode_sendstate( fd, sd, PINCODE_PASSED );
-            } else {
-                    if( !pincode_changetime || ( sd->pincode_change + pincode_changetime ) > time(NULL) ){
-                            struct online_char_data* node = (struct online_char_data*)idb_get( online_char_db, sd->account_id );
-
-                            if( node != NULL && node->pincode_success ){ // User has already passed the check                    
-                                    pincode_sendstate( fd, sd, PINCODE_PASSED );
-                            }else{
-                                    // Ask user for his PIN code
-                                    pincode_sendstate( fd, sd, PINCODE_ASK );
-                            }
-                    }else{ // User hasnt changed his PIN code too long
-                            pincode_sendstate( fd, sd, PINCODE_EXPIRED );
-                    }
-            }
-    } else { // PIN code system disabled 
-            pincode_sendstate( fd, sd, PINCODE_OK );
-    }
+	if( pincode_enabled ){
+		// PIN code system enabled
+		if( strlen( sd->pincode ) <= 0 ){
+			// No PIN code has been set yet
+			if( pincode_force ) pincode_sendstate( fd, sd, PINCODE_NEW );
+			else pincode_sendstate( fd, sd, PINCODE_PASSED );
+		} else {
+			if( !pincode_changetime || ( sd->pincode_change + pincode_changetime ) > time(NULL) ){
+				struct online_char_data* node = (struct online_char_data*)idb_get( online_char_db, sd->account_id );
+				if( node != NULL && node->pincode_success ){ // User has already passed the check
+					pincode_sendstate( fd, sd, PINCODE_PASSED );
+				}else{
+					// Ask user for his PIN code
+					pincode_sendstate( fd, sd, PINCODE_ASK );
+				}
+			}else{ // User hasnt changed his PIN code too long
+				pincode_sendstate( fd, sd, PINCODE_EXPIRED );
+			}
+		}
+	} else { // PIN code system disabled 
+		pincode_sendstate( fd, sd, PINCODE_OK );
+	}
 #endif
-    return 0;
+	return 0;
 }
 
 int parse_fromlogin(int fd) {
@@ -2352,6 +2456,7 @@ int parse_fromlogin(int fd) {
 		switch( command )
 		{
 		case 0x2741: loginif_parse_BankingAck(fd); break;
+		case 0x2743: logif_parse_vipack(fd); break;
 
 		// acknowledgement of connect-to-loginserver request
 		case 0x2711:
@@ -2415,7 +2520,7 @@ int parse_fromlogin(int fd) {
 		break;
 
 		case 0x2717: // account data
-			if (RFIFOREST(fd) < 76)
+			if (RFIFOREST(fd) < 79)
 				return 0;
 
 			// find the authenticated session with this account id
@@ -2431,11 +2536,14 @@ int parse_fromlogin(int fd) {
 					ShowError("Account '%d' `character_slots` column is higher than supported MAX_CHARS (%d), update MAX_CHARS in mmo.h! capping to MAX_CHARS...\n",sd->account_id,sd->char_slots);
 					sd->char_slots = MAX_CHARS;/* cap to maximum */
 				} else if ( !sd->char_slots )/* no value aka 0 in sql */
-					sd->char_slots = MAX_CHARS;/* cap to maximum */
+					sd->char_slots = MIN_CHARS;/* cap to minimum */
 				safestrncpy(sd->birthdate, (const char*)RFIFOP(fd,52), sizeof(sd->birthdate));
 				safestrncpy(sd->pincode, (const char*)RFIFOP(fd,63), sizeof(sd->pincode));
 				sd->pincode_change = (time_t)RFIFOL(fd,68);
 				sd->bank_vault = RFIFOL(fd,72);
+				sd->isvip = RFIFOB(fd,76);
+				sd->chars_vip = RFIFOB(fd,77);
+				sd->chars_billing = RFIFOB(fd,78);
 				ARR_FIND( 0, ARRAYLENGTH(server), server_id, server[server_id].fd > 0 && server[server_id].map[0] );
 				// continued from char_auth_ok...
 				if( server_id == ARRAYLENGTH(server) || //server not online, bugreport:2359
@@ -2452,7 +2560,7 @@ int parse_fromlogin(int fd) {
 					logif_parse_reqpincode(i, sd);
 				}
 			}
-			RFIFOSKIP(fd,76);
+			RFIFOSKIP(fd,79);
 		break;
 
 		// login-server alive packet
@@ -2884,7 +2992,141 @@ void mapif_on_disconnect(int id)
 	ShowStatus("Map-server #%d has disconnected.\n", id);
 	mapif_server_reset(id);
 }
+/** 
+ * Request from map-server to change an account's status (will just be forwarded to login server)
+ * ZH 2b0e <aid>L <charname>24B <opetype>W <timediff>L
+ * @param fd: link to mapserv
+ */	
+int mapif_parse_req_alter_acc(int fd){
+	if (RFIFOREST(fd) < 36)
+		return 0;
+	else {
+		int result = 0; // 0-login-server request done, 1-player not found, 2-gm level too low, 3-login-server offline
+		char esc_name[NAME_LENGTH*2+1];
 
+		int acc = RFIFOL(fd,2); // account_id of who ask (-1 if server itself made this request)
+		const char* name = (char*)RFIFOP(fd,6); // name of the target character
+		int operation = RFIFOW(fd,30); // type of operation: 1-block, 2-ban, 3-unblock, 4-unban,  5 changesex, 6 charban, 7 charunban
+		int timediff = RFIFOL(fd,32);
+		RFIFOSKIP(fd,36);
+
+		Sql_EscapeStringLen(sql_handle, esc_name, name, strnlen(name, NAME_LENGTH));
+		if( SQL_ERROR == Sql_Query(sql_handle, "SELECT `account_id`,`name`,`char_id`,`unban_time` FROM `%s` WHERE `name` = '%s'", char_db, esc_name) )
+			Sql_ShowDebug(sql_handle);
+		else if( Sql_NumRows(sql_handle) == 0 ){
+			result = 1; // 1-player not found
+		}
+		else if( SQL_SUCCESS != Sql_NextRow(sql_handle) ){
+			Sql_ShowDebug(sql_handle);
+			result = 1;
+		} else {
+			char name[NAME_LENGTH];
+			int account_id, char_id;
+			char* data;
+			time_t unban_time;
+
+			Sql_GetData(sql_handle, 0, &data, NULL); account_id = atoi(data);
+			Sql_GetData(sql_handle, 1, &data, NULL); safestrncpy(name, data, sizeof(name));
+			Sql_GetData(sql_handle, 2, &data, NULL); char_id = atoi(data);
+			Sql_GetData(sql_handle, 3, &data, NULL); unban_time = atol(data);;
+			Sql_FreeResult(sql_handle);
+
+			if(operation!=6 && operation!=7 && login_fd <= 0 ) //6-7 operation doesn't send to login
+				result = 3; // 3-login-server offline
+			//FIXME: need to move this check to login server [ultramage]
+			//	if( acc != -1 && isGM(acc) < isGM(account_id) )
+			//		result = 2; // 2-gm level too low
+			else
+			switch( operation ) {
+			case 1: // block
+				WFIFOHEAD(login_fd,10);
+				WFIFOW(login_fd,0) = 0x2724;
+				WFIFOL(login_fd,2) = account_id;
+				WFIFOL(login_fd,6) = 5; // new account status
+				WFIFOSET(login_fd,10);
+			break;
+			case 2: // ban
+				WFIFOHEAD(login_fd,10);
+				WFIFOW(login_fd, 0) = 0x2725;
+				WFIFOL(login_fd, 2) = account_id;
+				WFIFOL(login_fd, 6) = timediff;
+				WFIFOSET(login_fd,10);
+			break;
+			case 3: // unblock
+				WFIFOHEAD(login_fd,10);
+				WFIFOW(login_fd,0) = 0x2724;
+				WFIFOL(login_fd,2) = account_id;
+				WFIFOL(login_fd,6) = 0; // new account status
+				WFIFOSET(login_fd,10);
+			break;
+			case 4: // unban
+				WFIFOHEAD(login_fd,6);
+				WFIFOW(login_fd,0) = 0x272a;
+				WFIFOL(login_fd,2) = account_id;
+				WFIFOSET(login_fd,6);
+			break;
+			case 5: // changesex
+				WFIFOHEAD(login_fd,6);
+				WFIFOW(login_fd,0) = 0x2727;
+				WFIFOL(login_fd,2) = account_id;
+				WFIFOSET(login_fd,6);
+			break;
+			case 6: //charban /* handled by char server, so no redirection */
+				if(timediff<0 && unban_time==0) break; //attemp to reduce time of a non banned account ?!? 
+				else if(unban_time==0) unban_time=time(NULL); //new entry
+				unban_time += timediff;
+				// condition applies; send to all map-servers to disconnect the player
+				if( unban_time > time(NULL) ) {
+					unsigned char buf[11];
+					SqlStmt* stmt = SqlStmt_Malloc(sql_handle);
+					if( SQL_SUCCESS != SqlStmt_Prepare(stmt,
+							  "UPDATE `%s` SET `unban_time` = ? WHERE `char_id` = ? LIMIT 1",
+							  char_db)
+						|| SQL_SUCCESS != SqlStmt_BindParam(stmt,  0, SQLDT_LONG,   (void*)&unban_time,   sizeof(unban_time))
+						|| SQL_SUCCESS != SqlStmt_BindParam(stmt,  1, SQLDT_INT,    (void*)&char_id,     sizeof(char_id))
+						|| SQL_SUCCESS != SqlStmt_Execute(stmt)
+
+						) {
+						SqlStmt_ShowDebug(stmt);
+						result=1;
+					}
+					else {
+						WBUFW(buf,0) = 0x2b14;
+						WBUFL(buf,2) = account_id;
+						WBUFB(buf,6) = 2;
+						WBUFL(buf,7) = (unsigned int)unban_time;
+						mapif_sendall(buf, 11);
+
+						// disconnect player if online on char-server
+						disconnect_player(account_id);
+						result=4;
+					}
+					SqlStmt_Free(stmt);
+				}
+			break;
+			case 7: //char unban
+				/* handled by char server, so no redirection */
+				if( SQL_ERROR == Sql_Query(sql_handle, "UPDATE `%s` SET `unban_time` = '0' WHERE `char_id` = '%d' LIMIT 1", char_db, char_id) ) {
+					Sql_ShowDebug(sql_handle);
+					result = 1;
+				} else result=4;
+			break;
+			} //end switch operation
+		}
+
+		// send answer if a player ask, not if the server ask
+		if( acc != -1 && operation != 5) { // Don't send answer for changesex
+			WFIFOHEAD(fd,34);
+			WFIFOW(fd, 0) = 0x2b0f;
+			WFIFOL(fd, 2) = acc;
+			safestrncpy((char*)WFIFOP(fd,6), name, NAME_LENGTH);
+			WFIFOW(fd,30) = operation;
+			WFIFOW(fd,32) = result;
+			WFIFOSET(fd,34);
+		}
+	}
+	return 1;
+}
 
 int parse_frommap(int fd)
 {
@@ -3300,108 +3542,7 @@ int parse_frommap(int fd)
 			RFIFOSKIP(fd, 86);
 		break;
 
-		case 0x2b0e: // Request from map-server to change an account's status (will just be forwarded to login server)
-			if (RFIFOREST(fd) < 44)
-				return 0;
-		{
-			int result = 0; // 0-login-server request done, 1-player not found, 2-gm level too low, 3-login-server offline
-			char esc_name[NAME_LENGTH*2+1];
-
-			int acc = RFIFOL(fd,2); // account_id of who ask (-1 if server itself made this request)
-			const char* name = (char*)RFIFOP(fd,6); // name of the target character
-			int type = RFIFOW(fd,30); // type of operation: 1-block, 2-ban, 3-unblock, 4-unban
-			short year = RFIFOW(fd,32);
-			short month = RFIFOW(fd,34);
-			short day = RFIFOW(fd,36);
-			short hour = RFIFOW(fd,38);
-			short minute = RFIFOW(fd,40);
-			short second = RFIFOW(fd,42);
-			RFIFOSKIP(fd,44);
-
-			Sql_EscapeStringLen(sql_handle, esc_name, name, strnlen(name, NAME_LENGTH));
-			if( SQL_ERROR == Sql_Query(sql_handle, "SELECT `account_id`,`name` FROM `%s` WHERE `name` = '%s'", char_db, esc_name) )
-				Sql_ShowDebug(sql_handle);
-			else
-			if( Sql_NumRows(sql_handle) == 0 )
-			{
-				result = 1; // 1-player not found
-			}
-			else
-			if( SQL_SUCCESS != Sql_NextRow(sql_handle) )
-				Sql_ShowDebug(sql_handle);
-				//FIXME: set proper result value?
-			else
-			{
-				char name[NAME_LENGTH];
-				int account_id;
-				char* data;
-
-				Sql_GetData(sql_handle, 0, &data, NULL); account_id = atoi(data);
-				Sql_GetData(sql_handle, 1, &data, NULL); safestrncpy(name, data, sizeof(name));
-
-				if( login_fd <= 0 )
-					result = 3; // 3-login-server offline
-				//FIXME: need to move this check to login server [ultramage]
-//				else
-//				if( acc != -1 && isGM(acc) < isGM(account_id) )
-//					result = 2; // 2-gm level too low
-				else
-				switch( type ) {
-				case 1: // block
-						WFIFOHEAD(login_fd,10);
-						WFIFOW(login_fd,0) = 0x2724;
-						WFIFOL(login_fd,2) = account_id;
-						WFIFOL(login_fd,6) = 5; // new account status
-						WFIFOSET(login_fd,10);
-				break;
-				case 2: // ban
-						WFIFOHEAD(login_fd,18);
-						WFIFOW(login_fd, 0) = 0x2725;
-						WFIFOL(login_fd, 2) = account_id;
-						WFIFOW(login_fd, 6) = year;
-						WFIFOW(login_fd, 8) = month;
-						WFIFOW(login_fd,10) = day;
-						WFIFOW(login_fd,12) = hour;
-						WFIFOW(login_fd,14) = minute;
-						WFIFOW(login_fd,16) = second;
-						WFIFOSET(login_fd,18);
-				break;
-				case 3: // unblock
-						WFIFOHEAD(login_fd,10);
-						WFIFOW(login_fd,0) = 0x2724;
-						WFIFOL(login_fd,2) = account_id;
-						WFIFOL(login_fd,6) = 0; // new account status
-						WFIFOSET(login_fd,10);
-				break;
-				case 4: // unban
-						WFIFOHEAD(login_fd,6);
-						WFIFOW(login_fd,0) = 0x272a;
-						WFIFOL(login_fd,2) = account_id;
-						WFIFOSET(login_fd,6);
-				break;
-				case 5: // changesex
-						WFIFOHEAD(login_fd,6);
-						WFIFOW(login_fd,0) = 0x2727;
-						WFIFOL(login_fd,2) = account_id;
-						WFIFOSET(login_fd,6);
-				break;
-				}
-			}
-
-			Sql_FreeResult(sql_handle);
-
-			// send answer if a player ask, not if the server ask
-			if( acc != -1 && type != 5) { // Don't send answer for changesex
-				WFIFOHEAD(fd,34);
-				WFIFOW(fd, 0) = 0x2b0f;
-				WFIFOL(fd, 2) = acc;
-				safestrncpy((char*)WFIFOP(fd,6), name, NAME_LENGTH);
-				WFIFOW(fd,30) = type;
-				WFIFOW(fd,32) = result;
-				WFIFOSET(fd,34);
-			}
-		}
-		break;
+		case 0x2b0e: mapif_parse_req_alter_acc(fd); break;
 
 		case 0x2b10: // Update and send fame ranking list
 			if (RFIFOREST(fd) < 11)
@@ -3680,7 +3821,7 @@ int parse_frommap(int fd)
 		
 		case 0x2b28: mapif_parse_UpdBankInfo(fd); break;
 		case 0x2b2a: mapif_parse_ReqBankInfo(fd); break;
-			
+		case 0x2b2c: mapif_parse_vipactive(fd); break;
 		case 0x2b2d: //Load data
 			if (RFIFOREST(fd) < 6)
 				return 0;
@@ -4140,6 +4281,15 @@ int parse_char(int fd)
 
 			char_id = atoi(data);
 			Sql_FreeResult(sql_handle);
+			
+			/* client doesn't let it get to this point if you're banned, so its a forged packet */
+			if( sd->found_char[slot] == char_id && sd->unban_time[slot] > time(NULL) ) {
+				WFIFOHEAD(fd,3);
+				WFIFOW(fd,0) = 0x6c;
+				WFIFOB(fd,2) = 0; // rejected from server
+				WFIFOSET(fd,3);
+				break;
+			}
 
 			/* set char as online prior to loading its data so 3rd party applications will realise the sql data is not reliable */
 			set_char_online(-2,char_id,sd->account_id);
@@ -5382,13 +5532,6 @@ int char_config_read(const char* cfgName)
 			char_name_option = atoi(w2);
 		} else if (strcmpi(w1, "char_name_letters") == 0) {
 			safestrncpy(char_name_letters, w2, sizeof(char_name_letters));
-		} else if (strcmpi(w1, "chars_per_account") == 0) { //maxchars per account [Sirius]
-			char_per_account = atoi(w2);
-			if( char_per_account == 0 || char_per_account > MAX_CHARS ) {
-				if( char_per_account > MAX_CHARS )
-					ShowWarning("Max chars per account '%d' exceeded limit. Defaulting to '%d'.\n", char_per_account, MAX_CHARS);
-				char_per_account = MAX_CHARS;
-			}
 		} else if (strcmpi(w1, "char_del_level") == 0) { //disable/enable char deletion by its level condition [Lupus]
 			char_del_level = atoi(w2);
 		} else if (strcmpi(w1, "char_del_delay") == 0) {

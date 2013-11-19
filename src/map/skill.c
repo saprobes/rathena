@@ -11045,9 +11045,11 @@ int skill_castend_pos2(struct block_list* src, int x, int y, uint16 skill_id, ui
 			uint8 skill_use_lv = pc_checkskill(sd,skill_use);
 			clif_slide(src,x,y);
 			if (skill_check_condition_castbegin(sd,skill_use,skill_use_lv)) {
+				sd->skill_id_old = RL_FALLEN_ANGEL;
 				skill_castend_pos2(src,src->x,src->y,skill_use,skill_use_lv,tick,SD_LEVEL|SD_ANIMATION|SD_SPLASH);
-				skill_consume_requirement(sd,skill_use,skill_use_lv,1);
+				skill_consume_requirement(sd,skill_use,skill_use_lv,1); //Consume Desperado ammunitions
 			}
+			sd->skill_id_old = 0;
 		}
 		else if (sd)
 			clif_skill_fail(sd,skill_id,USESKILL_FAIL_LEVEL,0);
@@ -13712,7 +13714,7 @@ int skill_check_condition_castbegin(struct map_session_data* sd, uint16 skill_id
 		 * Warlock
 		 **/
 		case WL_COMET:
-			if( skill_check_pc_partner(sd,skill_id,&skill_lv,1,0) <= 0
+			if( skill_check_pc_partner(sd,skill_id,&skill_lv,1,0) <= 0 && require.itemid[0]
 				&& sd->special_state.no_gemstone == 0
 				&& ((i = pc_search_inventory(sd,require.itemid[0])) < 0 || sd->status.inventory[i].amount < require.amount[0]) ) {
 				//clif_skill_fail(sd,skill_id,USESKILL_FAIL_NEED_ITEM,require.amount[0],require.itemid[0]);
@@ -14255,6 +14257,10 @@ int skill_consume_requirement( struct map_session_data *sd, uint16 skill_id, uin
 			case RL_D_TAIL:
 				req.sp = 0;
 				break;
+			case GS_DESPERADO:
+				if (sd->skill_id_old == RL_FALLEN_ANGEL)
+					req.sp = 0;
+				break;
 			default:
 				if(sd->state.autocast)
 					req.sp = 0;
@@ -14448,11 +14454,11 @@ struct skill_condition skill_get_requirement(struct map_session_data* sd, uint16
 					continue;
 				break;
 			case AB_ADORAMUS:
-				if( itemid_isgemstone(skill_db[idx].require.itemid[i]) && skill_check_pc_partner(sd,skill_id,&skill_lv, 1, 2) )
+				if( itemid_isgemstone(skill_db[idx].require.itemid[i]) && (sd->special_state.no_gemstone == 2 || skill_check_pc_partner(sd,skill_id,&skill_lv, 1, 2)) )
 					continue;
 				break;
 			case WL_COMET:
-				if( itemid_isgemstone(skill_db[idx].require.itemid[i]) && skill_check_pc_partner(sd,skill_id,&skill_lv, 1, 0) )
+				if( itemid_isgemstone(skill_db[idx].require.itemid[i]) && (sd->special_state.no_gemstone == 2 || skill_check_pc_partner(sd,skill_id,&skill_lv, 1, 0)) )
 					continue;
 				break;
 			case GN_FIRE_EXPANSION:
@@ -14475,21 +14481,25 @@ struct skill_condition skill_get_requirement(struct map_session_data* sd, uint16
 		req.itemid[i] = skill_db[idx].require.itemid[i];
 		req.amount[i] = skill_db[idx].require.amount[i];
 
-		if( itemid_isgemstone(req.itemid[i]) && skill_id != HW_GANBANTEIN )
-		{
-			if( sd->special_state.no_gemstone )
-			{	// All gem skills except Hocus Pocus and Ganbantein can cast for free with Mistress card -helvetica
-				if( skill_id != SA_ABRACADABRA )
-					req.itemid[i] = req.amount[i] = 0;
-				else if( --req.amount[i] < 1 )
-					req.amount[i] = 1; // Hocus Pocus always use at least 1 gem
-			}
-			if(sc && sc->data[SC_INTOABYSS])
-			{
-				if( skill_id != SA_ABRACADABRA )
-					req.itemid[i] = req.amount[i] = 0;
-				else if( --req.amount[i] < 1 )
-					req.amount[i] = 1; // Hocus Pocus always use at least 1 gem
+		// Check requirement for gemstone.
+		if (itemid_isgemstone(req.itemid[i])) {
+			if( sd->special_state.no_gemstone == 2 ) // Remove all Magic Stone required for all skills for VIP.
+				req.itemid[i] = req.amount[i] = 0;
+			else {
+				if( sd->special_state.no_gemstone )
+				{	// All gem skills except Hocus Pocus and Ganbantein can cast for free with Mistress card -helvetica
+					if( skill_id != SA_ABRACADABRA )
+		 				req.itemid[i] = req.amount[i] = 0;
+					else if( --req.amount[i] < 1 )
+						req.amount[i] = 1; // Hocus Pocus always use at least 1 gem
+				}
+				if(sc && sc->data[SC_INTOABYSS])
+				{
+					if( skill_id != SA_ABRACADABRA )
+						req.itemid[i] = req.amount[i] = 0;
+					else if( --req.amount[i] < 1 )
+						req.amount[i] = 1; // Hocus Pocus always use at least 1 gem
+				}
 			}
 		}
 		if( skill_id >= HT_SKIDTRAP && skill_id <= HT_TALKIEBOX && pc_checkskill(sd, RA_RESEARCHTRAP) > 0){

@@ -6456,7 +6456,7 @@ BUILDIN_FUNC(getitem2)
 		item_data=itemdb_exists(nameid);
 		if (item_data == NULL)
 			return -1;
-		if(item_data->type==IT_WEAPON || item_data->type==IT_ARMOR){
+		if(item_data->type==IT_WEAPON || item_data->type==IT_ARMOR || item_data->type==IT_SHADOWGEAR ) {
 			if(ref > MAX_REFINE) ref = MAX_REFINE;
 		}
 		else if(item_data->type==IT_PETEGG) {
@@ -6471,7 +6471,7 @@ BUILDIN_FUNC(getitem2)
 		item_tmp.nameid=nameid;
 		if(!flag)
 			item_tmp.identify=iden;
-		else if(item_data->type==IT_WEAPON || item_data->type==IT_ARMOR)
+		else if(item_data->type==IT_WEAPON || item_data->type==IT_ARMOR || item_data->type==IT_SHADOWGEAR )
 			item_tmp.identify=0;
 		item_tmp.refine=ref;
 		item_tmp.attribute=attr;
@@ -7378,7 +7378,7 @@ BUILDIN_FUNC(strnpcinfo)
 
 
 // aegis->athena slot position conversion table
-static unsigned int equip[] = {EQP_HEAD_TOP,EQP_ARMOR,EQP_HAND_L,EQP_HAND_R,EQP_GARMENT,EQP_SHOES,EQP_ACC_L,EQP_ACC_R,EQP_HEAD_MID,EQP_HEAD_LOW,EQP_COSTUME_HEAD_LOW,EQP_COSTUME_HEAD_MID,EQP_COSTUME_HEAD_TOP,EQP_COSTUME_GARMENT};
+static unsigned int equip[] = {EQP_HEAD_TOP,EQP_ARMOR,EQP_HAND_L,EQP_HAND_R,EQP_GARMENT,EQP_SHOES,EQP_ACC_L,EQP_ACC_R,EQP_HEAD_MID,EQP_HEAD_LOW,EQP_COSTUME_HEAD_LOW,EQP_COSTUME_HEAD_MID,EQP_COSTUME_HEAD_TOP,EQP_COSTUME_GARMENT,EQP_AMMO,EQP_SHADOW_ARMOR,EQP_SHADOW_WEAPON,EQP_SHADOW_SHIELD,EQP_SHADOW_SHOES,EQP_SHADOW_ACC_R,EQP_SHADOW_ACC_L};
 
 /*==========================================
  * GetEquipID(Pos);     Pos: 1-14
@@ -18010,6 +18010,8 @@ BUILDIN_FUNC(getserverdef) {
 		case 7: script_pushint(st,MAX_GUILDLEVEL); break;
 		case 8: script_pushint(st,MAX_GUILD_STORAGE); break;
 		case 9: script_pushint(st,MAX_BG_MEMBERS); break;
+		case 10: script_pushint(st,VIP_SCRIPT); break;
+		case 11: script_pushint(st,MIN_STORAGE); break;
 		default:
 			ShowWarning("buildin_getserverdef: unknown type %d.\n", type);
 			script_pushint(st,0);
@@ -18017,6 +18019,78 @@ BUILDIN_FUNC(getserverdef) {
 	}
 	return 0;
 }
+
+/* Returns various information about a player's VIP status.
+ * vip_status <type>,{"<character name>"};
+ * Note: VIP System needs to be enabled.
+ */
+BUILDIN_FUNC(vip_status) {
+#ifdef VIP_ENABLE
+	TBL_PC *sd;
+	char *vip_str = (char *)aMalloc(24*sizeof(char));
+	time_t now = time(NULL);
+	int type = script_getnum(st, 2);
+
+	if (script_hasdata(st, 3))
+		sd = map_nick2sd(script_getstr(st, 3));
+	else
+		sd = script_rid2sd(st);
+
+	if (sd == NULL)
+		return 0;
+
+	switch(type) {
+		case 1: // Get VIP status.
+			script_pushint(st, pc_isvip(sd));
+			break;
+		case 2: // Get VIP expire date.
+			if (pc_isvip(sd)) {
+				time_t viptime = (time_t)sd->vip.time;
+				strftime(vip_str, 24, "%Y-%m-%d %H:%M", localtime(&viptime));
+				vip_str[24] = '\0';
+				script_pushstr(st, vip_str);
+			} else
+				script_pushint(st, 0);
+			break;
+		case 3: // Get remaining time.
+			if (pc_isvip(sd)) {
+				time_t viptime = (time_t)sd->vip.time;
+				strftime(vip_str, 24, "%Y-%m-%d %H:%M", localtime(&viptime - now));
+				vip_str[24] = '\0';
+				script_pushstr(st, vip_str);
+			} else
+				script_pushint(st, 0);
+			break;
+	}
+#else
+	script_pushint(st, 0);
+#endif
+	return 0;
+}
+
+#ifdef VIP_ENABLE
+/* Adds or removes VIP time in minutes.
+ * vip_time <time>,{"<character name>"};
+ * If time < 0 remove time, else add time.
+ * Note: VIP System needs to be enabled. 
+ */
+BUILDIN_FUNC(vip_time) {
+	TBL_PC *sd;
+	int time = script_getnum(st, 2) * 60; // Convert since it's given in minutes.
+
+	if (script_hasdata(st, 3))
+		sd = map_nick2sd(script_getstr(st, 3));
+	else
+		sd = script_rid2sd(st);
+
+	if (sd == NULL)
+		return 0;
+
+	chrif_req_vipActive(sd, time, 2);
+
+	return 0;
+}
+#endif
 
 /*==========================================
  * Turns a player into a monster and grants SC attribute effect. [malufett/Hercules]
@@ -18636,6 +18710,10 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(is_clientver,"ii?"),
 	BUILDIN_DEF(getserverdef,"i"),
 	BUILDIN_DEF2(montransform, "transform", "vii????"), // Monster Transform [malufett/Hercules]
+	BUILDIN_DEF(vip_status,"i?"),
+#ifdef VIP_ENABLE
+	BUILDIN_DEF(vip_time,"i?"),
+#endif
 	BUILDIN_DEF(bonus_script,"si???"),
 
 #include "../custom/script_def.inc"
