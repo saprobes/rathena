@@ -1274,10 +1274,14 @@ int pc_reg_received(struct map_session_data *sd)
 	status_calc_pc(sd,1);
 	chrif_scdata_request(sd->status.account_id, sd->status.char_id);
 	chrif_skillcooldown_request(sd->status.account_id, sd->status.char_id);
-	chrif_bankdata_request(sd->status.account_id, sd->status.char_id);
 	chrif_bsdata_request(sd->status.char_id);
 	sd->storage_size = MIN_STORAGE; //default to min
-	chrif_req_vipActive(sd, 0, 1); // request VIP informations
+	chrif_req_login_operation(sd->status.account_id, sd->status.name, 7, 0, 1, 0); //request Bank data
+#ifdef VIP_ENABLE
+	sd->vip.time = 0;
+	sd->vip.enabled = 0;
+	chrif_req_login_operation(sd->status.account_id, sd->status.name, 6, 0, 1, 0);  // request VIP informations
+#endif	
 	intif_Mail_requestinbox(sd->status.char_id, 0); // MAIL SYSTEM - Request Mail Inbox
 	intif_request_questlog(sd);
 
@@ -9071,7 +9075,7 @@ int pc_check_available_item(struct map_session_data *sd) {
 			it = sd->status.inventory[i].nameid;
 
 			if( it && !itemdb_available(it) ) {
-				sprintf(output, msg_txt(sd, 681), it); // Item %d has been removed from your inventory.
+				sprintf(output, msg_txt(sd, 709), it); // Item %d has been removed from your inventory.
 				clif_displaymessage(sd->fd, output);
 				ShowWarning("Removed invalid/disabled item id %d from inventory (amount=%d, char_id=%d).\n", it, sd->status.inventory[i].amount, sd->status.char_id);
 				pc_delitem(sd, i, sd->status.inventory[i].amount, 0, 0, LOG_TYPE_OTHER);
@@ -9084,7 +9088,7 @@ int pc_check_available_item(struct map_session_data *sd) {
 			it = sd->status.cart[i].nameid;
 
 			if( it && !itemdb_available(it) ) {
-				sprintf(output, msg_txt(sd, 682), it); // Item %d has been removed from your cart.
+				sprintf(output, msg_txt(sd, 710), it); // Item %d has been removed from your cart.
 				clif_displaymessage(sd->fd, output);
 				ShowWarning("Removed invalid/disabled item id %d from cart (amount=%d, char_id=%d).\n", it, sd->status.cart[i].amount, sd->status.char_id);
 				pc_cart_delitem(sd, i, sd->status.cart[i].amount, 0, LOG_TYPE_OTHER);
@@ -9097,7 +9101,7 @@ int pc_check_available_item(struct map_session_data *sd) {
 			it = sd->status.storage.items[i].nameid;
 
 			if( it && !itemdb_available(it) ) {
-				sprintf(output, msg_txt(sd, 683), it); // Item %d has been removed from your storage.
+				sprintf(output, msg_txt(sd, 711), it); // Item %d has been removed from your storage.
 				clif_displaymessage(sd->fd, output);
 				ShowWarning("Removed invalid/disabled item id %d from storage (amount=%d, char_id=%d).\n", it, sd->status.storage.items[i].amount, sd->status.char_id);
 				storage_delitem(sd, i, sd->status.storage.items[i].amount);
