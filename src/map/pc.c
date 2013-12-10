@@ -1276,7 +1276,8 @@ int pc_reg_received(struct map_session_data *sd)
 	chrif_skillcooldown_request(sd->status.account_id, sd->status.char_id);
 	chrif_bsdata_request(sd->status.char_id);
 	sd->storage_size = MIN_STORAGE; //default to min
-	chrif_req_login_operation(sd->status.account_id, sd->status.name, 7, 0, 1, 0); //request Bank data
+	if(battle_config.feature_banking)
+		chrif_req_login_operation(sd->status.account_id, sd->status.name, 7, 0, 1, 0); //request Bank data
 #ifdef VIP_ENABLE
 	sd->vip.time = 0;
 	sd->vip.enabled = 0;
@@ -4989,6 +4990,7 @@ int pc_setpos(struct map_session_data* sd, unsigned short mapindex, int x, int y
 		sd->md->ud.dir = sd->ud.dir;
 	}
 
+	pc_cell_basilica(sd);
 	return 0;
 }
 
@@ -8484,6 +8486,7 @@ int pc_checkcombo(struct map_session_data *sd, struct item_data *data) {
 	int index, idx, success = 0;
 
 	for( i = 0; i < data->combos_count; i++ ) {
+		int16 *combo_idx = NULL;
 		/* ensure this isn't a duplicate combo */
 		if( sd->combos.bonus != NULL ) {
 			int x;
@@ -8494,11 +8497,13 @@ int pc_checkcombo(struct map_session_data *sd, struct item_data *data) {
 				continue;
 		}
 
+		CREATE(combo_idx,int16,data->combos[i]->count);
 		for( j = 0; j < data->combos[i]->count; j++ ) {
 			int id = data->combos[i]->nameid[j];
 			bool found = false;
-
+			
 			for( k = 0; k < EQI_MAX; k++ ) {
+				bool do_continue = false; //used to continue that specific loop with some check that also use some loop
 				index = sd->equip_index[k];
 				if( index < 0 ) continue;
 				if( k == EQI_HAND_R   &&  sd->equip_index[EQI_HAND_L] == index ) continue;
@@ -8507,10 +8512,19 @@ int pc_checkcombo(struct map_session_data *sd, struct item_data *data) {
 
 				if(!sd->inventory_data[index])
 					continue;
+				if(j>0){
+					for (z = 0; z < data->combos[i]->count; z++)
+						if(combo_idx[z] == index) //we already have that index recorded
+							do_continue=true;
+					if(do_continue)
+						continue;
+				}
+				
 
 				if ( itemdb_type(id) != IT_CARD ) {
 					if ( sd->inventory_data[index]->nameid != id )
 						continue;
+					combo_idx[j] = index;
 					found = true;
 					break;
 				} else { //Cards
@@ -8519,6 +8533,7 @@ int pc_checkcombo(struct map_session_data *sd, struct item_data *data) {
 					for (z = 0; z < sd->inventory_data[index]->slot; z++) {
 						if (sd->status.inventory[index].card[z] != id)
 							continue;
+						combo_idx[j] = index;
 						found = true;
 						break;
 					}
@@ -8527,6 +8542,7 @@ int pc_checkcombo(struct map_session_data *sd, struct item_data *data) {
 			if( !found )
 				break;/* we haven't found all the ids for this combo, so we can return */
 		}
+		aFree(combo_idx);
 
 		/* means we broke out of the count loop w/o finding all ids, we can move to the next combo */
 		if( j < data->combos[i]->count )
@@ -10446,6 +10462,22 @@ void pc_bonus_script_check(struct map_session_data *sd, enum e_bonus_script_flag
 	}
 	if (count && flag != BONUS_FLAG_REM_ON_LOGOUT) //Don't need do this if log out
 		status_calc_pc(sd,false);
+}
+
+/** [Cydh]
+ * Gives/removes SC_BASILICA when player steps in/out the cell with 'cell_basilica'
+ * @param sd player
+ */
+void pc_cell_basilica(struct map_session_data *sd) {
+	if (!sd)
+		return;
+	
+	if (!map_getcell(sd->bl.m,sd->bl.x,sd->bl.y,CELL_CHKBASILICA)) {
+		if (&sd->sc && sd->sc.data[SC_BASILICA])
+			status_change_end(&sd->bl,SC_BASILICA,INVALID_TIMER);
+	}
+	else if (!(&sd->sc) || !sd->sc.data[SC_BASILICA])
+		sc_start(&sd->bl,&sd->bl,SC_BASILICA,100,0,-1);
 }
 
 /*==========================================

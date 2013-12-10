@@ -1277,13 +1277,11 @@ int skill_additional_effect (struct block_list* src, struct block_list *bl, uint
 		break;
 	case WL_EARTHSTRAIN:
 		{
-			int rate = 0, i;
+			int i;
 			const int pos[5] = { EQP_WEAPON, EQP_HELM, EQP_SHIELD, EQP_ARMOR, EQP_ACC };
-			rate = 6 * skill_lv + sstatus->dex / 10 + (sd? sd->status.job_level / 4 : 0) - tstatus->dex /5;// The tstatus->dex / 5 part is unofficial, but players gotta have some kind of way to have resistance. [Rytech]
-			//rate -= rate * tstatus->dex / 200; // Disabled until official resistance is found.
 
 			for( i = 0; i < skill_lv; i++ )
-				skill_strip_equip(src,bl,pos[i],rate,skill_lv,skill_get_time2(skill_id,skill_lv));
+				skill_strip_equip(src,bl,pos[i],(5 + skill_lv) * skill_lv,skill_lv,skill_get_time2(skill_id,skill_lv));
 		}
 		break;
 	case WL_JACKFROST:
@@ -1495,7 +1493,7 @@ int skill_additional_effect (struct block_list* src, struct block_list *bl, uint
 		sc_start(src, bl, SC_STUN, 10 * skill_lv, skill_lv, skill_get_time(skill_id, skill_lv));
 		break;
 	case GC_DARKCROW:
-		sc_start(src,bl,SC_DARKCROW,10 * skill_lv,skill_lv,skill_get_time(skill_id,skill_lv));
+		sc_start(src,bl,SC_DARKCROW,100,skill_lv,skill_get_time(skill_id,skill_lv));
 		break;
 	case GN_ILLUSIONDOPING:
 		if( sc_start(src,bl,SC_ILLUSIONDOPING,10 * skill_lv,skill_lv,skill_get_time(skill_id, skill_lv)) ) //Custom rate
@@ -14035,7 +14033,7 @@ int skill_check_condition_castbegin(struct map_session_data* sd, uint16 skill_id
 	}
 
 	//check if equiped item
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < MAX_SKILL_EQUIP_REQUIRE; i++) {
 		int reqeqit = require.eqItem[i];
 		if(!reqeqit) break; //no more required item get out of here
 		if (!pc_checkequip2(sd,reqeqit)) {
@@ -14606,18 +14604,19 @@ struct skill_condition skill_get_requirement(struct map_session_data* sd, uint16
 	//Check if player is using the copied skill [Cydh]
 	if (sd->status.skill[idx].flag == SKILL_FLAG_PLAGIARIZED) {
 		uint16 req_opt = skill_db[idx].copyable.req_opt;
-		if (req_opt&0x001) req.hp = 0;
-		if (req_opt&0x002) req.mhp = 0;
-		if (req_opt&0x004) req.sp = 0;
-		if (req_opt&0x008) req.hp_rate = 0;
-		if (req_opt&0x010) req.sp_rate = 0;
-		if (req_opt&0x020) req.zeny = 0;
-		if (req_opt&0x040) req.weapon = 0;
-		if (req_opt&0x080) { req.ammo = 0; req.ammo_qty = 0; }
-		if (req_opt&0x100) req.state = ST_NONE;
-		if (req_opt&0x200) { memset(req.status,SC_NONE,sizeof(req.status)); }
-		if (req_opt&0x400) req.spiritball = 0;
-		if (req_opt&0x800) { memset(req.itemid,0,sizeof(req.itemid)); memset(req.amount,0,sizeof(req.amount)); }
+		if (req_opt&0x0001) req.hp = 0;
+		if (req_opt&0x0002) req.mhp = 0;
+		if (req_opt&0x0004) req.sp = 0;
+		if (req_opt&0x0008) req.hp_rate = 0;
+		if (req_opt&0x0010) req.sp_rate = 0;
+		if (req_opt&0x0020) req.zeny = 0;
+		if (req_opt&0x0040) req.weapon = 0;
+		if (req_opt&0x0080) { req.ammo = 0; req.ammo_qty = 0; }
+		if (req_opt&0x0100) req.state = ST_NONE;
+		if (req_opt&0x0200) memset(req.status,SC_NONE,sizeof(req.status));
+		if (req_opt&0x0400) req.spiritball = 0;
+		if (req_opt&0x0800) { memset(req.itemid,0,sizeof(req.itemid)); memset(req.amount,0,sizeof(req.amount)); }
+		if (req_opt&0x1000) memset(req.eqItem,0,sizeof(req.eqItem));
 	}
 
 	return req;
@@ -18576,7 +18575,7 @@ static bool skill_parse_row_requiredb(char* split[], int columns, int current)
 	p = strtok(split[11],":");
 	for( i = 0; i < MAX_SKILL_STATUS_REQUIRE && p != NULL; i++ ) {
 		int status = SC_NONE;
-		script_get_constant(trim(p), &status);
+		script_get_constant(trim(p),&status);
 		if (status > SC_NONE) {
 			skill_db[idx].require.status[skill_db[idx].require.status_count] = (enum sc_type)status;
 			skill_db[idx].require.status_count++;
@@ -18594,9 +18593,9 @@ static bool skill_parse_row_requiredb(char* split[], int columns, int current)
 	//require equiped
 	memset(skill_db[idx].require.eqItem,0,sizeof(skill_db[idx].require.eqItem));
 	p = strtok(split[33],":");
-	for( i = 0; i < 10 && p != NULL; i++ ) {
+	for( i = 0; i < MAX_SKILL_EQUIP_REQUIRE && p != NULL; i++ ) {
 		int itid = atoi(p);
-		p = strtok(NULL,":"); //for easy continue don,t read p after this
+		p = strtok(NULL,":"); //for easy continue don't read 'p' after this
 		if(itid <= 0) continue; //silent
 		if(itemdb_exists(itid)== NULL) {
 			ShowWarning("Invalid reqIt=%d specified for skillid=%d\n",itid,skill_id);
@@ -18820,7 +18819,8 @@ static bool skill_parse_row_copyabledb(char* split[], int column, int current) {
 	skill_db[idx].copyable.reproduce = (option&2) ? true : false;
 
 	skill_db[idx].copyable.joballowed = (atoi(split[2])) ? cap_value(atoi(split[2]),1,63) : 63;
-	skill_db[idx].copyable.req_opt = cap_value(atoi(split[3]),0,4095);
+	
+	skill_db[idx].copyable.req_opt = cap_value(atoi(split[3]),0,(0x2000)-1);
 
 	return true;
 }
