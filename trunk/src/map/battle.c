@@ -339,7 +339,7 @@ int64 battle_attr_fix(struct block_list *src, struct block_list *target, int64 d
 			if(sc->data[SC_DELUGE]) ratio += enchant_eff[sc->data[SC_DELUGE]->val1-1];
 			break;
 		case ELE_GHOST:
-			if(sc->data[SC_TELEKINESIS_INTENSE]) ratio += (sc->data[SC_TELEKINESIS_INTENSE]->val1*40)/100;
+			if(sc->data[SC_TELEKINESIS_INTENSE]) ratio += (sc->data[SC_TELEKINESIS_INTENSE]->val3);
 			break;
 		}
 	}
@@ -5923,10 +5923,10 @@ int64 battle_calc_return_damage(struct block_list* bl, struct block_list *src, i
 					}
 				}
 
-                if( sc->data[SC_SHIELDSPELL_DEF] && sc->data[SC_SHIELDSPELL_DEF]->val1 == 2 && !(src->type == BL_MOB && is_boss(src)) ){
+				if( sc->data[SC_SHIELDSPELL_DEF] && sc->data[SC_SHIELDSPELL_DEF]->val1 == 2 && !(src->type == BL_MOB && is_boss(src)) ){
 						rdamage += damage * sc->data[SC_SHIELDSPELL_DEF]->val2 / 100;
 						if (rdamage < 1) rdamage = 1;
-                }
+				}
 			}
 		}
 	} else {
