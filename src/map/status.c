@@ -1412,7 +1412,9 @@ int status_damage(struct block_list *src,struct block_list *target,int64 dhp, in
 	}
 
 	// Always run NPC scripts for players last
-	if(target->type == BL_PC) {
+	//FIXME those ain't always run if a player die if he was resurect meanwhile
+	//cf SC_REBIRTH, SC_LIGHT_OF_REGENE, SC_KAIZEL, pc_dead...
+	if(target->type == BL_PC) { 
 		TBL_PC *sd = BL_CAST(BL_PC,target);
 		if( sd->bg_id ) {
 			struct battleground_data *bg;
@@ -1431,7 +1433,7 @@ int status_damage(struct block_list *src,struct block_list *target,int64 dhp, in
 * @param bl: Object to heal [PC|MOB|HOM|MER|ELEM]
 * @param hhp: How much HP to heal
 * @param hsp: How much SP to heal
-* @param flag:	Whether it's Forced(&1) or gives HP/SP(&2) heal effect
+* @param flag:	Whether it's Forced(&1) or gives HP/SP(&2) heal effect \n
 *		Forced healing overrides heal impedement statuses (Berserk)
 * @return hp+sp
 **/
@@ -1512,7 +1514,8 @@ int status_heal(struct block_list *bl,int64 hhp,int64 hsp, int flag)
 * @param target: Object to modify HP/SP
 * @param hp_rate: Percentage of HP to modify
 * @param sp_rate: Percentage of SP to modify
-* @param flag:	0: Heal target
+* @param flag: \n
+*		0: Heal target \n 
 *		2: Target must not die from subtraction
 * @return hp+sp through status_heal()
 **/
@@ -2587,10 +2590,11 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 	pc_delautobonus(sd,sd->autobonus3,ARRAYLENGTH(sd->autobonus3),true);
 
 	// Parse equipment
-	for(i=0;i<EQI_MAX-1;i++) {
+	for(i=0;i<EQI_MAX;i++) {
 		current_equip_item_index = index = sd->equip_index[i]; // We pass INDEX to current_equip_item_index - for EQUIP_SCRIPT (new cards solution) [Lupus]
 		if(index < 0)
 			continue;
+		if(i == EQI_AMMO) continue;
 		if(i == EQI_HAND_R && sd->equip_index[EQI_HAND_L] == index)
 			continue;
 		if(i == EQI_HEAD_MID && sd->equip_index[EQI_HEAD_LOW] == index)
@@ -2737,10 +2741,11 @@ int status_calc_pc_(struct map_session_data* sd, bool first)
 	status->def += (refinedef+50)/100;
 
 	// Parse Cards
-	for(i=0;i<EQI_MAX-1;i++) {
+	for(i=0;i<EQI_MAX;i++) {
 		current_equip_item_index = index = sd->equip_index[i]; // We pass INDEX to current_equip_item_index - for EQUIP_SCRIPT (new cards solution) [Lupus]
 		if(index < 0)
 			continue;
+		if(i == EQI_AMMO) continue;
 		if(i == EQI_HAND_R && sd->equip_index[EQI_HAND_L] == index)
 			continue;
 		if(i == EQI_HEAD_MID && sd->equip_index[EQI_HEAD_LOW] == index)
@@ -9279,7 +9284,7 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 			break;
 		case SC_OFFERTORIUM:
 			val2 = 30 * val1; // heal power bonus
-			val3 = 20 * val1; // sp cost inc
+			val3 = 100 + (20 * val1); // sp cost inc
 			break;
 		case SC_FRIGG_SONG:
 			val2 = 5 * val1; // maxhp bonus

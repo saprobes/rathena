@@ -1141,6 +1141,9 @@ bool pc_authok(struct map_session_data *sd, int login_id2, time_t expiration_tim
 	}
 #endif
 
+	// Player has not yet received the CashShop list
+	sd->status.cashshop_sent = false;
+
 	// Request all registries (auth is considered completed whence they arrive)
 	intif_request_registry(sd,7);
 	return true;
@@ -1976,8 +1979,8 @@ int pc_delautobonus(struct map_session_data* sd, struct s_autobonus *autobonus,c
 				if( autobonus[i].bonus_script )
 				{
 					int j;
-					ARR_FIND( 0, EQI_MAX-1, j, sd->equip_index[j] >= 0 && sd->status.inventory[sd->equip_index[j]].equip == autobonus[i].pos );
-					if( j < EQI_MAX-1 )
+					ARR_FIND( 0, EQI_MAX, j, sd->equip_index[j] >= 0 && sd->status.inventory[sd->equip_index[j]].equip == autobonus[i].pos );
+					if( j < EQI_MAX )
 						script_run_autobonus(autobonus[i].bonus_script,sd->bl.id,sd->equip_index[j]);
 				}
 				continue;
@@ -2007,8 +2010,8 @@ int pc_exeautobonus(struct map_session_data *sd,struct s_autobonus *autobonus)
 	if( autobonus->other_script )
 	{
 		int j;
-		ARR_FIND( 0, EQI_MAX-1, j, sd->equip_index[j] >= 0 && sd->status.inventory[sd->equip_index[j]].equip == autobonus->pos );
-		if( j < EQI_MAX-1 )
+		ARR_FIND( 0, EQI_MAX, j, sd->equip_index[j] >= 0 && sd->status.inventory[sd->equip_index[j]].equip == autobonus->pos );
+		if( j < EQI_MAX )
 			script_run_autobonus(autobonus->other_script,sd->bl.id,sd->equip_index[j]);
 	}
 
@@ -4255,6 +4258,7 @@ int pc_isUseitem(struct map_session_data *sd,int n)
 		case 12024: // Red Pouch
 		case 12103: // Bloody Branch
 		case 12109: // Poring Box
+		case 12863: // Treasure_Chest_Summoned_II
 			if( map[sd->bl.m].flag.nobranch || map_flag_gvg(sd->bl.m) )
 				return 0;
 			break;
@@ -4352,7 +4356,7 @@ int pc_isUseitem(struct map_session_data *sd,int n)
 
 	//Dead Branch & Bloody Branch & Porings Box
 	// FIXME: outdated, use constants or database
-	if( nameid == 604 || nameid == 12103 || nameid == 12109 )
+	if( nameid == 604 || nameid == 12103 || nameid == 12109 || nameid == 12863 )
 		log_branch(sd);
 
 	return 1;
@@ -6746,6 +6750,7 @@ void pc_close_npc(struct map_session_data *sd,int flag)
 		sd->npc_idle_timer = INVALID_TIMER;
 #endif
 		clif_scriptclose(sd,sd->npc_id);
+		clif_scriptclear(sd,sd->npc_id); // [Ind/Hercules]
 		if(sd->st && sd->st->state == END ) {// free attached scripts that are waiting
 			script_free_state(sd->st);
 			sd->st = NULL;
@@ -7930,9 +7935,6 @@ int pc_setcart(struct map_session_data *sd,int type) {
 
 	if( pc_checkskill(sd,MC_PUSHCART) <= 0 && type != 0 )
 		return 1;// Push cart is required
-
-	if( type == 0 && pc_iscarton(sd) )
-		status_change_end(&sd->bl,SC_GN_CARTBOOST,INVALID_TIMER);
 
 #ifdef NEW_CARTS
 
@@ -9413,7 +9415,10 @@ int pc_autosave(int tid, unsigned int tick, int id, intptr_t data)
 		//Save char.
 		last_save_id = sd->bl.id;
 		save_flag = 2;
-
+#ifdef VIP_ENABLE
+		if(sd->vip.enabled) //check if we're still vip
+			chrif_req_login_operation(1, sd->status.name, 6, 0, 1, 0);
+#endif
 		chrif_save(sd,0);
 		break;
 	}
@@ -10469,8 +10474,7 @@ void pc_bonus_script_check(struct map_session_data *sd, enum e_bonus_script_flag
  * @param sd player
  */
 void pc_cell_basilica(struct map_session_data *sd) {
-	if (!sd)
-		return;
+	nullpo_retv(sd);
 	
 	if (!map_getcell(sd->bl.m,sd->bl.x,sd->bl.y,CELL_CHKBASILICA)) {
 		if (&sd->sc && sd->sc.data[SC_BASILICA])
