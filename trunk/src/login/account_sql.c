@@ -23,7 +23,7 @@ typedef struct AccountDB_SQL
 	Sql* accounts;       // SQL accounts storage
 
 	// global sql settings
-	char   global_db_hostname[32];
+	char   global_db_hostname[64]; // Doubled for long hostnames (bugreport:8003)
 	uint16 global_db_port;
 	char   global_db_username[32];
 	char   global_db_password[32];
@@ -562,7 +562,7 @@ static bool mmo_auth_fromsql(AccountDB_SQL* db, struct mmo_account* acc, int acc
 	Sql_GetData(sql_handle, 18, &data, NULL); acc->old_group = atoi(data);
 #endif
 	Sql_FreeResult(sql_handle);
-
+	
 	// retrieve account regs for the specified user
 	if( SQL_ERROR == Sql_Query(sql_handle, "SELECT `str`,`value` FROM `%s` WHERE `type`='1' AND `account_id`='%d'", db->accreg_db, acc->account_id) )
 	{

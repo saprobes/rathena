@@ -326,7 +326,8 @@ static int clif_send_sub(struct block_list *bl, va_list ap)
 		return 0;
 
 	/* unless visible, hold it here */
-	if (clif_ally_only && !sd->special_state.intravision && battle_check_target(src_bl,&sd->bl,BCT_ENEMY) > 0)
+	if (!battle_config.update_enemy_position && clif_ally_only && !sd->special_state.intravision &&
+		!sd->sc.data[SC_INTRAVISION] && battle_check_target(src_bl,&sd->bl,BCT_ENEMY) > 0)
 		return 0;
 
 	WFIFOHEAD(fd, len);
@@ -1918,6 +1919,34 @@ void clif_scriptclose(struct map_session_data *sd, int npcid)
 	WFIFOSET(fd,packet_len(0xb6));
 }
 
+/**
+ * Close script when player is idle
+ * 08d6 <npc id>.L (ZC_CLEAR_DIALOG)
+ * @author [Ind/Hercules]
+ * @param sd : player pointer
+ * @param npcid : npc gid to close
+ */
+void clif_scriptclear(struct map_session_data *sd, int npcid)
+{
+	struct s_packet_db* info;
+	int16 len;
+	int cmd = 0;
+	int fd;
+
+	nullpo_retv(sd);
+
+	cmd = packet_db_ack[sd->packet_ver][ZC_CLEAR_DIALOG];
+	if(!cmd) cmd = 0x8d6; //default
+	info = &packet_db[sd->packet_ver][cmd];
+	len = info->len;
+	fd = sd->fd;
+
+	WFIFOHEAD(fd, len);
+	WFIFOW(fd,0)=0x8d6;
+	WFIFOL(fd,info->pos[0])=npcid;
+	WFIFOSET(fd,len);
+ }
+
 /*==========================================
  *
  *------------------------------------------*/
@@ -2485,10 +2514,12 @@ void clif_equiplist(struct map_session_data *sd)
 
 void clif_storagelist(struct map_session_data* sd, struct item* items, int items_length)
 {
+	static const int client_buf = 0x5000; // Max buffer to send
 	struct item_data *id;
-	int i,n,ne;
+	int i,n,ne,nn;
 	unsigned char *buf;
 	unsigned char *bufe;
+	unsigned char *bufn;
 #if PACKETVER < 5
 	const int s = 10; //Entry size.normal item
 	const int sidx=4; //start itemlist idx
@@ -2533,33 +2564,39 @@ void clif_storagelist(struct map_session_data* sd, struct item* items, int items
 			n++;
 		}
 	}
-	if( n )
+	for (i = 0; i < n;) // Loop through non-equipable items
 	{
+		nn = n - i < (client_buf - 4)/s ? n - i : (client_buf - 4)/s; // Split up non-equipable items
+		bufn = buf + i*s; // Update buffer to new index range
+		i += nn;
 #if PACKETVER < 5
-		WBUFW(buf,0)=0xa5;
+		WBUFW(bufn,0)=0xa5;
 #elif PACKETVER < 20080102
-		WBUFW(buf,0)=0x1f0;
+		WBUFW(bufn,0)=0x1f0;
 #elif PACKETVER < 20120925
-		WBUFW(buf,0)=0x2ea;
+		WBUFW(bufn,0)=0x2ea;
 #else
-		WBUFW(buf,0)=0x995;
+		WBUFW(bufn,0)=0x995;
 		memset((char*)WBUFP(buf,4),0,24); //storename
 #endif
-		WBUFW(buf,2)=n*s+sidx;
-		clif_send(buf, WBUFW(buf,2), &sd->bl, SELF);
+		WBUFW(bufn,2)=sidx+nn*s;
+		clif_send(bufn, WBUFW(bufn,2), &sd->bl, SELF);
 	}
-	if( ne )
+	for (i = 0; i < ne;) // Loop through equipable items
 	{
+		nn = ne - i < (client_buf - 4)/se ? ne - i : (client_buf - 4)/se; // Split up equipable items
+		bufn = bufe + i*se; // Update buffer to new index range
+		i += nn;
 #if PACKETVER < 20071002
-		WBUFW(bufe,0)=0xa6;
+		WBUFW(bufn,0)=0xa6;
 #elif PACKETVER < 20120925
-		WBUFW(bufe,0)=0x2d1;
+		WBUFW(bufn,0)=0x2d1;
 #else
-		WBUFW(bufe,0)=0x996;
-		memset((char*)WBUFP(bufe,4),0,24); //storename
+		WBUFW(bufn,0)=0x996;
+		memset((char*)WBUFP(bufn,4),0,24); //storename
 #endif
-		WBUFW(bufe,2)=ne*se+sidxe;
-		clif_send(bufe, WBUFW(bufe,2), &sd->bl, SELF);
+		WBUFW(bufn,2)=sidxe+nn*se;
+		clif_send(bufn, WBUFW(bufn,2), &sd->bl, SELF);
 	}
 
 	if( buf ) aFree(buf);
@@ -4180,7 +4217,7 @@ void clif_getareachar_unit(struct map_session_data* sd,struct block_list *bl)
 				clif_sendbgemblem_single(sd->fd,tsd);
 			if ( tsd->status.robe )
 				clif_refreshlook(&sd->bl,bl->id,LOOK_ROBE,tsd->status.robe,SELF);
-			
+
 			if( tsd->sc.data[SC_CAMOUFLAGE] )
 				clif_status_load(bl,SI_CAMOUFLAGE,1);
 			if( tsd->sc.data[SC_MONSTER_TRANSFORM] )
@@ -6167,13 +6204,13 @@ void clif_cart_additem_ack(struct map_session_data *sd, uint8 flag)
 	clif_send(buf,packet_len(0x12c),&sd->bl,SELF);
 }
 
-// 09B7 <unknow data> (ZC_ACK_OPEN_BANKING) 
+// 09B7 <unknow data> (ZC_ACK_OPEN_BANKING)
 void clif_bank_open(struct map_session_data *sd){
 	int fd;
-        
-        nullpo_retv(sd);
-        fd = sd->fd;
-	
+
+	nullpo_retv(sd);
+	fd = sd->fd;
+
 	WFIFOHEAD(fd,4);
 	WFIFOW(fd,0) = 0x09b7;
 	WFIFOW(fd,2) = 0;
@@ -6187,32 +6224,32 @@ void clif_bank_open(struct map_session_data *sd){
 void clif_parse_BankOpen(int fd, struct map_session_data* sd) {
 	//TODO check if preventing trade or stuff like that
 	//also mark something in case char ain't available for saving, should we check now ?
-        nullpo_retv(sd);
+	nullpo_retv(sd);
 	if( !battle_config.feature_banking ) {
 		clif_colormes(sd,color_table[COLOR_RED],msg_txt(sd,1496)); //Banking is disabled
 		return;
-	}    
+	}
 	else {
 		struct s_packet_db* info = &packet_db[sd->packet_ver][RFIFOW(fd,0)];
 		int aid = RFIFOL(fd,info->pos[0]); //unused should we check vs fd ?
-                if(sd->status.account_id == aid){
+		if(sd->status.account_id == aid){
 			sd->state.banking = 1;
-                        //request save ?
-                        //chrif_bankdata_request(sd->status.account_id, sd->status.char_id); 
-                        //on succes open bank ?
-                        clif_bank_open(sd);
-                }
+			//request save ?
+			//chrif_bankdata_request(sd->status.account_id, sd->status.char_id);
+			//on succes open bank ?
+			clif_bank_open(sd);
+		}
 	}
 }
 
-// 09B9 <unknow data> (ZC_ACK_CLOSE_BANKING) 
+// 09B9 <unknow data> (ZC_ACK_CLOSE_BANKING)
 
 void clif_bank_close(struct map_session_data *sd){
 	int fd;
-        
+
 	nullpo_retv(sd);
-        fd = sd->fd;
-        
+	fd = sd->fd;
+
 	WFIFOHEAD(fd,4);
 	WFIFOW(fd,0) = 0x09B9;
 	WFIFOW(fd,2) = 0;
@@ -6223,19 +6260,19 @@ void clif_bank_close(struct map_session_data *sd){
  * Request to close the banking system
  * 09B8 <aid>L ??? (dunno just wild guess checkme)
  */
-void clif_parse_BankClose(int fd, struct map_session_data* sd) {       
+void clif_parse_BankClose(int fd, struct map_session_data* sd) {
 	struct s_packet_db* info = &packet_db[sd->packet_ver][RFIFOW(fd,0)];
 	int aid = RFIFOL(fd,info->pos[0]); //unused should we check vs fd ?
-        
-        nullpo_retv(sd);
+
+	nullpo_retv(sd);
 	if( !battle_config.feature_banking ) {
 		clif_colormes(sd,color_table[COLOR_RED],msg_txt(sd,1496)); //Banking is disabled
 		//still allow to go trough to not stuck player if we have disable it while they was in
 	}
-        if(sd->status.account_id == aid){
-            sd->state.banking = 0;
-            clif_bank_close(sd);
-        }
+	if(sd->status.account_id == aid){
+		sd->state.banking = 0;
+		clif_bank_close(sd);
+	}
 }
 
 /*
@@ -6247,29 +6284,29 @@ void clif_Bank_Check(struct map_session_data* sd) {
 	struct s_packet_db* info;
 	int16 len;
 	int cmd = 0;
-	
+
 	nullpo_retv(sd);
-	
+
 	cmd = packet_db_ack[sd->packet_ver][ZC_BANKING_CHECK];
 	if(!cmd) cmd = 0x09A6; //default
-	info = &packet_db[sd->packet_ver][cmd]; 
+	info = &packet_db[sd->packet_ver][cmd];
 	len = info->len;
 	if(!len) return; //version as packet disable
-//        sd->state.banking = 1; //mark opening and closing
+	// sd->state.banking = 1; //mark opening and closing
 
 	WBUFW(buf,0) = cmd;
 	WBUFQ(buf,info->pos[0]) = sd->status.bank_vault; //testig value
 	WBUFW(buf,info->pos[1]) = 0; //reason
-	clif_send(buf,len,&sd->bl,SELF);       
+	clif_send(buf,len,&sd->bl,SELF);
 }
 
 /*
  * Requesting the data in bank
  * 09AB <aid>L (PACKET_CZ_REQ_BANKING_CHECK)
  */
-void clif_parse_BankCheck(int fd, struct map_session_data* sd) {  
+void clif_parse_BankCheck(int fd, struct map_session_data* sd) {
 	nullpo_retv(sd);
-	
+
 	if( !battle_config.feature_banking ) {
 		clif_colormes(sd,color_table[COLOR_RED],msg_txt(sd,1496)); //Banking is disabled
 		return;
@@ -6291,17 +6328,17 @@ void clif_bank_deposit(struct map_session_data *sd, enum e_BANKING_DEPOSIT_ACK r
 	struct s_packet_db* info;
 	int16 len;
 	int cmd =0;
-	
+
 	nullpo_retv(sd);
-	
+
 	cmd = packet_db_ack[sd->packet_ver][ZC_ACK_BANKING_DEPOSIT];
 	if(!cmd) cmd = 0x09A8;
-	info = &packet_db[sd->packet_ver][cmd]; 
+	info = &packet_db[sd->packet_ver][cmd];
 	len = info->len;
 	if(!len) return; //version as packet disable
-	
+
 	WBUFW(buf,0) = cmd;
-	WBUFW(buf,info->pos[0]) = (short)reason;	
+	WBUFW(buf,info->pos[0]) = (short)reason;
 	WBUFQ(buf,info->pos[1]) = sd->status.bank_vault;/* money in the bank */
 	WBUFL(buf,info->pos[2]) = sd->status.zeny;/* how much zeny char has after operation */
 	clif_send(buf,len,&sd->bl,SELF);
@@ -6344,7 +6381,7 @@ void clif_bank_withdraw(struct map_session_data *sd,enum e_BANKING_WITHDRAW_ACK 
 
 	cmd = packet_db_ack[sd->packet_ver][ZC_ACK_BANKING_WITHDRAW];
 	if(!cmd) cmd = 0x09AA;
-	info = &packet_db[sd->packet_ver][cmd]; 
+	info = &packet_db[sd->packet_ver][cmd];
 	len = info->len;
 	if(!len) return; //version as packet disable
 
@@ -9457,7 +9494,8 @@ void clif_parse_LoadEndAck(int fd,struct map_session_data *sd)
 	// reset the callshop flag if the player changes map
 	sd->state.callshop = 0;
 
-	map_addblock(&sd->bl);
+	if(map_addblock(&sd->bl))
+		return;
 	clif_spawn(&sd->bl);
 
 	// Party
@@ -9499,7 +9537,8 @@ void clif_parse_LoadEndAck(int fd,struct map_session_data *sd)
 			clif_displaymessage(sd->fd, msg_txt(sd,666));
 			pet_menu(sd, 3); //Option 3 is return to egg.
 		} else {
-			map_addblock(&sd->pd->bl);
+			if(map_addblock(&sd->pd->bl))
+				return;
 			clif_spawn(&sd->pd->bl);
 			clif_send_petdata(sd,sd->pd,0,0);
 			clif_send_petstatus(sd);
@@ -9509,7 +9548,8 @@ void clif_parse_LoadEndAck(int fd,struct map_session_data *sd)
 
 	//homunculus [blackhole89]
 	if( merc_is_hom_active(sd->hd) ) {
-		map_addblock(&sd->hd->bl);
+		if(map_addblock(&sd->hd->bl))
+			return;
 		clif_spawn(&sd->hd->bl);
 		clif_send_homdata(sd,SP_ACK,0);
 		clif_hominfo(sd,sd->hd,1);
@@ -9522,7 +9562,8 @@ void clif_parse_LoadEndAck(int fd,struct map_session_data *sd)
 	}
 
 	if( sd->md ) {
-		map_addblock(&sd->md->bl);
+		if(map_addblock(&sd->md->bl))
+			return;
 		clif_spawn(&sd->md->bl);
 		clif_mercenary_info(sd);
 		clif_mercenary_skillblock(sd);
@@ -12451,7 +12492,7 @@ static bool clif_validate_emblem(const uint8* emblem, unsigned long emblem_len){
 		if(((transcount*300)/(buf_len-offset)) > battle_config.emblem_transparency_limit) //convert in % to chk
 			return -2;
 	}
-	
+
 	return 0;
 }
 
@@ -13068,7 +13109,7 @@ void clif_parse_GMReqAccountName(int fd, struct map_session_data *sd)
 
 	//tmp get all display
 	safesnprintf(command,sizeof(command),"%caccinfo %d", atcommand_symbol, account_id);
-	is_atcommand(fd, sd, command, 1); 
+	is_atcommand(fd, sd, command, 1);
 	//clif_account_name(sd, account_id, ""); //! TODO request to login-serv
 }
 
@@ -14801,7 +14842,7 @@ void clif_cashshop_list( int fd ){
 	int tab;
 
 	for( tab = CASHSHOP_TAB_NEW; tab < CASHSHOP_TAB_SEARCH; tab++ ){
-		int length = 8 + cash_shop_items->count * 6;
+		int length = 8 + cash_shop_items[tab].count * 6;
 		int i, offset;
 
 		WFIFOHEAD( fd, length );
@@ -14820,7 +14861,10 @@ void clif_cashshop_list( int fd ){
 }
 
 void clif_parse_cashshop_list_request( int fd, struct map_session_data* sd ){
-	clif_cashshop_list( fd );
+	if( !sd->status.cashshop_sent ) {
+		clif_cashshop_list( fd );
+		sd->status.cashshop_sent = true;
+	}
 }
 /// List of items offered in a cash shop (ZC_PC_CASH_POINT_ITEMLIST).
 /// 0287 <packet len>.W <cash point>.L { <sell price>.L <discount price>.L <item type>.B <name id>.W }*
@@ -16947,7 +16991,7 @@ void clif_update_rankingpoint(struct map_session_data *sd, int rankingtype, int 
 /**
  * Transmit personal information to player. (rates)
  * 0x08cb <packet len>.W <exp>.W <death>.W <drop>.W <DETAIL_EXP_INFO>7B (ZC_PERSONAL_INFOMATION)
- * <InfoType>.B <Exp>.W <Death>.W <Drop>.W (DETAIL_EXP_INFO 0x08cb) 
+ * <InfoType>.B <Exp>.W <Death>.W <Drop>.W (DETAIL_EXP_INFO 0x08cb)
  * 0x097b <packet len>.W <exp>.L <death>.L <drop>.L <DETAIL_EXP_INFO>13B (ZC_PERSONAL_INFOMATION2)
  * 0x0981 <packet len>.W <exp>.W <death>.W <drop>.W <activity rate>.W <DETAIL_EXP_INFO>13B (ZC_PERSONAL_INFOMATION_CHN)
  * <InfoType>.B <Exp>.L <Death>.L <Drop>.L (DETAIL_EXP_INFO 0x97b|0981)
@@ -16967,7 +17011,7 @@ void clif_display_pinfo(struct map_session_data *sd, int cmdtype) {
 		int details_drop[PINFO_MAX];
 		int details_penalty[PINFO_MAX];
 		int penalty_const;
-		
+
 		/**
 		 * Set for EXP
 		 */
@@ -17089,7 +17133,7 @@ void clif_display_pinfo(struct map_session_data *sd, int cmdtype) {
 			tot_drop *= factor;
 			tot_penalty *= factor;
 		}
-		
+
 		fd = sd->fd;
 		WFIFOHEAD(fd,len+maxinfotype*szdetails);
 		WFIFOW(fd,0) = cmd;
@@ -17118,7 +17162,7 @@ void clif_display_pinfo(struct map_session_data *sd, int cmdtype) {
 			WFIFOL(fd,info->pos[2])  = tot_drop;
 			WFIFOL(fd,info->pos[3])  = tot_penalty;
 		}
-		if (cmdtype == ZC_PERSONAL_INFOMATION_CHN) 
+		if (cmdtype == ZC_PERSONAL_INFOMATION_CHN)
 			WFIFOW(fd,info->pos[8])  = 0; //activity rate case of event ??
 		WFIFOSET(fd,len);
 	}
@@ -17131,6 +17175,9 @@ void clif_parse_GMFullStrip(int fd, struct map_session_data *sd) {
 	safesnprintf(cmd,sizeof(cmd),"%cfullstrip %d",atcommand_symbol,t_aid);
 	is_atcommand(fd, sd, cmd, 1);
 }
+
+///TODO: Special item that obtained, must be broadcasted by this packet
+//void clif_broadcast_obtain_special_item() {}
 
 #ifdef DUMP_UNKNOWN_PACKET
 void DumpUnknow(int fd,TBL_PC *sd,int cmd,int packet_len){
@@ -17529,7 +17576,7 @@ void packetdb_readdb(void)
 		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
 	//#0x08C0
 		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 10,
-		9,  7, 10,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+		9,  7, 10,  0,  0,  0,  6,  0,  0,  0,  0,  0,  0,  0,  0,  0,
 		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
 		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
 	//#0x0900
@@ -17781,6 +17828,7 @@ void packetdb_readdb(void)
 		{ "ZC_BANKING_CHECK", ZC_BANKING_CHECK},
 		{ "ZC_PERSONAL_INFOMATION", ZC_PERSONAL_INFOMATION},
 		{ "ZC_PERSONAL_INFOMATION_CHN", ZC_PERSONAL_INFOMATION_CHN},
+		{ "ZC_CLEAR_DIALOG", ZC_CLEAR_DIALOG},
 	};
 
 	// initialize packet_db[SERVER] from hardcoded packet_len_table[] values
