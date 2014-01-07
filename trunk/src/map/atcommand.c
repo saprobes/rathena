@@ -14,6 +14,7 @@
 #include "../common/utils.h"
 #include "../common/conf.h"
 
+#include "map.h"
 #include "atcommand.h"
 #include "battle.h"
 #include "chat.h"
@@ -25,7 +26,6 @@
 #include "intif.h"
 #include "itemdb.h"
 #include "log.h"
-#include "map.h"
 #include "pc.h"
 #include "pc_groups.h" // groupid2name
 #include "status.h"
@@ -2410,9 +2410,10 @@ ACMD_FUNC(zeny)
  *------------------------------------------*/
 ACMD_FUNC(param)
 {
-	int i, value = 0, new_value, max;
+	uint8 i;
+	int value = 0;
 	const char* param[] = { "str", "agi", "vit", "int", "dex", "luk" };
-	short* status[6];
+	short new_value, *status[6], max_status[6];
  	//we don't use direct initialization because it isn't part of the c standard.
 	nullpo_retr(-1, sd);
 
@@ -2438,17 +2439,22 @@ ACMD_FUNC(param)
 	status[5] = &sd->status.luk;
 
 	if( battle_config.atcommand_max_stat_bypass )
-		max = SHRT_MAX;
-	else
-		max = pc_maxparameter(sd);
-
-	if(value < 0 && *status[i] <= -value) {
-		new_value = 1;
-	} else if(max - *status[i] < value) {
-		new_value = max;
-	} else {
-		new_value = *status[i] + value;
+		max_status[0] = max_status[1] = max_status[2] = max_status[3] = max_status[4] = max_status[5] = SHRT_MAX;
+	else {
+		max_status[0] = pc_maxparameter(sd,PARAM_STR);
+		max_status[1] = pc_maxparameter(sd,PARAM_AGI);
+		max_status[2] = pc_maxparameter(sd,PARAM_VIT);
+		max_status[3] = pc_maxparameter(sd,PARAM_INT);
+		max_status[4] = pc_maxparameter(sd,PARAM_DEX);
+		max_status[5] = pc_maxparameter(sd,PARAM_LUK);
 	}
+
+	if(value > 0  && *status[i] + value >= max_status[i])
+		new_value = max_status[i];
+	else if(value < 0 && *status[i] <= -value)
+		new_value = 1;
+	else
+		new_value = *status[i] + value;
 
 	if (new_value != *status[i]) {
 		*status[i] = new_value;
@@ -2472,8 +2478,9 @@ ACMD_FUNC(param)
  *------------------------------------------*/
 ACMD_FUNC(stat_all)
 {
-	int index, count, value, max, new_value;
-	short* status[6];
+	int value = 0;
+	uint8 count, i;
+	short *status[PARAM_MAX], max_status[PARAM_MAX];
  	//we don't use direct initialization because it isn't part of the c standard.
 	nullpo_retr(-1, sd);
 
@@ -2485,29 +2492,40 @@ ACMD_FUNC(stat_all)
 	status[5] = &sd->status.luk;
 
 	if (!message || !*message || sscanf(message, "%d", &value) < 1 || value == 0) {
-		value = pc_maxparameter(sd);
-		max = pc_maxparameter(sd);
+		max_status[0] = pc_maxparameter(sd,PARAM_STR);
+		max_status[1] = pc_maxparameter(sd,PARAM_AGI);
+		max_status[2] = pc_maxparameter(sd,PARAM_VIT);
+		max_status[3] = pc_maxparameter(sd,PARAM_INT);
+		max_status[4] = pc_maxparameter(sd,PARAM_DEX);
+		max_status[5] = pc_maxparameter(sd,PARAM_LUK);
+		value = SHRT_MAX;
 	} else {
 		if( battle_config.atcommand_max_stat_bypass )
-			max = SHRT_MAX;
-		else
-			max = pc_maxparameter(sd);
+			max_status[0] = max_status[1] = max_status[2] = max_status[3] = max_status[4] = max_status[5] = SHRT_MAX;
+		else {
+			max_status[0] = pc_maxparameter(sd,PARAM_STR);
+			max_status[1] = pc_maxparameter(sd,PARAM_AGI);
+			max_status[2] = pc_maxparameter(sd,PARAM_VIT);
+			max_status[3] = pc_maxparameter(sd,PARAM_INT);
+			max_status[4] = pc_maxparameter(sd,PARAM_DEX);
+			max_status[5] = pc_maxparameter(sd,PARAM_LUK);
+		}
 	}
-
+	
 	count = 0;
-	for (index = 0; index < ARRAYLENGTH(status); index++) {
-
-		if (value > 0 && *status[index] > max - value)
-			new_value = max;
-		else if (value < 0 && *status[index] <= -value)
+	for (i = 0; i < ARRAYLENGTH(status); i++) {
+		short new_value;
+		if (value > 0 && *status[i] + value >= max_status[i])
+			new_value = max_status[i];
+		else if (value < 0 && *status[i] <= -value)
 			new_value = 1;
 		else
-			new_value = *status[index] +value;
+			new_value = *status[i] + value;
 
-		if (new_value != (int)*status[index]) {
-			*status[index] = new_value;
-			clif_updatestatus(sd, SP_STR + index);
-			clif_updatestatus(sd, SP_USTR + index);
+		if (new_value != *status[i]) {
+			*status[i] = new_value;
+			clif_updatestatus(sd, SP_STR + i);
+			clif_updatestatus(sd, SP_USTR + i);
 			count++;
 		}
 	}
@@ -2789,7 +2807,7 @@ ACMD_FUNC(char_ban)
 {
 	char * modif_p;
 	int32 timediff=0; //don't set this as uint as we may want to decrease banned time
-	int bantype=2; //2=account block, 6=char specific
+	int bantype=0; //2=account block, 6=char specific
 	char output[256];
 
 	nullpo_retr(-1, sd);
@@ -2862,7 +2880,7 @@ ACMD_FUNC(char_unblock)
  * char unban command (usage: charunban <player_name>)
  *------------------------------------------*/
 ACMD_FUNC(char_unban){
-	int unbantype=4;
+	int unbantype=0;
 	nullpo_retr(-1, sd);
 
 	memset(atcmd_player_name, '\0', sizeof(atcmd_player_name));
@@ -5185,7 +5203,7 @@ ACMD_FUNC(follow)
 ACMD_FUNC(dropall)
 {
 	int8 type = -1;
-	uint16 i, count = 0;
+	uint16 i, count = 0, count2 = 0;
 	struct item_data *item_data = NULL;
 
 	nullpo_retr(-1, sd);
@@ -5213,12 +5231,13 @@ ACMD_FUNC(dropall)
 			if( type == -1 || type == (uint8)item_data->type ) {
 				if( sd->status.inventory[i].equip != 0 )
 					pc_unequipitem(sd, i, 3);
-				count += sd->status.inventory[i].amount;
-				pc_dropitem(sd, i, sd->status.inventory[i].amount);
+				if(pc_dropitem(sd, i, sd->status.inventory[i].amount))
+					count += sd->status.inventory[i].amount;
+				else count2 += sd->status.inventory[i].amount;
 			}
 		}
 	}
-	sprintf(atcmd_output, msg_txt(sd,1494), count); // %d items are dropped!
+	sprintf(atcmd_output, msg_txt(sd,1494), count,count2); // %d items are dropped (%d skipped)!
 	clif_displaymessage(fd, atcmd_output); 
 	return 0;
 }
@@ -5554,7 +5573,7 @@ ACMD_FUNC(marry)
 		return -1;
 	}
 
-	if (pc_marriage(sd, pl_sd) == 0) {
+	if (pc_marriage(sd, pl_sd)) {
 		clif_displaymessage(fd, msg_txt(sd,1173)); // They are married... wish them well.
 		clif_wedding_effect(&pl_sd->bl); //wedding effect and music [Lupus]
 		getring(sd); // Auto-give named rings (Aru)
@@ -5574,7 +5593,7 @@ ACMD_FUNC(divorce)
 {
 	nullpo_retr(-1, sd);
 
-	if (pc_divorce(sd) != 0) {
+	if (!pc_divorce(sd)) {
 		sprintf(atcmd_output, msg_txt(sd,1175), sd->status.name); // '%s' is not married.
 		clif_displaymessage(fd, atcmd_output);
 		return -1;
@@ -6220,7 +6239,7 @@ ACMD_FUNC(mobsearch)
 
 		if( md->bl.m != sd->bl.m )
 			continue;
-		if( mob_id != -1 && md->class_ != mob_id )
+		if( mob_id != -1 && md->mob_id != mob_id )
 			continue;
 
 		++number;
@@ -6844,8 +6863,8 @@ ACMD_FUNC(mobinfo)
 
 #ifdef RENEWAL_EXP
 		if( battle_config.atcommand_mobinfo_type ) {
-			base_exp = base_exp * pc_level_penalty_mod(sd, mob->lv, mob->status.race, mob->status.mode, 1) / 100;
-			job_exp = job_exp * pc_level_penalty_mod(sd, mob->lv, mob->status.race, mob->status.mode, 1) / 100;
+			base_exp = base_exp * pc_level_penalty_mod(sd, mob->lv, mob->status.class_, 1) / 100;
+			job_exp = job_exp * pc_level_penalty_mod(sd, mob->lv, mob->status.class_, 1) / 100;
 		}
 #endif
 		// stats
@@ -6878,7 +6897,7 @@ ACMD_FUNC(mobinfo)
 
 #ifdef RENEWAL_DROP
 			if( battle_config.atcommand_mobinfo_type ) {
-				droprate = droprate * pc_level_penalty_mod(sd, mob->lv, mob->status.race, mob->status.mode, 2) / 100;
+				droprate = droprate * pc_level_penalty_mod(sd, mob->lv, mob->status.class_, 2) / 100;
 				if (droprate <= 0 && !battle_config.drop_rate0item)
 						droprate = 1;
 			}
@@ -6977,7 +6996,7 @@ ACMD_FUNC(showmobs)
 
 		if( md->bl.m != sd->bl.m )
 			continue;
-		if( mob_id != -1 && md->class_ != mob_id )
+		if( mob_id != -1 && md->mob_id != mob_id )
 			continue;
 		if( md->special_state.ai || md->master_id )
 			continue; // hide slaves and player summoned mobs
@@ -7406,7 +7425,7 @@ ACMD_FUNC(whodrops)
 
 #ifdef RENEWAL_DROP
 				if( battle_config.atcommand_mobinfo_type )
-					dropchance = dropchance * pc_level_penalty_mod(sd, mob_db(item_data->mob[j].id)->lv, mob_db(item_data->mob[j].id)->status.race, mob_db(item_data->mob[j].id)->status.mode, 2) / 100;
+					dropchance = dropchance * pc_level_penalty_mod(sd, mob_db(item_data->mob[j].id)->lv, mob_db(item_data->mob[j].id)->status.class_,  2) / 100;
 #endif
 				sprintf(atcmd_output, "- %s (%02.02f%%)", mob_db(item_data->mob[j].id)->jname, dropchance/100.);
 				clif_displaymessage(fd, atcmd_output);
@@ -7923,7 +7942,7 @@ ACMD_FUNC(duel)
 	}
 
 	if( message[0] ) {
-		if(sscanf(message, "%d", &maxpl) >= 1) {
+		if(sscanf(message, "%ui", &maxpl) >= 1) {
 			if(maxpl < 2 || maxpl > 65535) {
 				clif_displaymessage(fd, msg_txt(sd,357)); // "Duel: Invalid value."
 				return 0;
@@ -8634,7 +8653,7 @@ static void atcommand_commands_sub(struct map_session_data* sd, const int fd, At
 	if ( atcmd_binding_count ) {
 		int i, count_bind, gm_lvl = pc_get_group_level(sd);
 		for( i = count_bind = 0; i < atcmd_binding_count; i++ ) {
-			if ( gm_lvl >= ( type -1 ? atcmd_binding[i]->level2 : atcmd_binding[i]->level ) ) {
+			if ( gm_lvl >= ( (type - 1) ? atcmd_binding[i]->level2 : atcmd_binding[i]->level ) ) {
 				unsigned int slen = strlen(atcmd_binding[i]->command);
 				if ( count_bind == 0 ) {
 					cur = line_buff;
@@ -8929,7 +8948,7 @@ ACMD_FUNC(cart) {
 		MC_CART_MDFY(1);
 	}
 
-	if( pc_setcart(sd, val) ) {
+	if( !pc_setcart(sd, val) ) {
 		if( need_skill ) {
 			MC_CART_MDFY(0);
 		}
@@ -8950,7 +8969,7 @@ ACMD_FUNC(cart) {
 ACMD_FUNC(join){
 	char chname[CHAN_NAME_LENGTH], pass[CHAN_NAME_LENGTH];
 
-	if( !message || !*message || sscanf(message, "%s %s", chname, pass) < 1 ) {
+	if( !message || !*message || sscanf(message, "%19s %19s", chname, pass) < 1 ) {
 		sprintf(atcmd_output, msg_txt(sd,1399),command); // Unknown channel (usage: %s <#channel_name>).
 		clif_displaymessage(fd, atcmd_output);
 		return -1;
@@ -9053,7 +9072,7 @@ ACMD_FUNC(channel) {
 	char key[CHAN_NAME_LENGTH], sub1[CHAN_NAME_LENGTH], sub2[CHAN_NAME_LENGTH], sub3[CHAN_NAME_LENGTH];
 	sub1[0] = sub2[0] = sub3[0] = '\0';
 
-	if( !message || !*message || sscanf(message, "%s %s %s %s", key, sub1, sub2, sub3) < 1 ) {
+	if( !message || !*message || sscanf(message, "%19s %19s %19s %19s", key, sub1, sub2, sub3) < 1 ) {
 		atcmd_channel_help(sd,command);
 		return 0;
 	}
@@ -9124,12 +9143,12 @@ ACMD_FUNC(fontcolor)
 ACMD_FUNC(langtype)
 {
 	char langstr[8];
-	int i=0, test=0;
+	int i=0, fail=0;
 
 	memset(langstr, '\0', sizeof(langstr));
 
 	if(sscanf(message, "%3s", langstr) >= 1){
-		int lang=-1;
+		int lang=0;
 		lang = msg_langstr2langtype(langstr); //Switch langstr to associated langtype
 		if( msg_checklangtype(lang,false) == 1 ){ //Verify it's enabled and set it
 			char output[100];
@@ -9147,9 +9166,9 @@ ACMD_FUNC(langtype)
 	//wrong or no entry
 	clif_displaymessage(fd,msg_txt(sd,460)); // Please enter a valid language (usage: @langtype <language>).
 	clif_displaymessage(fd,msg_txt(sd,464)); // ---- Available languages:
-	while(test!=-1){ //out of range
-		test = msg_checklangtype(i,false);
-		if(test == 1)
+	while(fail != -1){ //out of range
+		fail = msg_checklangtype(i,false);
+		if(fail == 1)
 			clif_displaymessage(fd,msg_langtype2langstr(i));
 		i++;
 	}
