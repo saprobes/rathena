@@ -277,6 +277,7 @@ int chrif_isconnected(void) {
  * Saves character data.
  * Flag = 1: Character is quitting
  * Flag = 2: Character is changing map-servers
+ * Flag = 3: Character used @autotrade
  *------------------------------------------*/
 int chrif_save(struct map_session_data *sd, int flag) {
 	uint32 mmo_charstatus_len = 0;
@@ -292,7 +293,7 @@ int chrif_save(struct map_session_data *sd, int flag) {
 		chrif_save_bsdata(sd);
 		chrif_req_login_operation(sd->status.account_id, sd->status.name, 7, 0, 2, sd->status.bank_vault); //save Bank data
 	}
-		if ( !chrif_auth_logout(sd,flag == 1 ? ST_LOGOUT : ST_MAPCHANGE) )
+		if ( flag != 3 && !chrif_auth_logout(sd,flag == 1 ? ST_LOGOUT : ST_MAPCHANGE) )
 			ShowError("chrif_save: Failed to set up player %d:%d for proper quitting!\n", sd->status.account_id, sd->status.char_id);
 	}
 
@@ -562,6 +563,10 @@ void chrif_on_ready(void) {
 
 	//Re-save any guild castles that were modified in the disconnection time.
 	guild_castle_reconnect(-1, 0, 0);
+	
+	// Charserver is ready for loading autotrader
+	do_init_buyingstore_autotrade();
+	do_init_vending_autotrade();
 }
 
 
@@ -615,7 +620,7 @@ int chrif_skillcooldown_request(int account_id, int char_id) {
 /*==========================================
  * Request auth confirmation
  *------------------------------------------*/
-void chrif_authreq(struct map_session_data *sd) {
+void chrif_authreq(struct map_session_data *sd, bool autotrade) {
 	struct auth_node *node= chrif_search(sd->bl.id);
 
 	if( node != NULL || !chrif_isconnected() ) {
@@ -623,14 +628,15 @@ void chrif_authreq(struct map_session_data *sd) {
 		return;
 	}
 
-	WFIFOHEAD(char_fd,19);
+	WFIFOHEAD(char_fd,20);
 	WFIFOW(char_fd,0) = 0x2b26;
 	WFIFOL(char_fd,2) = sd->status.account_id;
 	WFIFOL(char_fd,6) = sd->status.char_id;
 	WFIFOL(char_fd,10) = sd->login_id1;
 	WFIFOB(char_fd,14) = sd->status.sex;
 	WFIFOL(char_fd,15) = htonl(session[sd->fd]->client_addr);
-	WFIFOSET(char_fd,19);
+	WFIFOB(char_fd,19) = autotrade;
+	WFIFOSET(char_fd,20);
 	chrif_sd_to_auth(sd, ST_LOGIN);
 }
 
@@ -874,7 +880,7 @@ int chrif_changesex(struct map_session_data *sd) {
  * @param aid : player account id the request was concerning
  * @param player_name : name the request was concerning
  * @param type : code of operation done:
- *   1: block, 2: ban, 3: unblock, 4: unban, 5: changesex, 6:vip
+ *   1: block, 2: ban, 3: unblock, 4: unban, 5: changesex, 6: vip, 7: bank
  * @param awnser : type of anwser \n
  *   0: login-server request done \n
  *   1: player not found \n
@@ -892,16 +898,20 @@ static void chrif_ack_login_req(int aid, const char* player_name, uint16 type, u
 		ShowError("chrif_ack_login_req failed - player not online.\n");
 		return;
 	}
-
+	
 	if( type > 0 && type <= 5 )
 		snprintf(action,25,"%s",msg_txt(sd,427+type)); //block|ban|unblock|unban|change the sex of
-	else if( type==6) snprintf(action,25,"%s","vip"); //TODO make some place for those type in msg_conf
-	else if( type==7) snprintf(action,25,"%s","bank");
+	else if(type==6) snprintf(action,25,"%s","vip"); //TODO make some place for those type in msg_conf
+	else if(type==7){
+		if (!battle_config.disp_serverbank_msg)
+			return;
+		snprintf(action,25,"%s","bank");
+	}
 	else
 		snprintf(action,25,"???");
 
 	switch( answer ) {
-		case 0 : sprintf(output, msg_txt(sd,424), action, NAME_LENGTH, player_name); break; //%s has been asked to %s the player '%.*s'.
+		case 0 : sprintf(output, msg_txt(sd,424), action, NAME_LENGTH, player_name); break; //login-serv has been asked to %s the player '%.*s'.
 		case 1 : sprintf(output, msg_txt(sd,425), NAME_LENGTH, player_name); break;
 		case 2 : sprintf(output, msg_txt(sd,426), action, NAME_LENGTH, player_name); break;
 		case 3 : sprintf(output, msg_txt(sd,427), action, NAME_LENGTH, player_name); break;
@@ -1117,8 +1127,13 @@ int chrif_disconnectplayer(int fd) {
 	}
 
 	if (!sd->fd) { //No connection
-		if (sd->state.autotrade)
+		if (sd->state.autotrade){
+			if( sd->state.vending ){
+				vending_closevending(sd);
+			}
+
 			map_quit(sd); //Remove it.
+		}
 		//Else we don't remove it because the char should have a timer to remove the player because it force-quit before,
 		//and we don't want them kicking their previous instance before the 10 secs penalty time passes. [Skotlex]
 		return 0;
@@ -1286,9 +1301,6 @@ int chrif_save_scdata(struct map_session_data *sd) { //parses the sc_data of the
 		count++;
 	}
 
-	if (count == 0)
-		return 0; //Nothing to save.
-
 	WFIFOW(char_fd,12) = count;
 	WFIFOW(char_fd,2) = 14 +count*sizeof(struct status_change_data); //Total packet size
 	WFIFOSET(char_fd,WFIFOW(char_fd,2));
@@ -1364,6 +1376,12 @@ int chrif_load_scdata(int fd) {
 		status_change_start(NULL,&sd->bl, (sc_type)data->type, 10000, data->val1, data->val2, data->val3, data->val4, data->tick, 1|2|4|8);
 	}
 #endif
+
+	if( sd->state.autotrade ){
+		buyingstore_reopen( sd );
+		vending_reopen( sd );
+	}
+
 	return 0;
 }
 
