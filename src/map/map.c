@@ -70,6 +70,8 @@ char map_server_db[32] = "ragnarok";
 Sql* mmysql_handle;
 
 int db_use_sqldbs = 0;
+char buyingstore_db[32] = "buyingstores";
+char buyingstore_items_db[32] = "buyingstore_items";
 char item_db_db[32] = "item_db";
 char item_db2_db[32] = "item_db2";
 char item_db_re_db[32] = "item_db_re";
@@ -81,6 +83,8 @@ char mob_db2_db[32] = "mob_db2";
 char mob_skill_db_db[32] = "mob_skill_db";
 char mob_skill_db_re_db[32] = "mob_skill_db_re";
 char mob_skill_db2_db[32] = "mob_skill_db2";
+char vendings_db[32] = "vendings";
+char vending_items_db[32] = "vending_items";
 
 // log database
 char log_db_ip[32] = "127.0.0.1";
@@ -1892,7 +1896,7 @@ bool map_blid_exists( int id ) {
 }
 
 /*==========================================
- * Convext Mirror
+ * Convex Mirror
  *------------------------------------------*/
 struct mob_data * map_getmob_boss(int16 m)
 {
@@ -3533,7 +3537,11 @@ int inter_config_read(char *cfgName)
 		if( sscanf(line,"%1023[^:]: %1023[^\r\n]",w1,w2) < 2 )
 			continue;
 
-		if(strcmpi(w1,"item_db_db")==0)
+		if( strcmpi( w1, "buyingstore_db" ) == 0 )
+			strcpy( buyingstore_db, w2 );
+		else if( strcmpi( w1, "buyingstore_items_db" ) == 0 )
+			strcpy( buyingstore_items_db, w2 );
+		else if(strcmpi(w1,"item_db_db")==0)
 			strcpy(item_db_db,w2);
 		else if(strcmpi(w1,"item_db2_db")==0)
 			strcpy(item_db2_db,w2);
@@ -3555,6 +3563,10 @@ int inter_config_read(char *cfgName)
 			strcpy( item_cash_db_db, w2 );
 		else if( strcmpi( w1, "item_cash_db2_db" ) == 0 )
 			strcpy( item_cash_db2_db, w2 );
+		else if( strcmpi( w1, "vending_db" ) == 0 )
+			strcpy( vendings_db, w2 );
+		else if( strcmpi( w1, "vending_items_db" ) == 0 )
+			strcpy( vending_items_db, w2 );
 		else
 		//Map Server SQL DB
 		if(strcmpi(w1,"map_server_ip")==0)

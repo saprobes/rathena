@@ -1357,7 +1357,7 @@ int unit_skilluse_id2(struct block_list *src, int target_id, uint16 skill_id, ui
 		return 0;
 
 	// Fail if the targetted skill is near NPC [Cydh]
-	if(skill_get_inf2(skill_id)&INF2_NO_NEARNPC && skill_isNotOk_npcRange(src,target,skill_id,skill_lv,target->x,target->y)) {
+	if(skill_get_inf2(skill_id)&INF2_NO_NEARNPC && skill_isNotOk_npcRange(src,skill_id,skill_lv,target->x,target->y)) {
 		if (sd)
 			clif_skill_fail(sd,skill_id,USESKILL_FAIL_LEVEL,0);
 		return 0;
@@ -1674,7 +1674,7 @@ int unit_skilluse_pos2( struct block_list *src, short skill_x, short skill_y, ui
 		return 0;
 
 	// Fail if the targetted skill is near NPC [Cydh]
-	if(skill_get_inf2(skill_id)&INF2_NO_NEARNPC && skill_isNotOk_npcRange(src,NULL,skill_id,skill_lv,skill_x,skill_y)) {
+	if(skill_get_inf2(skill_id)&INF2_NO_NEARNPC && skill_isNotOk_npcRange(src,skill_id,skill_lv,skill_x,skill_y)) {
 		if (sd)
 			clif_skill_fail(sd,skill_id,USESKILL_FAIL_LEVEL,0);
 		return 0;
@@ -2194,7 +2194,7 @@ static int unit_attack_timer(int tid, unsigned int tick, int id, intptr_t data)
  *	&2: Cancel only if skill is cancellable
  * @return Success(1); Fail(0);
  */
-int unit_skillcastcancel(struct block_list *bl,int type)
+int unit_skillcastcancel(struct block_list *bl, char type)
 {
 	struct map_session_data *sd = NULL;
 	struct unit_data *ud = unit_bl2ud( bl);
@@ -2232,7 +2232,7 @@ int unit_skillcastcancel(struct block_list *bl,int type)
 
 	ud->skilltimer = INVALID_TIMER;
 
-	if( sd && pc_checkskill(sd,SA_FREECAST) > 0 )
+	if( sd && (pc_checkskill(sd,SA_FREECAST) > 0 || skill_id == LG_EXEEDBREAK) )
 		status_calc_bl(&sd->bl, SCB_SPEED);
 
 	if( sd ) {
