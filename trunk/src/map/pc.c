@@ -179,11 +179,18 @@ static int pc_spiritball_timer(int tid, unsigned int tick, int id, intptr_t data
 	return 0;
 }
 
-int pc_addspiritball(struct map_session_data *sd,int interval,int max)
+/**
+* Adds a spiritball to player for 'interval' ms
+* @param sd
+* @param interval
+* @param max
+*/
+void pc_addspiritball(struct map_session_data *sd,int interval,int max)
 {
-	int tid, i;
+	int tid;
+	uint8 i;
 
-	nullpo_ret(sd);
+	nullpo_retv(sd);
 
 	if(max > MAX_SKILL_LEVEL)
 		max = MAX_SKILL_LEVEL;
@@ -210,23 +217,27 @@ int pc_addspiritball(struct map_session_data *sd,int interval,int max)
 		clif_millenniumshield(sd,sd->spiritball);
 	else
 		clif_spiritball(&sd->bl);
-
-	return 0;
 }
 
-int pc_delspiritball(struct map_session_data *sd,int count,int type)
+/**
+* Removes number of spiritball from player
+* @param sd
+* @param count
+* @param type 1 = doesn't give client effect
+*/
+void pc_delspiritball(struct map_session_data *sd,int count,int type)
 {
-	int i;
+	uint8 i;
 
-	nullpo_ret(sd);
+	nullpo_retv(sd);
 
 	if(sd->spiritball <= 0) {
 		sd->spiritball = 0;
-		return 0;
+		return;
 	}
 
-	if(count <= 0)
-		return 0;
+	if(count == 0)
+		return;
 	if(count > sd->spiritball)
 		count = sd->spiritball;
 	sd->spiritball -= count;
@@ -250,7 +261,6 @@ int pc_delspiritball(struct map_session_data *sd,int count,int type)
 		else
 			clif_spiritball(&sd->bl);
 	}
-	return 0;
 }
 
 static int pc_check_banding( struct block_list *bl, va_list ap ) {
@@ -1909,7 +1919,7 @@ static int pc_bonus_addeff_onskill(struct s_addeffectonskill* effect, int max, e
 * @param race: target race. if < 0, means monster_id
 * @param rate: rate value: 1 ~ 10000. If < 0, it will be multiplied with mob level/10
 */
-static void pc_bonus_item_drop(struct s_add_drop *drop, const short max, uint16 nameid, uint16 group, int class_, int race, int rate)
+static void pc_bonus_item_drop(struct s_add_drop *drop, const short max, uint16 nameid, uint16 group, int class_, short race, int rate)
 {
 	uint8 i;
 	if (nameid && !group && !itemdb_exists(nameid)) {
@@ -4004,7 +4014,7 @@ int pc_getzeny(struct map_session_data *sd,int zeny, enum e_log_pick_type type, 
  *------------------------------------------*/
 int pc_search_inventory(struct map_session_data *sd,int item_id)
 {
-	int i;
+	int16 i;
 	nullpo_retr(-1, sd);
 
 	ARR_FIND( 0, MAX_INVENTORY, i, sd->status.inventory[i].nameid == item_id && (sd->status.inventory[i].amount > 0 || item_id == 0) );
@@ -4028,7 +4038,7 @@ int pc_search_inventory(struct map_session_data *sd,int item_id)
  */
 char pc_additem(struct map_session_data *sd,struct item *item,int amount,e_log_pick_type log_type) {
 	struct item_data *id;
-	uint16 i;
+	int16 i;
 	unsigned int w;
 
 	nullpo_retr(1, sd);
@@ -10242,7 +10252,7 @@ int pc_readdb(void)
 			sv_readdb(dbsubpath1, "pre-re/job_db1.txt",',',5+MAX_WEAPON_TYPE,5+MAX_WEAPON_TYPE,CLASS_COUNT,&pc_readdb_job1, i);
 #endif
 		else
-			sv_readdb(dbsubpath1, "job_db1.txt",',',5+MAX_WEAPON_TYPE,5+MAX_WEAPON_TYPE,CLASS_COUNT,&pc_readdb_job1, i);
+			sv_readdb(dbsubpath1, "job_db1.txt",',',5+MAX_WEAPON_TYPE,6+MAX_WEAPON_TYPE,CLASS_COUNT,&pc_readdb_job1, i);
 		sv_readdb(dbsubpath1, "job_db2.txt",',',1,1+MAX_LEVEL,CLASS_COUNT,&pc_readdb_job2, i);
 		sv_readdb(dbsubpath2, "job_exp.txt",',',4,1000+3,CLASS_COUNT*2,&pc_readdb_job_exp, i); //support till 1000lvl
 #ifdef HP_SP_TABLES
