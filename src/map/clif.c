@@ -859,7 +859,7 @@ void clif_clearunit_delayed(struct block_list* bl, clr_type type, unsigned int t
 
 void clif_get_weapon_view(struct map_session_data* sd, unsigned short *rhand, unsigned short *lhand)
 {
-	if(sd->sc.option&(OPTION_WEDDING|OPTION_XMAS|OPTION_SUMMER|OPTION_HANBOK|OPTION_OKTOBERFEST))
+	if(sd->sc.option&OPTION_COSTUME)
 	{
 		*rhand = *lhand = 0;
 		return;
@@ -2554,11 +2554,11 @@ void clif_storagelist(struct map_session_data* sd, struct item* items, int items
 #if PACKETVER < 20071002
 	const int se = 20; //entry size equip
 	const int sidxe = 4; //start itemlist idx
-	const int cmde = 0xa6;
+	const int cmde = 0x2d1;
 #elif PACKETVER < 20100629
 	const int se = 26;
 	const int sidxe = 4;
-	const int cmde = 0xa6;
+	const int cmde = 0x2d1;
 #elif PACKETVER < 20120925
 	const int se = 28;
 	const int sidxe = 4;
@@ -10230,7 +10230,7 @@ void clif_parse_ActionRequest_sub(struct map_session_data *sd, int action_type, 
 		if( pc_cant_act(sd) || sd->sc.option&OPTION_HIDE )
 			return;
 
-		if( sd->sc.option&(OPTION_WEDDING|OPTION_XMAS|OPTION_SUMMER|OPTION_HANBOK|OPTION_OKTOBERFEST) )
+		if( sd->sc.option&OPTION_COSTUME )
 			return;
 
 		if( sd->sc.data[SC_BASILICA] || sd->sc.data[SC__SHADOWFORM] )
@@ -11251,7 +11251,7 @@ void clif_parse_UseSkillToId(int fd, struct map_session_data *sd)
 		}
 	}
 
-	if( sd->sc.option&(OPTION_WEDDING|OPTION_XMAS|OPTION_SUMMER|OPTION_HANBOK|OPTION_OKTOBERFEST) )
+	if( sd->sc.option&OPTION_COSTUME )
 		return;
 
 	if( sd->sc.data[SC_BASILICA] && (skill_id != HP_BASILICA || sd->sc.data[SC_BASILICA]->val4 != sd->bl.id) )
@@ -11335,7 +11335,7 @@ static void clif_parse_UseSkillToPosSub(int fd, struct map_session_data *sd, uin
 		}
 	}
 
-	if( sd->sc.option&(OPTION_WEDDING|OPTION_XMAS|OPTION_SUMMER|OPTION_HANBOK|OPTION_OKTOBERFEST) )
+	if( sd->sc.option&OPTION_COSTUME )
 		return;
 
 	if( sd->sc.data[SC_BASILICA] && (skill_id != HP_BASILICA || sd->sc.data[SC_BASILICA]->val4 != sd->bl.id) )
@@ -13122,13 +13122,15 @@ void clif_account_name(struct map_session_data* sd, int account_id, const char* 
 /// 01df <account id>.L
 void clif_parse_GMReqAccountName(int fd, struct map_session_data *sd)
 {
-	char command[30];
-	int account_id = RFIFOL(fd,packet_db[sd->packet_ver][RFIFOW(fd,0)].pos[0]);
+	if (sd->bl.type&BL_PC) { // Only show for players
+		char command[30];
+		int account_id = RFIFOL(fd,packet_db[sd->packet_ver][RFIFOW(fd,0)].pos[0]);
 
-	//tmp get all display
-	safesnprintf(command,sizeof(command),"%caccinfo %d", atcommand_symbol, account_id);
-	is_atcommand(fd, sd, command, 1);
-	//clif_account_name(sd, account_id, ""); //! TODO request to login-serv
+		//tmp get all display
+		safesnprintf(command,sizeof(command),"%caccinfo %d", atcommand_symbol, account_id);
+		is_atcommand(fd, sd, command, 1);
+		//clif_account_name(sd, account_id, ""); //! TODO request to login-serv
+	}
 }
 
 
