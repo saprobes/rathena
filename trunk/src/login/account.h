@@ -1,11 +1,18 @@
-// Copyright (c) Athena Dev Teams - Licensed under GNU GPL
-// For more information, see LICENCE in the main folder
+/**
+ * @file account.h
+ * Module purpose is to save, load, and update changes into the account table or file.
+ * Licensed under GNU GPL.
+ *  For more information, see LICENCE in the main folder.
+ * @author Athena Dev Teams < r15k
+ * @author rAthena Dev Team
+ */
 
 #ifndef __ACCOUNT_H_INCLUDED__
 #define __ACCOUNT_H_INCLUDED__
 
 #include "../common/cbasetypes.h"
 #include "../common/mmo.h" // ACCOUNT_REG2_NUM
+#include "../config/core.h"
 
 typedef struct AccountDB AccountDB;
 typedef struct AccountDBIterator AccountDBIterator;
@@ -14,33 +21,13 @@ typedef struct AccountDBIterator AccountDBIterator;
 // standard engines
 AccountDB* account_db_sql(void);
 
-// extra engines (will probably use the other txt functions)
-#define ACCOUNTDB_CONSTRUCTOR_(engine) account_db_##engine
-#define ACCOUNTDB_CONSTRUCTOR(engine) ACCOUNTDB_CONSTRUCTOR_(engine)
-#ifdef ACCOUNTDB_ENGINE_0
-AccountDB* ACCOUNTDB_CONSTRUCTOR(ACCOUNTDB_ENGINE_0)(void);
-#endif
-#ifdef ACCOUNTDB_ENGINE_1
-AccountDB* ACCOUNTDB_CONSTRUCTOR(ACCOUNTDB_ENGINE_1)(void);
-#endif
-#ifdef ACCOUNTDB_ENGINE_2
-AccountDB* ACCOUNTDB_CONSTRUCTOR(ACCOUNTDB_ENGINE_2)(void);
-#endif
-#ifdef ACCOUNTDB_ENGINE_3
-AccountDB* ACCOUNTDB_CONSTRUCTOR(ACCOUNTDB_ENGINE_3)(void);
-#endif
-#ifdef ACCOUNTDB_ENGINE_4
-AccountDB* ACCOUNTDB_CONSTRUCTOR(ACCOUNTDB_ENGINE_4)(void);
-#endif
-
-
 struct mmo_account {
 	int account_id;
 	char userid[NAME_LENGTH];
 	char pass[32+1];        // 23+1 for plaintext, 32+1 for md5-ed passwords
 	char sex;               // gender (M/F/S)
 	char email[40];         // e-mail (by default: a@a.com)
-	int group_id;           // player group id
+	unsigned int group_id;  // player group id
 	uint8 char_slots;       // this accounts maximum character slots (maximum is limited to MAX_CHARS define in char server)
 	unsigned int state;     // packet 0x006a value + 1 (0: compte OK)
 	time_t unban_time;      // (timestamp): ban time limit of the account (0 = no ban)
@@ -61,8 +48,7 @@ struct mmo_account {
 };
 
 
-struct AccountDBIterator
-{
+struct AccountDBIterator {
 	/// Destroys this iterator, releasing all allocated memory (including itself).
 	///
 	/// @param self Iterator
@@ -77,8 +63,7 @@ struct AccountDBIterator
 };
 
 
-struct AccountDB
-{
+struct AccountDB {
 	/// Initializes this database, making it ready for use.
 	/// Call this after setting the properties.
 	///
@@ -93,9 +78,6 @@ struct AccountDB
 
 	/// Gets a property from this database.
 	/// These read-only properties must be implemented:
-	/// "engine.name" -> "txt", "sql", ...
-	/// "engine.version" -> internal version
-	/// "engine.comment" -> anything (suggestion: description or specs of the engine)
 	///
 	/// @param self Database
 	/// @param key Property name

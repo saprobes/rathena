@@ -64,7 +64,7 @@ void ShowDump(const void* buffer, size_t length)
 
 	ShowDebug("--- 00-01-02-03-04-05-06-07-08-09-0A-0B-0C-0D-0E-0F   0123456789ABCDEF\n");
 	ascii[16] = 0;
-
+        
 	for( i = 0; i < length; i++ )
 	{
 		char c = RBUFB(buffer,i);
@@ -145,9 +145,39 @@ void findfile(const char *p, const char *pat, void (func)(const char*))
 	}
 	return;
 }
+
+int check_filepath(const char* filepath){
+	DWORD Attribute;
+	if( Attribute = GetFileAttributes(filepath) ){
+		if( (Attribute & INVALID_FILE_ATTRIBUTES) && GetLastError() == ERROR_FILE_NOT_FOUND ) return 3;
+		else if( Attribute & FILE_ATTRIBUTE_DIRECTORY ) return 1;
+		else return 2;
+	}
+	return 0;
+}
+
 #else
 
 #define MAX_DIR_PATH 2048
+
+
+/**
+ * Check if the path is a directory or file
+ * @param filepath
+ * @return 1=dir, 2=file, 3=else, 0=error
+ */
+int check_filepath(const char* filepath){
+    struct stat s;
+
+    if( stat(filepath,&s) == 0 ){
+            if( s.st_mode & S_IFDIR ) return 1;
+            else if( s.st_mode & S_IFREG )return 2;
+            else return 3;
+    }
+    else  {
+        return 0;
+    }
+}
 
 static char* checkpath(char *path, const char*srcpath)
 {	// just make sure the char*path is not const
@@ -259,7 +289,60 @@ uint32 MakeDWord(uint16 word0, uint16 word1)
 		( (uint32)(word1 << 0x10) );
 }
 
-uint32 date2version(int date){
+/*************************************
+* Big-endian compatibility functions *
+*************************************/
+
+// Converts an int16 from current machine order to little-endian
+int16 MakeShortLE(int16 val)
+{
+	unsigned char buf[2];
+	buf[0] = (unsigned char)( (val & 0x00FF)         );
+	buf[1] = (unsigned char)( (val & 0xFF00) >> 0x08 );
+	return *((int16*)buf);
+}
+
+// Converts an int32 from current machine order to little-endian
+int32 MakeLongLE(int32 val)
+{
+	unsigned char buf[4];
+	buf[0] = (unsigned char)( (val & 0x000000FF)         );
+	buf[1] = (unsigned char)( (val & 0x0000FF00) >> 0x08 );
+	buf[2] = (unsigned char)( (val & 0x00FF0000) >> 0x10 );
+	buf[3] = (unsigned char)( (val & 0xFF000000) >> 0x18 );
+	return *((int32*)buf);
+}
+
+// Reads an uint16 in little-endian from the buffer
+uint16 GetUShort(const unsigned char* buf)
+{
+	return	 ( ((uint16)(buf[0]))         )
+			|( ((uint16)(buf[1])) << 0x08 );
+}
+
+// Reads an uint32 in little-endian from the buffer
+uint32 GetULong(const unsigned char* buf)
+{
+	return	 ( ((uint32)(buf[0]))         )
+			|( ((uint32)(buf[1])) << 0x08 )
+			|( ((uint32)(buf[2])) << 0x10 )
+			|( ((uint32)(buf[3])) << 0x18 );
+}
+
+// Reads an int32 in little-endian from the buffer
+int32 GetLong(const unsigned char* buf)
+{
+	return (int32)GetULong(buf);
+}
+
+// Reads a float (32 bits) from the buffer
+float GetFloat(const unsigned char* buf)
+{
+	uint32 val = GetULong(buf);
+	return *((float*)(void*)&val);
+}
+
+uint32 date2version(int date) {
 	if(date < 20040906) return 5;
 	else if(date < 20040920) return 10;
 	else if(date < 20041005) return 11;
@@ -298,7 +381,8 @@ uint32 date2version(int date){
 	else if(date < 20130710) return 42;
 	else if(date < 20130717) return 43;
 	else if(date < 20130807) return 44;
-	else if(date >= 20130807) return 45;
+	else if(date < 20131223) return 45;
+	else if(date >= 20131223) return 46;
 
 	else return 30; //default
 }

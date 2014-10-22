@@ -2,7 +2,7 @@
 // For more information, see LICENCE in the main folder
 
 #ifndef _INTIF_H_
-#define _INFIF_H_
+#define _INTIF_H_
 
 //#include "../common/mmo.h"
 struct party_member;
@@ -30,7 +30,6 @@ int intif_request_registry(struct map_session_data *sd, int flag);
 int intif_request_guild_storage(int account_id, int guild_id);
 int intif_send_guild_storage(int account_id, struct guild_storage *gstor);
 
-
 int intif_create_party(struct party_member *member,char *name,int item,int item2);
 int intif_request_partyinfo(int party_id, int char_id);
 
@@ -42,7 +41,6 @@ int intif_break_party(int party_id);
 int intif_party_message(int party_id, int account_id, const char *mes,int len);
 int intif_party_leaderchange(int party_id,int account_id,int char_id);
 int intif_party_sharelvlupdate(unsigned int share_lvl);
-
 
 int intif_guild_create(const char *name, const struct guild_member *master);
 int intif_guild_request_info(int guild_id);
@@ -66,7 +64,7 @@ void intif_itembound_req(int char_id, int aid, int guild_id);
 #endif
 
 int intif_create_pet(int account_id, int char_id, short pet_type, short pet_lv, short pet_egg_id,
-                     short pet_equip, short intimate, short hungry, char rename_flag, char incuvate, char *pet_name);
+                     short pet_equip, short intimate, short hungry, char rename_flag, char incubate, char *pet_name);
 int intif_request_petdata(int account_id, int char_id, int pet_id);
 int intif_save_petdata(int account_id, struct s_pet *p);
 int intif_delete_petdata(int pet_id);
@@ -80,7 +78,7 @@ int intif_homunculus_requestsave(int account_id, struct s_homunculus* sh);
 int intif_homunculus_requestdelete(int homun_id);
 
 /******QUEST SYTEM*******/
-int intif_request_questlog(struct map_session_data * sd);
+void intif_request_questlog(struct map_session_data * sd);
 int intif_quest_save(struct map_session_data * sd);
 
 // MERCENARY SYSTEM
@@ -109,7 +107,7 @@ int intif_elemental_delete(int ele_id);
 int intif_elemental_save(struct s_elemental *ele);
 
 /* @accinfo */
-void intif_request_accinfo( int u_fd, int aid, int group_lv, char* query );
+int intif_request_accinfo( int u_fd, int aid, int group_lv, char* query );
 
 int CheckForCharServer(void);
 

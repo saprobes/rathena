@@ -7,13 +7,14 @@
 #include "../common/cbasetypes.h" // uint16, uint32
 #include "pc.h" // struct map_session_data
 
-int do_init_cashshop( void );
-int do_final_cashshop( void );
+void do_init_cashshop( void );
+void do_final_cashshop( void );
 void cashshop_reloaddb( void );
 bool cashshop_buylist( struct map_session_data* sd, uint32 kafrapoints, int n, uint16* item_list );
 
 // Taken from AEGIS
-enum CASH_SHOP_TAB_CODE{
+enum CASH_SHOP_TAB_CODE
+{
 	CASHSHOP_TAB_NEW =  0x0,
 	CASHSHOP_TAB_POPULAR =  0x1,
 	CASHSHOP_TAB_LIMITED =  0x2,
@@ -26,7 +27,8 @@ enum CASH_SHOP_TAB_CODE{
 };
 
 // PACKET_ZC_SE_PC_BUY_CASHITEM_RESULT
-enum CASHSHOP_BUY_RESULT{
+enum CASHSHOP_BUY_RESULT
+{
 	CASHSHOP_RESULT_SUCCESS =  0x0,
 	CASHSHOP_RESULT_ERROR_SYSTEM =  0x1,
 	CASHSHOP_RESULT_ERROR_SHORTTAGE_CASH =  0x2,
@@ -42,9 +44,8 @@ enum CASHSHOP_BUY_RESULT{
 	CASHSHOP_RESULT_ERROR_BUSY =  0xc,
 };
 
-
 struct cash_item_data{
-	uint32 nameid;
+	unsigned short nameid;
 	uint32 price;
 };
 

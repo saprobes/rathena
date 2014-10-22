@@ -29,7 +29,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 static DBMap* guild_db; // int guild_id -> struct guild*
 static DBMap* castle_db; // int castle_id -> struct guild_castle*
 static DBMap* guild_expcache_db; // int char_id -> struct guild_expcache*
@@ -481,12 +480,12 @@ int guild_recv_info(struct guild *sg) {
 
 			//Also set the guild master flag.
 			sd->guild = g;
-			sd->state.gmaster_flag = g;
+			sd->state.gmaster_flag = 1;
 			clif_charnameupdate(sd); // [LuzZza]
 			clif_guild_masterormember(sd);
 		}
 	} else {
-		before=*g;		
+		before=*g;
 	}
 	memcpy(g,sg,sizeof(struct guild));
 
@@ -511,7 +510,7 @@ int guild_recv_info(struct guild *sg) {
 		if( sd==NULL )
 			continue;
 		sd->guild = g;
-		if(Channel_Config.ally_autojoin ) {
+		if(channel_config.ally_autojoin ) {
 			channel_gjoin(sd,3); //make all member join guildchan+allieschan
 		}
 
@@ -664,7 +663,7 @@ void guild_member_joined(struct map_session_data *sd) {
 		return;
 	}
 	if (strcmp(sd->status.name,g->master) == 0) {	// set the Guild Master flag
-		sd->state.gmaster_flag = g;
+		sd->state.gmaster_flag = 1;
 		// prevent Guild Skills from being used directly after relog
 		if( battle_config.guild_skill_relog_delay )
 			guild_block_skill(sd, battle_config.guild_skill_relog_delay);
@@ -676,7 +675,7 @@ void guild_member_joined(struct map_session_data *sd) {
 		g->member[i].sd = sd;
 		sd->guild = g;
 
-		if( Channel_Config.ally_enable && Channel_Config.ally_autojoin ) {
+		if( channel_config.ally_enable && channel_config.ally_autojoin ) {
 			channel_gjoin(sd,3);
 		}
 	}
@@ -830,7 +829,11 @@ int guild_member_withdraw(int guild_id, int account_id, int char_id, int flag, c
 		sd->guild_emblem_id = 0;
 
 		clif_charnameupdate(sd); //Update display name [Skotlex]
-		//TODO: send emblem update to self and people around
+		status_change_end(&sd->bl,SC_LEADERSHIP,INVALID_TIMER);
+		status_change_end(&sd->bl,SC_GLORYWOUNDS,INVALID_TIMER);
+		status_change_end(&sd->bl,SC_SOULCOLD,INVALID_TIMER);
+		status_change_end(&sd->bl,SC_HAWKEYES,INVALID_TIMER);
+		//@TODO: Send emblem update to self and people around
 	}
 	return 0;
 }
@@ -894,7 +897,6 @@ int guild_send_memberinfoshort(struct map_session_data *sd,int online) { // clea
 
 	if(sd->state.connect_new) {	//Note that this works because it is invoked in parse_LoadEndAck before connect_new is cleared.
 		clif_guild_belonginfo(sd,g);
-		clif_guild_notice(sd,g);
 		sd->guild_emblem_id = g->emblem_id;
 	}
 	return 0;
@@ -1290,9 +1292,8 @@ void guild_guildaura_refresh(struct map_session_data *sd, uint16 skill_id, uint1
 		status_change_end(&sd->bl,type,INVALID_TIMER);
 	}
 	group = skill_unitsetting(&sd->bl,skill_id,skill_lv,sd->bl.x,sd->bl.y,0);
-	if( group ) {
+	if( group )
 		sc_start4(NULL,&sd->bl,type,100,(battle_config.guild_aura&16)?0:skill_lv,0,0,group->group_id,600000);//duration doesn't matter these status never end with val4
-	}
 	return;
 }
 
@@ -1585,10 +1586,10 @@ int guild_allianceack(int guild_id1,int guild_id2,int account_id1,int account_id
 	for (i = 0; i < 2 - (flag & 1); i++) { // Retransmission of the relationship list to all members
 		if(g[i]!=NULL)
 			for(j=0;j<g[i]->max_member;j++) {
-				struct map_session_data *sd = g[i]->member[j].sd;
-				if( sd!=NULL){
-					clif_guild_allianceinfo(sd);
-					channel_gjoin(sd,2); //join ally join
+				struct map_session_data *sd_mem = g[i]->member[j].sd;
+				if( sd_mem!=NULL){
+					clif_guild_allianceinfo(sd_mem);
+					channel_gjoin(sd_mem,2); //join ally join
 				}
 			}
 	}
@@ -1658,15 +1659,20 @@ int guild_broken(int guild_id,int flag) {
 				storage_guild_storage_quit(sd,1);
 			sd->status.guild_id=0;
 			sd->guild = NULL;
+			sd->state.gmaster_flag = 0;
 			clif_guild_broken(g->member[i].sd,0);
 			clif_charnameupdate(sd); // [LuzZza]
+			status_change_end(&sd->bl,SC_LEADERSHIP,INVALID_TIMER);
+			status_change_end(&sd->bl,SC_GLORYWOUNDS,INVALID_TIMER);
+			status_change_end(&sd->bl,SC_SOULCOLD,INVALID_TIMER);
+			status_change_end(&sd->bl,SC_HAWKEYES,INVALID_TIMER);
 		}
 	}
 
 	guild_db->foreach(guild_db,guild_broken_sub,guild_id);
 	castle_db->foreach(castle_db,castle_guild_broken_sub,guild_id);
 	guild_storage_delete(guild_id);
-	if( Channel_Config.ally_enable ) {
+	if( channel_config.ally_enable ) {
 		channel_delete(g->channel);
 	}
 	idb_remove(guild_db,guild_id);
@@ -1726,7 +1732,7 @@ int guild_gm_changed(int guild_id, int account_id, int char_id) {
 
 	if (g->member[0].sd && g->member[0].sd->fd) {
 		clif_displaymessage(g->member[0].sd->fd, msg_txt(g->member[pos].sd,679)); //"You have become the Guild Master!"
-		g->member[0].sd->state.gmaster_flag = g;
+		g->member[0].sd->state.gmaster_flag = 1;
 		//Block his skills to prevent abuse.
 		if (battle_config.guild_skill_relog_delay)
 			guild_block_skill(g->member[0].sd, battle_config.guild_skill_relog_delay);
@@ -1748,6 +1754,7 @@ int guild_gm_changed(int guild_id, int account_id, int char_id) {
  *---------------------------------------------------*/
 int guild_break(struct map_session_data *sd,char *name) {
 	struct guild *g;
+	struct unit_data *ud;
 	int i;
 #ifdef BOUND_ITEMS
 	int j;
@@ -1773,11 +1780,33 @@ int guild_break(struct map_session_data *sd,char *name) {
 		return 0;
 	}
 
+	/* Regardless of char server allowing it, we clear the guild master's auras */
+	if((ud = unit_bl2ud(&sd->bl))) {
+		int count = 0;
+		struct skill_unit_group *group[4];
+
+		for(i = 0; i < MAX_SKILLUNITGROUP && ud->skillunit[i]; i++) {
+			switch(ud->skillunit[i]->skill_id) {
+				case GD_LEADERSHIP:
+				case GD_GLORYWOUNDS:
+				case GD_SOULCOLD:
+				case GD_HAWKEYES:
+					if(count == 4)
+						ShowWarning("guild_break: '%s' got more than 4 guild aura instances! (%d)\n",sd->status.name,ud->skillunit[i]->skill_id);
+					else
+						group[count++] = ud->skillunit[i];
+					break;
+			}
+		}
+		for(i = 0; i < count; i++)
+			skill_delunitgroup(group[i]);
+	}
+
 #ifdef BOUND_ITEMS
 	//Guild bound item check - Removes the bound flag
 	j = pc_bound_chk(sd,2,idxlist);
 	for(i=0;i<j;i++)
-		sd->status.inventory[idxlist[i]].bound = 0;
+		sd->status.inventory[idxlist[i]].bound = BOUND_NONE;
 #endif
 
 	intif_guild_break(g->guild_id);
@@ -1846,7 +1875,7 @@ int guild_castledatasave(int castle_id, int index, int value) {
 		for (i = 0; i < MAX_GUARDIANS; i++){
 			struct mob_data *gd;
 			if (gc->guardian[i].visible && (gd = map_id2md(gc->guardian[i].id)) != NULL)
-				status_calc_mob(gd, 0);
+				status_calc_mob(gd, SCO_NONE);
 		}
 		break;
 	}

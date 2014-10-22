@@ -42,15 +42,12 @@
 //#define CELL_NOSTACK
 
 /// Uncomment to enable circular area checks.
-/// By default, all range checks in Aegis are of Square shapes, so a weapon range
-/// - of 10 allows you to attack from anywhere within a 21x21 area.
-/// Enabling this changes such checks to circular checks, which is more realistic,
+/// By default, most server-sided range checks in Aegis are of square shapes, so a monster
+/// with a range of 4 can attack anything within a 9x9 area.
+/// Client-sided range checks are, however, are always circular.
+/// Enabling this changes all checks to circular checks, which is more realistic,
 /// - but is not the official behaviour.
 //#define CIRCULAR_AREA
-
-/// Uncomment to enable Non Stackable items unique ID
-/// By enabling it, the system will create an unique id for each new non stackable item created
-//#define NSI_UNIQUE_ID
 
 /// Comment to disable Guild/Party Bound item system
 /// By default, we recover/remove Guild/Party Bound items automatically
@@ -62,12 +59,7 @@
 /// Uncomment to enable skills damage adjustments
 /// By enabling this, db/skill_damage.txt and the skill_damage mapflag will adjust the
 /// damage rate of specified skills.
-//#define ADJUST_SKILL_DAMAGE
-
-/// The skill damage adjustment rate is capped at 100000.
-#ifdef ADJUST_SKILL_DAMAGE
-#define MAX_SKILL_DAMAGE_RATE 100000
-#endif
+#define ADJUST_SKILL_DAMAGE
 
 /// Uncomment to enable the job base HP/SP table (job_basehpsp_db.txt)
 //#define HP_SP_TABLES
@@ -91,12 +83,6 @@
 	#define MIN_CHARS MAX_CHARS // Default number of characters per account.
 	#define MAX_CHAR_BILLING 0
 	#define MAX_CHAR_VIP 0
-#endif
-#if (MIN_CHARS + MAX_CHAR_VIP + MAX_CHAR_BILLING) > MAX_CHARS
-	#error "Config of MAX_CHARS is invalid"
-#endif
-#if MIN_STORAGE > MAX_STORAGE
-	#error "Config of MIN_STORAGE is invalid"
 #endif
 
 /**

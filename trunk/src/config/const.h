@@ -89,6 +89,9 @@
 /* Feb 1st 2012 */
 #if PACKETVER >= 20120201
 	#define NEW_CARTS
+	#ifndef ENABLE_SC_SAVING
+	 #warning "Cart won't be able to be saved for relog"
+	#endif
 	#define MAX_CARTS 9
 #else
 	#define MAX_CARTS 5
@@ -97,8 +100,8 @@
 // Renewal variable cast time reduction
 #ifdef RENEWAL_CAST
 	#define VARCAST_REDUCTION(val){ \
-		if( (varcast_r += val) != 0 && varcast_r >= 0 ) \
-			time = time * (1 - (float)min(val, 100) / 100); \
+		if( (varcast_r += (val)) != 0 && varcast_r >= 0 ) \
+			time = time * (1 - (float)min((val), 100) / 100); \
 	}
 #endif
 /**
