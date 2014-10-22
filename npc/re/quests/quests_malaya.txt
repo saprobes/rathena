@@ -160,7 +160,7 @@ malaya,266,76,3	script	Rodel the Guard#malaya	570,4,4,{
 				getexp 200000,200000;
 				erasequest 7404;
 				setquest 7405;
-				if (rand(1))
+				if (rand(2))
 					$malayaNames$[1] = strcharinfo(0);
 //				SavePPL Jejellopy
 				close;
@@ -711,7 +711,7 @@ malaya,169,350,5	script	Imelda#malaya	475,{
 		else
 			getitem 6497, 1; // Lesser_Agimat
 		getexp 200000,200000;
-		if (rand(1))
+		if (rand(2))
 			$malayaNames$[0] = strcharinfo(0);
 		close;
 	} else {
@@ -817,7 +817,7 @@ malaya,169,350,5	script	Imelda#malaya	475,{
 				else
 					getitem 6497, 1; // Lesser_Agimat
 				getexp 200000,200000;
-				if (rand(1))
+				if (rand(2))
 					$malayaNames$[0] = strcharinfo(0);
 				close;
 			} else {
@@ -3773,7 +3773,7 @@ ma_fild01,158,243,6	script	Tribe Blacksmith#malaya	582,{
 		break;
 	}
 	
-	if (!(.@item)) {
+	if (!getequipisequiped(.@part)) {
 		mes "[Bayani]";
 		mes "You should wear the equipment to upgrade and not come without it on you.";
 		close;
@@ -3819,11 +3819,14 @@ ma_fild01,158,243,6	script	Tribe Blacksmith#malaya	582,{
 	mes "[Bayani]";
 	mes "BAM!!";
 	next;
-	
 	delitem 6499,20; //Ancient_Grudge
+
+	// anti-hack
+	if (callfunc("F_IsEquipIDHack", .@part, .@item))
+		close;
+
 	delequip .@part;
 	getitem .@newItem, 1; 
-	
 	mes "[Bayani]";
 	mes "Ha ha. Perfect.";
 	mes "Congratulations. Your armor is better than ever.";
@@ -5882,7 +5885,7 @@ malaya,269,267,5	script	Missing Person's Father	582,{
 		mes "He must be around here somewhere.";
 		close;
 	} else if (malaya_bakona2 == 1) {
-		if (countitem(6501) < 2) {
+		if (countitem(6520) < 2) {
 			mes "[Missing Person's Father]";
 			mes "You are looking for two of his ^FF0000Lost Belongings^000000?";
 			mes "Are you confident that";
@@ -5899,7 +5902,7 @@ malaya,269,267,5	script	Missing Person's Father	582,{
 		mes "Let's retrieve them from Tiucknuc that roams Baryo Mahiwaga Field,";
 		mes "seven ^FF0000Lost Belongings^000000";
 		mes "and deliver them to ^0000FFMissing Person's Friend^000000.";
-		delitem 6501,2; //Lost_Belongings
+		delitem 6520,2; //Lost_Belongings
 		erasequest 1180;
 		setquest 1181;
 		set malaya_bakona2,2;
@@ -5937,7 +5940,7 @@ malaya,265,274,5	script	Missing Person's Friend	577,{
 		mes "somewhere.";
 		close;
 	} else if (malaya_bakona2 == 2) {
-		if (countitem(6501) < 7) {
+		if (countitem(6520) < 7) {
 			mes "[Missing Person's Friend]";
 			mes "You are looking for seven ^FF0000Lost Belongings^000000";
 			mes "of my friend?";
@@ -5950,7 +5953,7 @@ malaya,265,274,5	script	Missing Person's Friend	577,{
 		mes "of my friend... Where is my friend?";
 		mes "Bring him here, bring him here now!";
 		callsub L_Quest;
-		delitem 6501,7; //Lost_Belongings
+		delitem 6520,7; //Lost_Belongings
 		erasequest 1181;
 		setquest 1182;
 		set malaya_bakona2,3;
@@ -5987,7 +5990,7 @@ malaya,270,278,4	script	Missing Person's Son	578,{
 		mes "Please find my father!";
 		close;
 	} else if (malaya_bakona2 == 3) {
-		if (countitem(6501) < 3) {
+		if (countitem(6520) < 3) {
 			mes "[Missing Person's Son]";
 			mes "You are looking for three ^FF0000Lost Belongings^000000";
 			mes "of my father? Why lost belongings and not my father?";
@@ -5999,7 +6002,7 @@ malaya,270,278,4	script	Missing Person's Son	578,{
 		mes "These are ^FF0000Lost Belongings^000000 of my father.";
 		mes "Oh dear lord... father!";
 		callsub L_Quest;
-		delitem 6501,3; //Lost_Belongings
+		delitem 6520,3; //Lost_Belongings
 		erasequest 1182;
 		setquest 1183;
 		set malaya_bakona2,4;
@@ -6033,7 +6036,7 @@ malaya,265,284,4	script	Missing Person's Mother	579,{
 		mes "and she still isn't back.";
 		close;
 	} else if (malaya_bakona2 == 4) {
-		if (countitem(6501) < 5) {
+		if (countitem(6520) < 5) {
 			mes "[Missing Person's Mother]";
 			mes "You are looking for five ^FF0000Lost Belongings^000000 of my child?";
 			mes "What does this mean?";
@@ -6054,7 +6057,7 @@ malaya,265,284,4	script	Missing Person's Mother	579,{
 		mes "A mother that has gone mad...";
 		mes "Now that I finished finding the missing people,";
 		mes "I should report back to the Village Chief.";
-		delitem 6501,5; //Lost_Belongings
+		delitem 6520,5; //Lost_Belongings
 		erasequest 1183;
 		setquest 1184;
 		set malaya_bakona2,5;

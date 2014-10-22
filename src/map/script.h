@@ -134,8 +134,7 @@ struct script_state {
 	unsigned op2ref : 1;// used by op_2
 	unsigned npc_item_flag : 1;
 	unsigned mes_active : 1;  // Store if invoking character has a NPC dialog box open.
-	unsigned char* funcname; // Stores the current running function name
-	uint8 atcommand_enable_npc;
+	char* funcname; // Stores the current running function name
 };
 
 struct script_reg {
@@ -187,11 +186,11 @@ void script_cleararray_pc(struct map_session_data* sd, const char* varname, void
 void script_setarray_pc(struct map_session_data* sd, const char* varname, uint8 idx, void* value, int* refcache);
 
 int script_config_read(char *cfgName);
-int do_init_script(void);
-int do_final_script(void);
+void do_init_script(void);
+void do_final_script(void);
 int add_str(const char* p);
 const char* get_str(int id);
-int script_reload(void);
+void script_reload(void);
 
 // @commands (script based)
 void setd_sub(struct script_state *st, TBL_PC *sd, const char *varname, int elem, void *value, struct DBMap **ref);
