@@ -4708,9 +4708,10 @@ int clif_outsight(struct block_list *bl,va_list ap)
 	tsd = BL_CAST(BL_PC, tbl);
 
 	if (tsd && tsd->fd) { //tsd has lost sight of the bl object.
+		nullpo_ret(bl);
 		switch(bl->type){
 		case BL_PC:
-			if (sd->vd.class_ != INVISIBLE_CLASS)
+			if(sd->vd.class_ != INVISIBLE_CLASS)
 				clif_clearunit_single(bl->id,CLR_OUTSIGHT,tsd->fd);
 			if(sd->chatID){
 				struct chat_data *cd;
@@ -4718,9 +4719,9 @@ int clif_outsight(struct block_list *bl,va_list ap)
 				if(cd->usersd[0]==sd)
 					clif_dispchat(cd,tsd->fd);
 			}
-			if( sd->state.vending )
+			if(sd->state.vending)
 				clif_closevendingboard(bl,tsd->fd);
-			if( sd->state.buyingstore )
+			if(sd->state.buyingstore)
 				clif_buyingstore_disappear_entry_single(tsd, sd);
 			break;
 		case BL_ITEM:
@@ -4730,17 +4731,20 @@ int clif_outsight(struct block_list *bl,va_list ap)
 			clif_clearchar_skillunit((struct skill_unit *)bl,tsd->fd);
 			break;
 		case BL_NPC:
-			if( !(((TBL_NPC*)bl)->sc.option&OPTION_INVISIBLE) )
+			if(!(((TBL_NPC*)bl)->sc.option&OPTION_INVISIBLE))
 				clif_clearunit_single(bl->id,CLR_OUTSIGHT,tsd->fd);
 			break;
 		default:
-			if ((vd=status_get_viewdata(bl)) && vd->class_ != INVISIBLE_CLASS)
+			if((vd=status_get_viewdata(bl)) && vd->class_ != INVISIBLE_CLASS)
 				clif_clearunit_single(bl->id,CLR_OUTSIGHT,tsd->fd);
 			break;
 		}
 	}
 	if (sd && sd->fd) { //sd is watching tbl go out of view.
-		if (((vd=status_get_viewdata(tbl)) && vd->class_ != INVISIBLE_CLASS) &&
+		nullpo_ret(tbl);
+		if(tbl->type == BL_SKILL) //Trap knocked out of sight
+			clif_clearchar_skillunit((struct skill_unit *)tbl,sd->fd);
+		else if(((vd=status_get_viewdata(tbl)) && vd->class_ != INVISIBLE_CLASS) &&
 			!(tbl->type == BL_NPC && (((TBL_NPC*)tbl)->sc.option&OPTION_INVISIBLE)))
 			clif_clearunit_single(tbl->id,CLR_OUTSIGHT,sd->fd);
 	}
@@ -5056,7 +5060,6 @@ void clif_skill_cooldown(struct map_session_data *sd, uint16 skill_id, unsigned 
 #endif
 }
 
-
 /// Skill attack effect and damage.
 /// 0114 <skill id>.W <src id>.L <dst id>.L <tick>.L <src delay>.L <dst delay>.L <damage>.W <level>.W <div>.W <type>.B (ZC_NOTIFY_SKILL)
 /// 01de <skill id>.W <src id>.L <dst id>.L <tick>.L <src delay>.L <dst delay>.L <damage>.L <level>.W <div>.W <type>.B (ZC_NOTIFY_SKILL2)
@@ -5070,8 +5073,12 @@ int clif_skill_damage(struct block_list *src,struct block_list *dst,unsigned int
 	nullpo_ret(dst);
 
 	type = clif_calc_delay(type,div,damage,ddelay);
-	sc = status_get_sc(dst);
-	if(sc && sc->count) {
+
+#if PACKETVER >= 20131223
+	if( type == 6 ) type = 8;
+#endif
+
+	if( ( sc = status_get_sc(dst) ) && sc->count ) {
 		if(sc->data[SC_HALLUCINATION] && damage)
 			damage = damage*(sc->data[SC_HALLUCINATION]->val2) + rnd()%100;
 	}
@@ -5736,8 +5743,8 @@ void clif_maptypeproperty2(struct block_list *bl,enum send_target t) {
 
 	unsigned int NotifyProperty =
 		((map[bl->m].flag.pvp?1:0)<<0)| // PARTY - Show attack cursor on non-party members (PvP)
-		((map_flag_gvg(bl->m)?1:0)<<1)| // GUILD - Show attack cursor on non-guild members (GvG)
-		((map_flag_gvg2(bl->m)?1:0)<<2)| // SIEGE - Show emblem over characters heads when in GvG (WoE castle)
+		((map[bl->m].flag.battleground || map_flag_gvg(bl->m)?1:0)<<1)|// GUILD - Show attack cursor on non-guild members (GvG)
+		((map[bl->m].flag.battleground || map_flag_gvg2(bl->m)?1:0)<<2)|// SIEGE - Show emblem over characters heads when in GvG (WoE castle)
 		((map[bl->m].flag.nomineeffect || !map_flag_gvg2(bl->m)?0:1)<<3)| // USE_SIMPLE_EFFECT - Automatically enable /mineffect
 		((map[bl->m].flag.nolockon?1:0)<<4)| // DISABLE_LOCKON - Unknown (By the name it might disable cursor lock-on)
 		((map[bl->m].flag.pvp?1:0)<<5)| // COUNT_PK - Show the PvP counter
@@ -8626,9 +8633,30 @@ void clif_messagecolor(struct block_list* bl, unsigned long color, const char* m
 	WBUFW(buf,2) = msg_len + 12;
 	WBUFL(buf,4) = bl->id;
 	WBUFL(buf,8) = color;
-	memcpy(WBUFP(buf,12), msg, msg_len);
+	memcpy((char*)WBUFP(buf,12), msg, msg_len);
 
 	clif_send(buf, WBUFW(buf,2), bl, AREA_CHAT_WOC);
+}
+
+void clif_messagecolor2(struct map_session_data *sd, unsigned long color, const char* msg)
+{
+	int fd;
+	unsigned short msg_len = strlen(msg) + 1;
+
+	nullpo_retv(sd);
+
+	if(msg_len > 0) {
+		color = (color & 0x0000FF) << 16 | (color & 0x00FF00) | (color & 0xFF0000) >> 16; // RGB to BGR
+
+		fd = sd->fd;
+		WFIFOHEAD(fd, msg_len+12);
+		WFIFOW(fd,0) = 0x2C1;
+		WFIFOW(fd,2) = msg_len+12;
+		WFIFOL(fd,4) = 0;
+		WFIFOL(fd,8) = color;
+		safestrncpy((char*)WFIFOP(fd,12), msg, msg_len);
+		WFIFOSET(fd, WFIFOW(fd,2));
+	}
 }
 
 /**
@@ -17369,6 +17397,41 @@ void clif_crimson_marker(struct map_session_data *sd, struct block_list *bl, boo
 	clif_send(buf, len, &sd->bl, SELF);
 }
 
+/// [Ind/Hercules]
+void clif_showscript(struct block_list* bl, const char* message) {
+	char buf[256];
+	size_t len;
+	nullpo_retv(bl);
+
+	if(!message)
+		return;
+
+	len = strlen(message)+1;
+
+	if( len > sizeof(buf)-8 ) {
+		ShowWarning("clif_showscript: Truncating too long message '%s' (len=%d).\n", message, len);
+		len = sizeof(buf)-8;
+	}
+
+	WBUFW(buf,0) = 0x8b3;
+	WBUFW(buf,2) = (len+8);
+	WBUFL(buf,4) = bl->id;
+	safestrncpy((char *) WBUFP(buf,8), message, len);
+	clif_send((unsigned char *) buf, WBUFW(buf,2), bl, ALL_CLIENT);
+}
+
+/// [Ind/Hercules]
+void clif_party_leaderchanged(struct map_session_data *sd, int prev_leader_aid, int new_leader_aid) {
+	unsigned char buf[10];
+
+	nullpo_retv(sd);
+
+	WBUFW(buf,0) = 0x7fc;
+	WBUFL(buf,2) = prev_leader_aid;
+	WBUFL(buf,6) = new_leader_aid;
+	clif_send(buf,packet_len(0x7fc),&sd->bl,PARTY);
+}
+
 /**
 * !TODO: Special item that obtained, must be broadcasted by this packet
 * 07fd ?? (ZC_BROADCASTING_SPECIAL_ITEM_OBTAIN)
@@ -17745,7 +17808,7 @@ void packetdb_readdb(void)
 	    6,  2, -1,  4,  4,  4,  4,  8,  8,268,  6,  8,  6, 54, 30, 54,
 #endif
 	    0, 15,  8,  6, -1,  8,  8, 32, -1,  5,  0,  0,  0,  0,  0,  0,
-	    0,  0,  0,  0,  0,  0, 14, -1, -1, -1,  8, 25,  0,  0, 26,  0,
+	    0,  0,  0,  0,  0,  0, 14, -1, -1, -1,  8, 25,  10,  0, 26,  0,
 	//#0x0800
 #if PACKETVER < 20091229
 	   -1, -1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 14, 20,
@@ -17768,7 +17831,7 @@ void packetdb_readdb(void)
 		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
 		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
 		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+		0,  0,  0,  0,  0,  -1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
 	//#0x08C0
 		0,  0,  0,  0,  0,  0,  0, 20,  0,  0,  0,  0,  0,  0,  0, 10,
 		9,  7, 10,  0,  0,  0,  6,  0,  0,  0,  0,  0,  0,  0,  0,  0,

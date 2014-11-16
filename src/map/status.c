@@ -61,6 +61,7 @@ static struct eri *sc_data_ers; /// For sc_data entries
 static struct status_data dummy_status;
 
 short current_equip_item_index; /// Contains inventory index of an equipped item. To pass it into the EQUP_SCRIPT [Lupus]
+unsigned int current_equip_combo_pos; /// For combo items we need to save the position of all involved items here
 int current_equip_card_id; /// To prevent card-stacking (from jA) [Skotlex]
 // We need it for new cards 15 Feb 2005, to check if the combo cards are insrerted into the CURRENT weapon only to avoid cards exploits
 
@@ -498,7 +499,7 @@ void initChangeTables(void)
 	add_sc( NPC_MAGICMIRROR		, SC_MAGICMIRROR	);
 	set_sc( NPC_SLOWCAST		, SC_SLOWCAST		, SI_SLOWCAST		, SCB_NONE );
 	set_sc( NPC_CRITICALWOUND	, SC_CRITICALWOUND	, SI_CRITICALWOUND	, SCB_NONE );
-	set_sc( NPC_STONESKIN		, SC_ARMORCHANGE	, SI_BLANK		, SCB_DEF|SCB_MDEF );
+	set_sc( NPC_STONESKIN		, SC_ARMORCHANGE	, SI_BLANK		, SCB_NONE );
 	add_sc( NPC_ANTIMAGIC		, SC_ARMORCHANGE	);
 	add_sc( NPC_WIDECURSE		, SC_CURSE		);
 	add_sc( NPC_WIDESTUN		, SC_STUN		);
@@ -2760,13 +2761,16 @@ static unsigned int status_calc_maxhpsp_pc(struct map_session_data* sd, unsigned
 	if (isHP) { //Calculates MaxHP
 		max = job_info[idx].base_hp[level-1] * (1 + (max(stat,1) * 0.01)) * ((sd->class_&JOBL_UPPER)?1.25:1);
 		max += status_get_hpbonus(&sd->bl,STATUS_BONUS_FIX);
-		max *= (1 + status_get_hpbonus(&sd->bl,STATUS_BONUS_RATE) * 0.01);
+		max += (int64)(max * status_get_hpbonus(&sd->bl,STATUS_BONUS_RATE) / 100); //Aegis accuracy
 	}
 	else { //Calculates MaxSP
 		max = job_info[idx].base_sp[level-1] * (1 + (max(stat,1) * 0.01)) * ((sd->class_&JOBL_UPPER)?1.25:1);
 		max += status_get_spbonus(&sd->bl,STATUS_BONUS_FIX);
-		max *= (1 + status_get_spbonus(&sd->bl,STATUS_BONUS_RATE) * 0.01);
+		max += (int64)(max * status_get_spbonus(&sd->bl,STATUS_BONUS_RATE) / 100); //Aegis accuracy
 	}
+
+	//Make sure it's not negative before casting to unsigned int
+	if(max < 1) max = 1;
 
 	return cap_value((unsigned int)max,1,UINT_MAX);
 }
@@ -2954,6 +2958,7 @@ int status_calc_pc_(struct map_session_data* sd, enum e_status_calc_opt opt)
 	// Parse equipment
 	for (i = 0; i < EQI_MAX; i++) {
 		current_equip_item_index = index = sd->equip_index[i]; // We pass INDEX to current_equip_item_index - for EQUIP_SCRIPT (new cards solution) [Lupus]
+		current_equip_combo_pos = 0;
 		if (index < 0)
 			continue;
 		if (i == EQI_AMMO)
@@ -3036,9 +3041,11 @@ int status_calc_pc_(struct map_session_data* sd, enum e_status_calc_opt opt)
 					return 1;
 			}
 		} else if( sd->inventory_data[index]->type == IT_SHADOWGEAR ) { // Shadow System
-			run_script(sd->inventory_data[index]->script,0,sd->bl.id,0);
-			if( !calculating )
-				return 1;
+			if (sd->inventory_data[index]->script && (pc_has_permission(sd,PC_PERM_USE_ALL_EQUIPMENT) || !itemdb_isNoEquip(sd->inventory_data[index],sd->bl.m))) {
+				run_script(sd->inventory_data[index]->script,0,sd->bl.id,0);
+				if( !calculating )
+					return 1;
+			}
 		}
 	}
 
@@ -3061,6 +3068,9 @@ int status_calc_pc_(struct map_session_data* sd, enum e_status_calc_opt opt)
 			uint8 j = 0;
 			bool no_run = false;
 			struct item_combo *combo = NULL;
+
+			current_equip_item_index = -1;
+			current_equip_combo_pos = sd->combos.pos[i];
 
 			if (!sd->combos.bonus[i] || !(combo = itemdb_combo_exists(sd->combos.id[i])))
 				continue;
@@ -3091,6 +3101,7 @@ int status_calc_pc_(struct map_session_data* sd, enum e_status_calc_opt opt)
 	// Parse Cards
 	for (i = 0; i < EQI_MAX; i++) {
 		current_equip_item_index = index = sd->equip_index[i]; // We pass INDEX to current_equip_item_index - for EQUIP_SCRIPT (new cards solution) [Lupus]
+		current_equip_combo_pos = 0;
 		if (index < 0)
 			continue;
 		if (i == EQI_AMMO)
@@ -5624,8 +5635,6 @@ static defType status_calc_def(struct block_list *bl, struct status_change *sc, 
 	if(sc->data[SC_UNLIMIT])
 		return 1;
 
-	if(sc->data[SC_ARMORCHANGE])
-		def += (def * sc->data[SC_ARMORCHANGE]->val2) / 100;
 	if(sc->data[SC_DRUMBATTLE])
 		def += sc->data[SC_DRUMBATTLE]->val3;
 #ifndef RENEWAL
@@ -5785,8 +5794,6 @@ static defType status_calc_mdef(struct block_list *bl, struct status_change *sc,
 	if(sc->data[SC_UNLIMIT])
 		return 1;
 
-	if(sc->data[SC_ARMORCHANGE])
-		mdef += (mdef * sc->data[SC_ARMORCHANGE]->val3) / 100;
 	if(sc->data[SC_EARTH_INSIGNIA] && sc->data[SC_EARTH_INSIGNIA]->val1 == 3)
 		mdef += 50;
 	if(sc->data[SC_ENDURE]) // It has been confirmed that Eddga card grants 1 MDEF, not 0, not 10, but 1.
@@ -6750,7 +6757,9 @@ int status_get_guild_id(struct block_list *bl)
 				return ((TBL_NPC*)bl)->u.scr.guild_id;
 			break;
 		case BL_SKILL:
-			return ((TBL_SKILL*)bl)->group->guild_id;
+			if (((TBL_SKILL*)bl)->group)
+				return ((TBL_SKILL*)bl)->group->guild_id;
+			break;
 		case BL_ELEM:
 			if (((TBL_ELEM*)bl)->master)
 				return ((TBL_ELEM*)bl)->master->status.guild_id;
@@ -6817,7 +6826,7 @@ int status_get_race2(struct block_list *bl)
 	nullpo_ret(bl);
 	if(bl->type == BL_MOB)
 		return ((struct mob_data *)bl)->db->race2;
-	if(bl->type==BL_PET)
+	if(bl->type == BL_PET)
 		return ((struct pet_data *)bl)->db->race2;
 	return 0;
 }
@@ -7217,12 +7226,6 @@ int status_get_sc_def(struct block_list *src, struct block_list *bl, enum sc_typ
 		case SC_NETHERWORLD:
 			tick_def2 = (status_get_lv(bl) > 150 ? 150 : status_get_lv(bl)) * 20 +
 				(sd ? (sd->status.job_level > 50 ? 50 : sd->status.job_level) * 100 : 0);
-			break;
-		case SC_MAGICMIRROR:
-		case SC_ARMORCHANGE:
-			if (sd) // Duration greatly reduced for players.
-				tick /= 15;
-			sc_def2 = status_get_lv(bl)*20 + status->vit*25 + status->agi*10; // Lineal Reduction of Rate
 			break;
 		case SC_MARSHOFABYSS:
 			// 5 second (Fixed) + 25 second - {( INT + LUK ) / 20 second }
@@ -8701,8 +8704,8 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 		case SC_RUWACH:
 		case SC_SIGHTBLASTER:
 			val3 = skill_get_splash(val2, val1); // Val2 should bring the skill-id.
-			val2 = tick/250;
-			tick_time = 10; // [GodLesZ] tick time
+			val2 = tick/20;
+			tick_time = 20; // [GodLesZ] tick time
 			break;
 
 		case SC_AUTOGUARD:
@@ -8918,22 +8921,25 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 			}
 			break;
 
-		case SC_COMBO: {
-				// val1: Skill ID
-				// val2: When given, target (for autotargetting skills)
-				// val3: When set, this combo time should NOT delay attack/movement
-				// val3: TK: Last used kick
-				// val4: TK: Combo time
-				struct unit_data *ud = unit_bl2ud(bl);
-				if (ud && !val3) {
-					tick += 300 * battle_config.combo_delay_rate/100;
-					ud->attackabletime = gettick()+tick;
+		case SC_COMBO:
+		{
+			// val1: Skill ID
+			// val2: When given, target (for autotargetting skills)
+			// val3: When set, this combo time should NOT delay attack/movement
+			// val3: If set to 2 this combo will delay ONLY attack
+			// val3: TK: Last used kick
+			// val4: TK: Combo time
+			struct unit_data *ud = unit_bl2ud(bl);
+			if ( ud && (!val3 || val3 == 2) ) {
+				tick += 300 * battle_config.combo_delay_rate/100;
+				ud->attackabletime = gettick()+tick;
+				if( !val3 )
 					unit_set_walkdelay(bl, gettick(), tick, 1);
-				}
-				val3 = 0;
-				val4 = tick;
 			}
+			val3 = 0;
+			val4 = tick;
 			break;
+		}
 		case SC_EARTHSCROLL:
 			val2 = 11-val1; // Chance to consume: 11-skill_lv%
 			break;
@@ -9124,7 +9130,7 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 		case SC_MAGICMIRROR:
 			// Level 1 ~ 5 & 6 ~ 10 has different duration
 			// Level 6 ~ 10 use effect of level 1 ~ 5
-			val1 %= 5;
+			val1 = 1 + ((val1-1)%5);
 		case SC_SLOWCAST:
 			val2 = 20*val1; // Magic reflection/cast rate
 			break;
@@ -9139,7 +9145,7 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 			}
 			// Level 1 ~ 5 & 6 ~ 10 has different duration
 			// Level 6 ~ 10 use effect of level 1 ~ 5
-			val1 %= 5;
+			val1 = 1 + ((val1-1)%5);
 			val2 *= val1; // 20% per level
 			val3 *= val1;
 			break;
@@ -10034,10 +10040,9 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 		case SC_KYOUGAKU:
 		case SC_PARALYSIS:
 		case SC_MAGNETICFIELD:
-			unit_stop_walking(bl,1);
-			break;
 		case SC_ANKLE:
-			if( battle_config.skill_trap_type || !map_flag_gvg(bl->m) )
+		case SC_VACUUM_EXTREME:
+			if (!unit_blown_immune(bl,0x1))
 				unit_stop_walking(bl,1);
 			break;
 		case SC_HIDING:
@@ -10059,10 +10064,6 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 		case SC_SILENCE:
 			if (battle_config.sc_castcancel&bl->type)
 				unit_skillcastcancel(bl, 0);
-			break;
-		case SC_VACUUM_EXTREME:
-			if (!map_flag_gvg(bl->m))
-				unit_stop_walking(bl, 1);
 			break;
 		case SC_ITEMSCRIPT: // Shows Buff Icons
 			if (sd && val2 != SI_BLANK)
@@ -10832,8 +10833,8 @@ int status_change_end_(struct block_list* bl, enum sc_type type, int tid, const 
 		case SC_AUTOTRADE:
 			if (tid == INVALID_TIMER)
 				break;
-			// Note: vending/buying is closed by unit_remove_map, no
-			// need to do it here.
+			// Vending is not automatically closed for autovenders
+			vending_closevending(sd);
 			map_quit(sd);
 			// Because map_quit calls status_change_end with tid -1
 			// from here it's not neccesary to continue
@@ -11370,14 +11371,17 @@ int status_change_timer(int tid, unsigned int tick, int id, intptr_t data)
 	case SC_SIGHT:
 	case SC_RUWACH:
 	case SC_SIGHTBLASTER:
-		if(type == SC_SIGHTBLASTER)
+		if(type == SC_SIGHTBLASTER) {
+			//Restore trap immunity
+			if(sce->val4%2)
+				sce->val4--;
 			map_foreachinrange( status_change_timer_sub, bl, sce->val3, BL_CHAR|BL_SKILL, bl, sce, type, tick);
-		else
+		} else
 			map_foreachinrange( status_change_timer_sub, bl, sce->val3, BL_CHAR, bl, sce, type, tick);
 
 		if( --(sce->val2)>0 ) {
-			sce->val4 += 250; // Use for Shadow Form 2 seconds checking.
-			sc_timer_next(250+tick, status_change_timer, bl->id, data);
+			sce->val4 += 20; // Use for Shadow Form 2 seconds checking.
+			sc_timer_next(20+tick, status_change_timer, bl->id, data);
 			return 0;
 		}
 		break;
@@ -12203,9 +12207,15 @@ int status_change_timer_sub(struct block_list* bl, va_list ap)
 		if (battle_check_target( src, bl, BCT_ENEMY ) > 0 &&
 			status_check_skilluse(src, bl, WZ_SIGHTBLASTER, 2))
 		{
-			if (sce && !(bl->type&BL_SKILL) // The hit is not counted if it's against a trap
-				&& skill_attack(BF_MAGIC,src,src,bl,WZ_SIGHTBLASTER,sce->val1,tick,0)) {
-				sce->val2 = 0; // This signals it to end.
+			struct skill_unit *su = (struct skill_unit *)bl;
+			if (sce) {
+				if (skill_attack(BF_MAGIC,src,src,bl,WZ_SIGHTBLASTER,sce->val1,tick,0x1000000)
+					&& (!su || !su->group || !(skill_get_inf2(su->group->skill_id)&INF2_TRAP))) { // The hit is not counted if it's against a trap
+					sce->val2 = 0; // This signals it to end.
+				} else if((bl->type&BL_SKILL) && sce->val4%2 == 0) {
+					//Remove trap immunity temporarily so it triggers if you still stand on it
+					sce->val4++;
+				}
 			}
 		}
 		break;

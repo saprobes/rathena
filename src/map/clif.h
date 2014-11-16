@@ -699,6 +699,7 @@ void clif_weather(int16 m); // [Valaris]
 void clif_specialeffect(struct block_list* bl, int type, enum send_target target); // special effects [Valaris]
 void clif_specialeffect_single(struct block_list* bl, int type, int fd);
 void clif_messagecolor(struct block_list* bl, unsigned long color, const char* msg); // Mob/Npc color talk [SnakeDrak]
+void clif_messagecolor2(struct map_session_data *sd, unsigned long color, const char* msg);		// Use for dispcolor [Napster]
 void clif_specialeffect_value(struct block_list* bl, int effect_id, int num, send_target target);
 
 void clif_GM_kickack(struct map_session_data *sd, int id);
@@ -882,6 +883,9 @@ void clif_ranklist(struct map_session_data *sd, int16 rankingType);
 void clif_update_rankingpoint(struct map_session_data *sd, int rankingtype, int point);
 
 void clif_crimson_marker(struct map_session_data *sd, struct block_list *bl, bool remove);
+
+void clif_showscript(struct block_list* bl, const char* message);
+void clif_party_leaderchanged(struct map_session_data *sd, int prev_leader_aid, int new_leader_aid);
 
 //void clif_broadcast_obtain_special_item(); ///TODO!
 

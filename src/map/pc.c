@@ -2113,7 +2113,7 @@ static void pc_bonus_item_drop(struct s_add_drop *drop, const short max, unsigne
 	drop[i].rate = rate;
 }
 
-bool pc_addautobonus(struct s_autobonus *bonus,char max,const char *script,short rate,unsigned int dur,short flag,const char *other_script,unsigned short pos,bool onskill)
+bool pc_addautobonus(struct s_autobonus *bonus,char max,const char *script,short rate,unsigned int dur,short flag,const char *other_script,unsigned int pos,bool onskill)
 {
 	int i;
 
@@ -2159,14 +2159,19 @@ void pc_delautobonus(struct map_session_data* sd, struct s_autobonus *autobonus,
 	{
 		if( autobonus[i].active != INVALID_TIMER )
 		{
-			if( restore && sd->state.autobonus&autobonus[i].pos )
+			if( restore && (sd->state.autobonus&autobonus[i].pos) == autobonus[i].pos)
 			{
 				if( autobonus[i].bonus_script )
 				{
 					int j;
-					ARR_FIND( 0, EQI_MAX, j, sd->equip_index[j] >= 0 && sd->status.inventory[sd->equip_index[j]].equip == autobonus[i].pos );
-					if( j < EQI_MAX )
-						script_run_autobonus(autobonus[i].bonus_script,sd->bl.id,sd->equip_index[j]);
+					unsigned int equip_pos = 0;
+					//Create a list of all equipped positions to see if all items needed for the autobonus are still present [Playtester]
+					for(j = 0; j < EQI_MAX; j++) {
+						if(sd->equip_index[j] >= 0)
+							equip_pos |= sd->status.inventory[sd->equip_index[j]].equip;
+					}
+					if((equip_pos&autobonus[i].pos) == autobonus[i].pos)
+						script_run_autobonus(autobonus[i].bonus_script,sd,autobonus[i].pos);
 				}
 				continue;
 			}
@@ -2193,9 +2198,14 @@ void pc_exeautobonus(struct map_session_data *sd,struct s_autobonus *autobonus)
 	if( autobonus->other_script )
 	{
 		int j;
-		ARR_FIND( 0, EQI_MAX, j, sd->equip_index[j] >= 0 && sd->status.inventory[sd->equip_index[j]].equip == autobonus->pos );
-		if( j < EQI_MAX )
-			script_run_autobonus(autobonus->other_script,sd->bl.id,sd->equip_index[j]);
+		unsigned int equip_pos = 0;
+		//Create a list of all equipped positions to see if all items needed for the autobonus are still present [Playtester]
+		for(j = 0; j < EQI_MAX; j++) {
+			if(sd->equip_index[j] >= 0)
+				equip_pos |= sd->status.inventory[sd->equip_index[j]].equip;
+		}
+		if((equip_pos&autobonus->pos) == autobonus->pos)
+			script_run_autobonus(autobonus->other_script,sd,autobonus->pos);
 	}
 
 	autobonus->active = add_timer(gettick()+autobonus->duration, pc_endautobonus, sd->bl.id, (intptr_t)autobonus);
@@ -3342,10 +3352,10 @@ void pc_bonus2(struct map_session_data *sd,int type,int type2,int val)
 			break;
 		}
 		if(sd->skillfixcastrate[i].id == type2)
-			sd->skillfixcastrate[i].val += val;
+			sd->skillfixcastrate[i].val -= val;
 		else {
 			sd->skillfixcastrate[i].id = type2;
-			sd->skillfixcastrate[i].val = val;
+			sd->skillfixcastrate[i].val -= val;
 		}
 		break;
 	case SP_HP_LOSS_RATE: // bonus2 bHPLossRate,n,t;
@@ -4613,7 +4623,7 @@ bool pc_isUseitem(struct map_session_data *sd,int n)
 	else if( itemdb_is_poison(nameid) && (sd->class_&MAPID_THIRDMASK) != MAPID_GUILLOTINE_CROSS )
 		return false;
 
-	if( item->flag.group ) {
+	if( item->flag.group || item->type == IT_CASH) {	//safe check type cash disappear when overweight [Napster]
 		if( pc_is90overweight(sd) ) {
 			clif_msgtable(sd->fd, ITEM_CANT_OBTAIN_WEIGHT);
 			return false;
@@ -5311,7 +5321,7 @@ char pc_setpos(struct map_session_data* sd, unsigned short mapindex, int x, int 
 	pc_cell_basilica(sd);
 	
 	//check if we gonna be rewarped [lighta]
-	if(npc_check_areanpc(1,m,x,y,1)){
+	if(npc_check_areanpc(1,m,x,y,0)){
 		sd->count_rewarp++;	
 	}
 	else 
@@ -7549,6 +7559,8 @@ int pc_readparam(struct map_session_data* sd,int type)
 		case SP_KILLEDRID:       val = sd->killedrid; break;
 		case SP_SITTING:         val = pc_issit(sd)?1:0; break;
 		case SP_CHARMOVE:		 val = sd->status.character_moves; break;
+		case SP_CHARRENAME:		 val = sd->status.rename; break;
+		case SP_CHARFONT:		 val = sd->status.font; break;
 		case SP_CRITICAL:        val = sd->battle_status.cri/10; break;
 		case SP_ASPD:            val = (2000-sd->battle_status.amotion)/10; break;
 		case SP_BASE_ATK:	     val = sd->battle_status.batk; break;
@@ -7794,6 +7806,13 @@ bool pc_setparam(struct map_session_data *sd,int type,int val)
 		return true;
 	case SP_CHARMOVE:
 		sd->status.character_moves = val;
+		return true;
+	case SP_CHARRENAME:	
+		sd->status.rename = val;
+		return true;
+	case SP_CHARFONT:
+		sd->status.font = val;
+		clif_font(sd);
 		return true;
 	default:
 		ShowError("pc_setparam: Attempted to set unknown parameter '%d'.\n", type);
@@ -8914,6 +8933,7 @@ static int pc_checkcombo(struct map_session_data *sd, struct item_data *data) {
 		} *combo_idx;
 		int idx, j;
 		int nb_itemCombo;
+		unsigned int pos = 0;
 		/* ensure this isn't a duplicate combo */
 		if( sd->combos.bonus != NULL ) {
 			int x;
@@ -8958,6 +8978,7 @@ static int pc_checkcombo(struct map_session_data *sd, struct item_data *data) {
 							continue;
 					}
 					combo_idx[j].idx = index;
+					pos |= sd->status.inventory[index].equip;
 					found = true;
 					break;
 				} else { //Cards
@@ -8985,6 +9006,7 @@ static int pc_checkcombo(struct map_session_data *sd, struct item_data *data) {
 							continue;
 						combo_idx[j].idx = index;
 						combo_idx[j].card[z] = id;
+						pos |= sd->status.inventory[index].equip;
 						found = true;
  						break;
  					}
@@ -9002,15 +9024,19 @@ static int pc_checkcombo(struct map_session_data *sd, struct item_data *data) {
 		if( sd->combos.bonus == NULL ) {
 			CREATE(sd->combos.bonus, struct script_code *, 1);
 			CREATE(sd->combos.id, unsigned short, 1);
+			CREATE(sd->combos.pos, unsigned int, 1);
 			sd->combos.count = 1;
 		} else {
 			RECREATE(sd->combos.bonus, struct script_code *, ++sd->combos.count);
 			RECREATE(sd->combos.id, unsigned short, sd->combos.count);
+			RECREATE(sd->combos.pos, unsigned int, sd->combos.count);
 		}
 		/* we simply copy the pointer */
 		sd->combos.bonus[idx] = data->combos[i]->script;
 		/* save this combo's id */
 		sd->combos.id[idx] = data->combos[i]->id;
+		/* save pos of combo*/
+		sd->combos.pos[idx] = pos;
 		success++;
 	}
 	return success;
@@ -9037,6 +9063,7 @@ static int pc_removecombo(struct map_session_data *sd, struct item_data *data ) 
 
 		sd->combos.bonus[x] = NULL;
 		sd->combos.id[x] = 0;
+		sd->combos.pos[x] = 0;
 		retval++;
 
 		/* check if combo requirements still fit */
@@ -9051,6 +9078,7 @@ static int pc_removecombo(struct map_session_data *sd, struct item_data *data ) 
 			if( cursor != j ) {
 				sd->combos.bonus[cursor] = sd->combos.bonus[j];
 				sd->combos.id[cursor]    = sd->combos.id[j];
+				sd->combos.pos[cursor]   = sd->combos.pos[j];
 			}
 			cursor++;
 		}
@@ -9059,8 +9087,10 @@ static int pc_removecombo(struct map_session_data *sd, struct item_data *data ) 
 		if( (sd->combos.count = cursor) == 0 ) {
 			aFree(sd->combos.bonus);
 			aFree(sd->combos.id);
+			aFree(sd->combos.pos);
 			sd->combos.bonus = NULL;
 			sd->combos.id = NULL;
+			sd->combos.pos = NULL;
 			return retval; /* we also can return at this point for we have no more combos to check */
 		}
 	}

@@ -1321,6 +1321,10 @@ int mob_unlocktarget(struct mob_data *md, unsigned int tick)
 		md->ud.target_to = 0;
 		unit_set_target(&md->ud, 0);
 	}
+	if(map_count_oncell(md->bl.m, md->bl.x, md->bl.y, BL_CHAR|BL_NPC, 1) > battle_config.official_cell_stack_limit) {
+		unit_walktoxy(&md->bl, md->bl.x, md->bl.y, 8);
+	}
+
 	return 0;
 }
 /*==========================================
@@ -1349,7 +1353,7 @@ int mob_randomwalk(struct mob_data *md,unsigned int tick)
 		x+=md->bl.x;
 		y+=md->bl.y;
 
-		if(((x != md->bl.x) || (y != md->bl.y)) && map_getcell(md->bl.m,x,y,CELL_CHKPASS) && unit_walktoxy(&md->bl,x,y,0)){
+		if(((x != md->bl.x) || (y != md->bl.y)) && map_getcell(md->bl.m,x,y,CELL_CHKPASS) && unit_walktoxy(&md->bl,x,y,8)){
 			break;
 		}
 	}
@@ -1446,8 +1450,9 @@ static bool mob_ai_sub_hard(struct mob_data *md, unsigned int tick)
 		)) {	//No valid target
 			if (mob_warpchase(md, tbl))
 				return true; //Chasing this target.
-			if(md->ud.walktimer != INVALID_TIMER && md->ud.walkpath.path_pos <= battle_config.mob_chase_refresh)
-				return true; //Walk at least "mob_chase_refresh" cells before dropping the target
+			if(md->ud.walktimer != INVALID_TIMER && (!can_move || md->ud.walkpath.path_pos <= battle_config.mob_chase_refresh)
+				&& (tbl || md->ud.walkpath.path_pos == 0))
+				return true; //Walk at least "mob_chase_refresh" cells before dropping the target unless target is non-existent
 			mob_unlocktarget(md, tick); //Unlock target
 			tbl = NULL;
 		}
@@ -1459,13 +1464,14 @@ static bool mob_ai_sub_hard(struct mob_data *md, unsigned int tick)
 		if( md->attacked_id == md->target_id )
 		{	//Rude attacked check.
 			if( !battle_check_range(&md->bl, tbl, md->status.rhw.range)
-			   &&  ( //Can't attack back and can't reach back.
+			&&  ( //Can't attack back and can't reach back.
 					(!can_move && DIFF_TICK(tick, md->ud.canmove_tick) > 0 && (battle_config.mob_ai&0x2 || (md->sc.data[SC_SPIDERWEB] && md->sc.data[SC_SPIDERWEB]->val1)
-					|| md->sc.data[SC_BITE] || md->sc.data[SC_VACUUM_EXTREME] || md->sc.data[SC_THORNSTRAP]
-					|| md->sc.data[SC__MANHOLE])) // Not yet confirmed if boss will teleport once it can't reach target.
-					|| !mob_can_reach(md, tbl, md->min_chase, MSS_RUSH)
-					|| md->walktoxy_fail_count > 0
+						|| md->sc.data[SC_BITE] || md->sc.data[SC_VACUUM_EXTREME] || md->sc.data[SC_THORNSTRAP]
+						|| md->sc.data[SC__MANHOLE] // Not yet confirmed if boss will teleport once it can't reach target.
+						|| md->walktoxy_fail_count > 0)
 					)
+					|| !mob_can_reach(md, tbl, md->min_chase, MSS_RUSH)
+				)
 			&&  md->state.attacked_count++ >= RUDE_ATTACKED_COUNT
 			&&  !mobskill_use(md, tick, MSC_RUDEATTACKED) // If can't rude Attack
 			&&  can_move && unit_escape(&md->bl, tbl, rnd()%10 +1)) // Attempt escape
@@ -1485,11 +1491,12 @@ static bool mob_ai_sub_hard(struct mob_data *md, unsigned int tick)
 				|| (!battle_check_range(&md->bl, abl, md->status.rhw.range) // Not on Melee Range and ...
 				&& ( // Reach check
 					(!can_move && DIFF_TICK(tick, md->ud.canmove_tick) > 0 && (battle_config.mob_ai&0x2 || (md->sc.data[SC_SPIDERWEB] && md->sc.data[SC_SPIDERWEB]->val1)
-					|| md->sc.data[SC_BITE] || md->sc.data[SC_VACUUM_EXTREME] || md->sc.data[SC_THORNSTRAP]
-					|| md->sc.data[SC__MANHOLE])) // Not yet confirmed if boss will teleport once it can't reach target.
-					|| !mob_can_reach(md, abl, dist+md->db->range3, MSS_RUSH)
-					|| md->walktoxy_fail_count > 0
+						|| md->sc.data[SC_BITE] || md->sc.data[SC_VACUUM_EXTREME] || md->sc.data[SC_THORNSTRAP]
+						|| md->sc.data[SC__MANHOLE] // Not yet confirmed if boss will teleport once it can't reach target.
+						|| md->walktoxy_fail_count > 0)
 					)
+					|| !mob_can_reach(md, abl, dist+md->db->range3, MSS_RUSH)
+				   )
 				) )
 			{ // Rude attacked
 				if (md->state.attacked_count++ >= RUDE_ATTACKED_COUNT
@@ -1625,8 +1632,8 @@ static bool mob_ai_sub_hard(struct mob_data *md, unsigned int tick)
 
 	//Attempt to attack.
 	//At this point we know the target is attackable, we just gotta check if the range matches.
-	if (battle_check_range (&md->bl, tbl, md->status.rhw.range))
-	{	//Target within range, engage
+	if (battle_check_range(&md->bl, tbl, md->status.rhw.range) && !(md->sc.option&OPTION_HIDE))
+	{	//Target within range and able to use normal attack, engage
 		if (md->ud.target != tbl->id || md->ud.attacktimer == INVALID_TIMER) 
 		{ //Only attack if no more attack delay left
 			if(tbl->type == BL_PC)
@@ -1646,6 +1653,23 @@ static bool mob_ai_sub_hard(struct mob_data *md, unsigned int tick)
 		return true;
 	}
 
+	//Monsters in berserk state, unable to use normal attacks, will always attempt a skill
+	if(md->ud.walktimer == INVALID_TIMER && (md->state.skillstate == MSS_BERSERK || md->state.skillstate == MSS_ANGRY)) 
+	{
+		if (DIFF_TICK(md->ud.canmove_tick, tick) <= MIN_MOBTHINKTIME && DIFF_TICK(md->ud.canact_tick, tick) < -MIN_MOBTHINKTIME*IDLE_SKILL_INTERVAL) 
+		{ //Only use skill if able to walk on next tick and not used a skill the last second
+			mobskill_use(md, tick, -1);
+		}
+	}
+
+	//Target still in attack range, no need to chase the target
+	if(battle_check_range(&md->bl, tbl, md->status.rhw.range))
+		return true;
+
+	//Only update target cell / drop target after having moved at least "mob_chase_refresh" cells
+	if(md->ud.walktimer != INVALID_TIMER && (!can_move || md->ud.walkpath.path_pos <= battle_config.mob_chase_refresh))
+		return true;
+
 	//Out of range...
 	if (!(mode&MD_CANMOVE) || (!can_move && DIFF_TICK(tick, md->ud.canmove_tick) > 0))
 	{	//Can't chase. Immobile and trapped mobs should unlock target and use an idle skill.
@@ -1657,24 +1681,11 @@ static bool mob_ai_sub_hard(struct mob_data *md, unsigned int tick)
 		return true;
 	}
 
-	//Before a monster starts to chase a target, it will check if it has a ranged "attack" skill to use on it.
-	if(md->ud.walktimer == INVALID_TIMER && (md->state.skillstate == MSS_BERSERK || md->state.skillstate == MSS_ANGRY)) 
-	{
-		if (DIFF_TICK(md->ud.canmove_tick, tick) <= MIN_MOBTHINKTIME && DIFF_TICK(md->ud.canact_tick, tick) < -MIN_MOBTHINKTIME*IDLE_SKILL_INTERVAL) 
-		{ //Only use skill if able to walk on next tick and not used a skill the last second
-			mobskill_use(md, tick, -1);
-		}
-	}
-
 	if (md->ud.walktimer != INVALID_TIMER && md->ud.target == tbl->id &&
 		(
 			!(battle_config.mob_ai&0x1) ||
 			check_distance_blxy(tbl, md->ud.to_x, md->ud.to_y, md->status.rhw.range)
 	)) //Current target tile is still within attack range.
-		return true;
-
-	//Only update target cell after having moved at least "mob_chase_refresh" cells
-	if(md->ud.walktimer != INVALID_TIMER && md->ud.walkpath.path_pos <= battle_config.mob_chase_refresh)
 		return true;
 
 	//Follow up if possible.

@@ -445,6 +445,8 @@ enum _sp {
 	SP_KILLEDRID=122,
 	SP_SITTING=123,
 	SP_CHARMOVE=124,
+	SP_CHARRENAME=125,
+	SP_CHARFONT=126,
 
 	// Mercenaries
 	SP_MERCFLEE=165, SP_MERCKILLS=189, SP_MERCFAITH=190,
@@ -774,11 +776,12 @@ int map_foreachincell(int (*func)(struct block_list*,va_list), int16 m, int16 x,
 int map_foreachinpath(int (*func)(struct block_list*,va_list), int16 m, int16 x0, int16 y0, int16 x1, int16 y1, int16 range, int length, int type, ...);
 int map_foreachinmap(int (*func)(struct block_list*,va_list), int16 m, int type, ...);
 //blocklist nb in one cell
-int map_count_oncell(int16 m,int16 x,int16 y,int type);
+int map_count_oncell(int16 m,int16 x,int16 y,int type,int flag);
 struct skill_unit *map_find_skill_unit_oncell(struct block_list *,int16 x,int16 y,uint16 skill_id,struct skill_unit *, int flag);
 // search and creation
 int map_get_new_object_id(void);
 int map_search_freecell(struct block_list *src, int16 m, int16 *x, int16 *y, int16 rx, int16 ry, int flag);
+bool map_closest_freecell(int16 m, int16 *x, int16 *y, int type, int flag);
 //
 int map_quit(struct map_session_data *);
 // npc
@@ -856,7 +859,8 @@ bool                    mapit_exists(struct s_mapiterator* mapit);
 #define mapit_geteachiddb() mapit_alloc(MAPIT_NORMAL,BL_ALL)
 
 int map_check_dir(int s_dir,int t_dir);
-uint8 map_calc_dir( struct block_list *src,int16 x,int16 y);
+uint8 map_calc_dir(struct block_list *src,int16 x,int16 y);
+uint8 map_calc_dir_xy(int16 srcx, int16 srcy, int16 x, int16 y, uint8 srcdir);
 int map_random_dir(struct block_list *bl, short *x, short *y); // [Skotlex]
 
 int cleanup_sub(struct block_list *bl, va_list ap);
