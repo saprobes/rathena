@@ -42,6 +42,7 @@
 #include <math.h>
 
 #define SKILLUNITTIMER_INTERVAL	100
+#define WATERBALL_INTERVAL	150
 
 // ranges reserved for mapping skill ids to skilldb offsets
 #define HM_SKILLRANGEMIN 700
@@ -935,22 +936,30 @@ int skill_additional_effect(struct block_list* src, struct block_list *bl, uint1
 					// Chance to trigger Taekwon kicks [Dralnu]
 					if(sc && !sc->data[SC_COMBO]) {
 						if(sc->data[SC_READYSTORM] &&
-							sc_start(src,src,SC_COMBO, 15, TK_STORMKICK,
-								(2000 - 4*sstatus->agi - 2*sstatus->dex))); //Stance triggered
+							sc_start4(src,src,SC_COMBO, 15, TK_STORMKICK,
+								bl->id, 2, 0,
+								(2000 - 4*sstatus->agi - 2*sstatus->dex)))
+							; //Stance triggered
 						else if(sc->data[SC_READYDOWN] &&
-							sc_start(src,src,SC_COMBO, 15, TK_DOWNKICK,
-								(2000 - 4*sstatus->agi - 2*sstatus->dex))); //Stance triggered
+							sc_start4(src,src,SC_COMBO, 15, TK_DOWNKICK,
+								bl->id, 2, 0,
+								(2000 - 4*sstatus->agi - 2*sstatus->dex)))
+							; //Stance triggered
 						else if(sc->data[SC_READYTURN] &&
-							sc_start(src,src,SC_COMBO, 15, TK_TURNKICK,
-								(2000 - 4*sstatus->agi - 2*sstatus->dex))); //Stance triggered
+							sc_start4(src,src,SC_COMBO, 15, TK_TURNKICK,
+								bl->id, 2, 0,
+								(2000 - 4*sstatus->agi - 2*sstatus->dex)))
+							; //Stance triggered
 						else if (sc->data[SC_READYCOUNTER]) { //additional chance from SG_FRIEND [Komurka]
 							rate = 20;
 							if (sc->data[SC_SKILLRATE_UP] && sc->data[SC_SKILLRATE_UP]->val1 == TK_COUNTER) {
 								rate += rate*sc->data[SC_SKILLRATE_UP]->val2/100;
 								status_change_end(src, SC_SKILLRATE_UP, INVALID_TIMER);
 							}
-							sc_start2(src,src, SC_COMBO, rate, TK_COUNTER, bl->id,
-								(2000 - 4*sstatus->agi - 2*sstatus->dex));
+							sc_start4(src,src, SC_COMBO, rate, TK_COUNTER,
+								bl->id, 2, 0,
+								(2000 - 4*sstatus->agi - 2*sstatus->dex))
+							; //Stance triggered
 						}
 					}
 					if(sc && sc->data[SC_PYROCLASTIC] && ((rnd()%100)<=sc->data[SC_PYROCLASTIC]->val3) )
@@ -2134,7 +2143,8 @@ int skill_counter_additional_effect (struct block_list* src, struct block_list *
 			if (autospl_skill_lv < 0) autospl_skill_lv = 1+rnd()%(-autospl_skill_lv);
 
 			autospl_rate = dstsd->autospell2[i].rate;
-			if (attack_type&BF_LONG)
+			//Physical range attacks only trigger autospells half of the time
+			if ((attack_type&(BF_WEAPON|BF_LONG)) == (BF_WEAPON|BF_LONG))
 				 autospl_rate>>=1;
 
 			dstsd->state.autocast = 1;
@@ -2373,6 +2383,7 @@ static int skill_area_temp[8];
 short skill_blown(struct block_list* src, struct block_list* target, char count, int8 dir, unsigned char flag)
 {
 	int dx = 0, dy = 0;
+	int reason = 0, checkflag = 0;
 
 	nullpo_ret(src);
 	nullpo_ret(target);
@@ -2380,34 +2391,23 @@ short skill_blown(struct block_list* src, struct block_list* target, char count,
 	if (!count)
 		return count; // Actual knockback distance is 0.
 
-	if (src != target && (map_flag_gvg(target->m) || map[target->m].flag.battleground))
-		return ((flag&0x04) ? count : 0); // No knocking back in WoE
+	// Create flag needed in unit_blown_immune
+	if(src != target)
+		checkflag |= 0x1; // Offensive
+	if(!(flag&0x2))
+		checkflag |= 0x2; // Knockback type
+	if(is_boss(src))
+		checkflag |= 0x4; // Boss attack
 
-	switch (target->type) {
-		case BL_MOB: {
-				struct mob_data* md = BL_CAST(BL_MOB, target);
-				if( md->mob_id == MOBID_EMPERIUM )
-					return count;
-				// Bosses or imune can't be knocked-back
-				if(src != target && status_get_mode(target)&(MD_KNOCKBACK_IMMUNE|MD_BOSS))
-					return ((flag&0x08) ? count : 0);
-			}
-			break;
-		case BL_PC: {
-				struct map_session_data *sd = BL_CAST(BL_PC, target);
-				if( sd->sc.data[SC_BASILICA] && sd->sc.data[SC_BASILICA]->val4 == sd->bl.id && !is_boss(src))
-					return ((flag&0x20) ? count : 0); // Basilica caster can't be knocked-back by normal monsters.
-				if( !(flag&0x2) && src != target && sd->special_state.no_knockback )
-					return ((flag&0x10) ? count : 0);
-			}
-			break;
-		case BL_SKILL: {
-				struct skill_unit* su = NULL;
-				su = (struct skill_unit *)target;
-				if (su && su->group && skill_get_unit_flag(su->group->skill_id)&UF_NOKNOCKBACK)
-					return count; // Cannot be knocked back
-			}
-			break;
+	// Get reason and check for flags
+	reason = unit_blown_immune(target, checkflag);
+	switch(reason) {
+		case 1: return ((flag&0x04) ? count : 0); // No knocking back in WoE / BG
+		case 2: return count; // Emperium can't be knocked back
+		case 3: return ((flag&0x08) ? count : 0); // Bosses or immune can't be knocked back
+		case 4: return ((flag&0x20) ? count : 0); // Basilica caster can't be knocked-back by normal monsters.
+		case 5: return ((flag&0x10) ? count : 0); // Target has special_state.no_knockback (equip)
+		case 6: return count; // Trap cannot be knocked back
 	}
 
 	if (dir == -1) // <optimized>: do the computation here instead of outside
@@ -2420,7 +2420,6 @@ short skill_blown(struct block_list* src, struct block_list* target, char count,
 
 	return unit_blown(target, dx, dy, count, flag);	// Send over the proper flag
 }
-
 
 // Checks if 'bl' should reflect back a spell cast by 'src'.
 // type is the type of magic attack: 0: indirect (aoe), 1: direct (targetted)
@@ -2529,7 +2528,9 @@ void skill_combo_toogle_inf(struct block_list* bl, uint16 skill_id, int inf){
 }
 
 void skill_combo(struct block_list* src,struct block_list *dsrc, struct block_list *bl, uint16 skill_id, uint16 skill_lv, int tick){
-	int duration = 0, delay=0; //Used to signal if this skill can be combo'ed later on.
+	int duration = 0; //Set to duration the user can use a combo skill or 1 for aftercast delay of pre-skill
+	int nodelay = 0; //Set to 1 for no walk/attack delay, set to 2 for no walk delay
+	int target_id = bl->id; //Set to 0 if combo skill should not autotarget
 	struct status_change_entry *sce;
 	TBL_PC *sd = BL_CAST(BL_PC,src);
 	TBL_HOM *hd = BL_CAST(BL_HOM,src);
@@ -2565,30 +2566,31 @@ void skill_combo(struct block_list* src,struct block_list *dsrc, struct block_li
 		switch(skill_id) {
 		case MO_TRIPLEATTACK:
 			if (pc_checkskill(sd, MO_CHAINCOMBO) > 0 || pc_checkskill(sd, SR_DRAGONCOMBO) > 0)
-				duration=1;
+				duration = 1;
 			break;
 		case MO_CHAINCOMBO:
 			if(pc_checkskill(sd, MO_COMBOFINISH) > 0 && sd->spiritball > 0)
-				duration=1;
+				duration = 1;
 			break;
 		case MO_COMBOFINISH:
 			if (sd->status.party_id>0) //bonus from SG_FRIEND [Komurka]
 				party_skill_check(sd, sd->status.party_id, MO_COMBOFINISH, skill_lv);
 			if (pc_checkskill(sd, CH_TIGERFIST) > 0 && sd->spiritball > 0)
-				duration=1;
+				duration = 1;
 		case CH_TIGERFIST:
 			if (!duration && pc_checkskill(sd, CH_CHAINCRUSH) > 0 && sd->spiritball > 1)
-				duration=1;
+				duration = 1;
 		case CH_CHAINCRUSH:
 			if (!duration && pc_checkskill(sd, MO_EXTREMITYFIST) > 0 && sd->spiritball > 0 && sd->sc.data[SC_EXPLOSIONSPIRITS])
-				duration=1;
+				duration = 1;
 			break;
-		case AC_DOUBLE: {
-			unsigned char race = status_get_race(bl);
-			if( (race == RC_BRUTE || race == RC_INSECT) && pc_checkskill(sd, HT_POWER))
+		case AC_DOUBLE:
+			if( pc_checkskill(sd, HT_POWER)) {
 				duration = 2000;
+				nodelay = 1; //Neither gives walk nor attack delay
+				target_id = 0; //Does not need to be used on previous target
+			}
 			break;
-		}
 		case SR_DRAGONCOMBO:
 			if( pc_checkskill(sd, SR_FALLENEMPIRE) > 0 )
 				duration = 1;
@@ -2606,20 +2608,20 @@ void skill_combo(struct block_list* src,struct block_list *dsrc, struct block_li
 		case MH_SONIC_CRAW:
 		case MH_SILVERVEIN_RUSH:
 			if(hd->homunculus.spiritball > 0) duration = 2000;
-				delay=1;
+				nodelay = 1;
 			break;
 		case MH_EQC:
 		case MH_MIDNIGHT_FRENZY:
 			if(hd->homunculus.spiritball >= 2) duration = 2000;
-				delay=1;
+				nodelay = 1;
 			break;
 		}
 	}
 
 	if (duration) { //Possible to chain
-		if(sd && duration==1) duration = DIFF_TICK(sd->ud.canact_tick, tick); //auto calc duration
-		duration = max(1,duration);
-		sc_start4(src,src,SC_COMBO,100,skill_id,bl->id,delay,0,duration);
+		if(sd && duration==1) duration = DIFF_TICK(sd->ud.canact_tick, tick); //Auto calc duration
+		duration = max(status_get_amotion(src),duration); //Never less than aMotion
+		sc_start4(src,src,SC_COMBO,100,skill_id,target_id,nodelay,0,duration);
 		clif_combo_delay(src, duration);
 	}
 }
@@ -2758,7 +2760,8 @@ void skill_attack_blow(struct block_list *src, struct block_list *dsrc, struct b
 			break;
 		// This ensures the storm randomly pushes instead of exactly a cell backwards per official mechanics.
 		case WZ_STORMGUST:
-			dir = rand()%8;
+			if(!battle_config.stormgust_knockback)
+				dir = rand()%8;
 			break;
 		case WL_CRIMSONROCK:
 			dir = map_calc_dir(target,skill_area_temp[4],skill_area_temp[5]);
@@ -2831,8 +2834,10 @@ void skill_attack_blow(struct block_list *src, struct block_list *dsrc, struct b
  *        flag&0xFFF is passed to the underlying battle_calc_attack for processing
  *             (usually holds number of targets, or just 1 for simple splash attacks)
  *
- *        Values from enum e_skill_display
- *        Values from enum e_battle_check_target
+ *        flag&0xF000 - Values from enum e_skill_display
+ *        flag&0x3F0000 - Values from enum e_battle_check_target
+ * 
+ *        flag&0x1000000 - Return 0 if damage was reflected
  *-------------------------------------------------------------------------*/
 int64 skill_attack (int attack_type, struct block_list* src, struct block_list *dsrc, struct block_list *bl, uint16 skill_id, uint16 skill_lv, unsigned int tick, int flag)
 {
@@ -2909,7 +2914,8 @@ int64 skill_attack (int attack_type, struct block_list* src, struct block_list *
 				tsc = NULL; //Don't need it.
 			/* bugreport:2564 flag&2 disables double casting trigger */
 			flag |= 2;
-
+			//Reflected magic damage will not cause the caster to be knocked back [Playtester]
+			flag |= 4;
 			//Spirit of Wizard blocks Kaite's reflection
 			if( type == 2 && tsc && tsc->data[SC_SPIRIT] && tsc->data[SC_SPIRIT]->val2 == SL_WIZARD )
 			{	//Consume one Fragment per hit of the casted skill? [Skotlex]
@@ -3285,6 +3291,9 @@ int64 skill_attack (int attack_type, struct block_list* src, struct block_list *
 
 	map_freeblock_unlock();
 
+	if ((flag&0x1000000) && rmdamage == 1)
+		return 0; //Should return 0 when damage was reflected
+
 	return damage;
 }
 
@@ -3341,9 +3350,12 @@ static int skill_check_unit_range_sub(struct block_list *bl, va_list ap)
 	g_skill_id = unit->group->skill_id;
 
 	switch (skill_id) {
+		case AL_PNEUMA: //Pneuma doesn't work even if just one cell overlaps with Land Protector
+			if(g_skill_id == SA_LANDPROTECTOR)
+				break;
+			//Fall through
 		case MH_STEINWAND:
 		case MG_SAFETYWALL:
-		case AL_PNEUMA:
 		case SC_MAELSTROM:
 		case SO_ELEMENTAL_SHIELD:
 			if(g_skill_id != MH_STEINWAND && g_skill_id != MG_SAFETYWALL && g_skill_id != AL_PNEUMA && g_skill_id != SC_MAELSTROM && g_skill_id != SO_ELEMENTAL_SHIELD)
@@ -3714,11 +3726,15 @@ static int skill_timerskill(int tid, unsigned int tick, int id, intptr_t data)
 				case WZ_WATERBALL:
 					skill_toggle_magicpower(src, skl->skill_id); // only the first hit will be amplify
 					// Official behaviour is to hit as long as there is a line of sight, regardless of distance
-					range = path_search_long(NULL,src->m,src->x,src->y,target->x,target->y,CELL_CHKNOREACH);
-					if (!status_isdead(target) && range)
+					if (!status_isdead(target) && path_search_long(NULL,src->m,src->x,src->y,target->x,target->y,CELL_CHKNOREACH)) {
+						//Apply canact delay here to prevent hacks (unlimited waterball casting)
+						ud->canact_tick = tick + skill_delayfix(src, skl->skill_id, skl->skill_lv);
 						skill_attack(BF_MAGIC,src,src,target,skl->skill_id,skl->skill_lv,tick,skl->flag);
-					if (skl->type>1 && !status_isdead(target) && !status_isdead(src) && range) {
-						skill_addtimerskill(src,tick+125,target->id,0,0,skl->skill_id,skl->skill_lv,skl->type-1,skl->flag);
+					}
+					if (skl->type>1 && !status_isdead(target) && !status_isdead(src)) {
+						//Timer will continue and walkdelay set until target is dead, even if there is currently no line of sight
+						unit_set_walkdelay(src, tick, WATERBALL_INTERVAL, 1);
+						skill_addtimerskill(src,tick+WATERBALL_INTERVAL,target->id,0,0,skl->skill_id,skl->skill_lv,skl->type-1,skl->flag);
 					} else {
 						struct status_change *sc = status_get_sc(src);
 						if(sc) {
@@ -3861,7 +3877,8 @@ static int skill_timerskill(int tid, unsigned int tick, int id, intptr_t data)
 						int x = skl->type>>16, y = skl->type&0xFFFF;
 						if( path_search_long(NULL, src->m, src->x, src->y, x, y, CELL_CHKWALL) )
 							skill_unitsetting(src,skl->skill_id,skl->skill_lv,x,y,skl->flag);
-						if( path_search_long(NULL, src->m, src->x, src->y, skl->x, skl->y, CELL_CHKWALL) )
+						if( path_search_long(NULL, src->m, src->x, src->y, skl->x, skl->y, CELL_CHKWALL)
+							&& !map_getcell(src->m, skl->x, skl->y, CELL_CHKLANDPROTECTOR) )
 							clif_skill_poseffect(src,skl->skill_id,skl->skill_lv,skl->x,skl->y,tick);
 					}
 					else if( path_search_long(NULL, src->m, src->x, src->y, skl->x, skl->y, CELL_CHKWALL) )
@@ -4103,7 +4120,6 @@ int skill_castend_damage_id (struct block_list* src, struct block_list *bl, uint
 	case WS_CARTTERMINATION:	// Cart Termination
 	case AS_VENOMKNIFE:
 	case HT_PHANTASMIC:
-	case HT_POWER:
 	case TK_DOWNKICK:
 	case TK_COUNTER:
 	case GS_CHAINACTION:
@@ -4329,14 +4345,17 @@ int skill_castend_damage_id (struct block_list* src, struct block_list *bl, uint
 		}
 		break;
 
+	case HT_POWER:
+		if( tstatus->race == RC_BRUTE || tstatus->race == RC_INSECT )
+			skill_attack(BF_WEAPON,src,src,bl,skill_id,skill_lv,tick,flag);
+		break;
+
 	//Splash attack skills.
 	case AS_GRIMTOOTH:
 	case MC_CARTREVOLUTION:
 	case NPC_SPLASHATTACK:
 		flag |= SD_PREAMBLE; // a fake packet will be sent for the first target to be hit
 	case AS_SPLASHER:
-	case SM_MAGNUM:
-	case MS_MAGNUM:
 	case HT_BLITZBEAT:
 	case AC_SHOWER:
 	case MA_SHOWER:
@@ -4449,6 +4468,14 @@ int skill_castend_damage_id (struct block_list* src, struct block_list *bl, uint
 	case WL_COMET:
 		if(!map_getcell(bl->m, bl->x, bl->y, CELL_CHKLANDPROTECTOR)) // Nothing should happen if the target is on Land Protector
 			skill_attack(skill_get_type(skill_id), src, src, bl, skill_id, skill_lv, tick, flag);
+		break;
+		
+	case SM_MAGNUM:
+	case MS_MAGNUM:
+		if( flag&1 ) {
+			//Damage depends on distance, so add it to flag if it is > 1
+			skill_attack(skill_get_type(skill_id), src, src, bl, skill_id, skill_lv, tick, flag|distance_bl(src, bl));
+		}
 		break;
 
 	case KN_BRANDISHSPEAR:
@@ -4659,8 +4686,10 @@ int skill_castend_damage_id (struct block_list* src, struct block_list *bl, uint
 					}
 				}
 
+			if( count > (10000/WATERBALL_INTERVAL)+1 ) //Waterball has a max duration of 10 seconds [Playtester]
+				count = (10000/WATERBALL_INTERVAL)+1;
 			if( count > 1 ) // queue the remaining count - 1 timerskill Waterballs
-				skill_addtimerskill(src,tick+150,bl->id,0,0,skill_id,skill_lv,count-1,flag);
+				skill_addtimerskill(src,tick+WATERBALL_INTERVAL,bl->id,0,0,skill_id,skill_lv,count-1,flag);
 		}
 		skill_attack(BF_MAGIC,src,src,bl,skill_id,skill_lv,tick,flag);
 		break;
@@ -6935,11 +6964,11 @@ int skill_castend_nodamage_id (struct block_list *src, struct block_list *bl, ui
 				break;
 			}
 
+			if (sd->hd && battle_config.hom_setting&HOMSET_RESET_REUSESKILL_TELEPORTED)
+				memset(sd->hd->blockskill, 0, sizeof(hd->blockskill));
+
 			if( sd->state.autocast || ( (sd->skillitem == AL_TELEPORT || battle_config.skip_teleport_lv1_menu) && skill_lv == 1 ) || skill_lv == 3 )
 			{
-				if (sd->hd && battle_config.hom_setting&HOMSET_RESET_REUSESKILL_TELEPORTED)
-					memset(sd->hd->blockskill, 0, sizeof(hd->blockskill));
-
 				if( skill_lv == 1 )
 					pc_randomwarp(sd,CLR_TELEPORT);
 				else
@@ -7366,7 +7395,7 @@ int skill_castend_nodamage_id (struct block_list *src, struct block_list *bl, ui
 			}
 
 			clif_skill_nodamage(src,bl,TK_HIGHJUMP,skill_lv,1);
-			if(!map_count_oncell(src->m,x,y,BL_PC|BL_NPC|BL_MOB) && map_getcell(src->m,x,y,CELL_CHKREACH) && unit_movepos(src, x, y, 1, 0))
+			if(!map_count_oncell(src->m,x,y,BL_PC|BL_NPC|BL_MOB,0) && map_getcell(src->m,x,y,CELL_CHKREACH) && unit_movepos(src, x, y, 1, 0))
 				clif_blown(src);
 		}
 		break;
@@ -8061,7 +8090,7 @@ int skill_castend_nodamage_id (struct block_list *src, struct block_list *bl, ui
 	case SL_SUPERNOVICE:
 	case SL_WIZARD:
 		//NOTE: here, 'type' has the value of the associated MAPID, not of the SC_SPIRIT constant.
-		if (sd && dstsd && !((dstsd->class_&MAPID_UPPERMASK) == type) || (skill_id == SL_SUPERNOVICE && (dstsd->class_&JOBL_SUPER_NOVICE))) {
+		if (sd && dstsd && !(((dstsd->class_&MAPID_UPPERMASK) == type) || (skill_id == SL_SUPERNOVICE && (dstsd->class_&JOBL_SUPER_NOVICE)))) {
 			clif_skill_fail(sd,skill_id,USESKILL_FAIL_LEVEL,0);
 			break;
 		}
@@ -10843,6 +10872,7 @@ int skill_castend_pos2(struct block_list* src, int x, int y, uint16 skill_id, ui
 
 	switch (skill_id) { //Skill effect.
 		case WZ_METEOR:
+		case WZ_ICEWALL:
 		case MO_BODYRELOCATION:
 		case CR_CULTIVATION:
 		case HW_GANBANTEIN:
@@ -10923,7 +10953,6 @@ int skill_castend_pos2(struct block_list* src, int x, int y, uint16 skill_id, ui
 	case MG_FIREWALL:
 	case MG_THUNDERSTORM:
 	case AL_PNEUMA:
-	case WZ_ICEWALL:
 	case WZ_FIREPILLAR:
 	case WZ_QUAGMIRE:
 	case WZ_VERMILION:
@@ -11029,6 +11058,11 @@ int skill_castend_pos2(struct block_list* src, int x, int y, uint16 skill_id, ui
 	case GN_WALLOFTHORN:
 		skill_unitsetting(src,skill_id,skill_lv,x,y,0);
 		break;
+	case WZ_ICEWALL:
+		flag|=1;
+		if(skill_unitsetting(src,skill_id,skill_lv,x,y,0))
+			clif_skill_poseffect(src,skill_id,skill_lv,x,y,tick);
+		break;
 	case RG_GRAFFITI:			/* Graffiti [Valaris] */
 		skill_clear_unitgroup(src);
 		skill_unitsetting(src,skill_id,skill_lv,x,y,0);
@@ -11075,7 +11109,8 @@ int skill_castend_pos2(struct block_list* src, int x, int y, uint16 skill_id, ui
 				tmpx = x - area + rnd()%(area * 2 + 1);
 				tmpy = y - area + rnd()%(area * 2 + 1);
 
-				if( i == 0 && path_search_long(NULL, src->m, src->x, src->y, tmpx, tmpy, CELL_CHKWALL) )
+				if( i == 0 && path_search_long(NULL, src->m, src->x, src->y, tmpx, tmpy, CELL_CHKWALL)
+					&& !map_getcell(src->m, tmpx, tmpy, CELL_CHKLANDPROTECTOR))
 					clif_skill_poseffect(src,skill_id,skill_lv,tmpx,tmpy,tick);
 
 				if( i > 0 )
@@ -11217,7 +11252,7 @@ int skill_castend_pos2(struct block_list* src, int x, int y, uint16 skill_id, ui
 	// Plant Cultivation [Celest]
 	case CR_CULTIVATION:
 		if (sd) {
-			if( map_count_oncell(src->m,x,y,BL_CHAR) > 0 )
+			if( map_count_oncell(src->m,x,y,BL_CHAR,0) > 0 )
 			{
 				clif_skill_fail(sd,skill_id,USESKILL_FAIL_LEVEL,0);
 				return 1;
@@ -11929,13 +11964,14 @@ struct skill_unit_group *skill_unitsetting(struct block_list *src, uint16 skill_
 		break;
 	case HT_ANKLESNARE:
 		if( flag&2 ) val3 = SC_ESCAPE;
+	case HT_SKIDTRAP:
+	case MA_SKIDTRAP:
+		//Save position of caster
+		val1 = ((src->x)<<16)|(src->y);
 	case HT_SHOCKWAVE:
-		val1=skill_lv*15+10;
 	case HT_SANDMAN:
 	case MA_SANDMAN:
 	case HT_CLAYMORETRAP:
-	case HT_SKIDTRAP:
-	case MA_SKIDTRAP:
 	case HT_LANDMINE:
 	case MA_LANDMINE:
 	case HT_FLASHER:
@@ -12021,12 +12057,12 @@ struct skill_unit_group *skill_unitsetting(struct block_list *src, uint16 skill_
 		}
 		break;
 	case DC_SERVICEFORYOU:
-			//val1: MaxSP percent increase
-			val1 = 15+skill_lv+(status->int_/10); //Bonus rate by Dancer's INT 
-			//val2: SP cost reduction
-			val2 = 20+3*skill_lv;
-			if(sd) val2 += (pc_checkskill(sd,DC_DANCINGLESSON)+1)/2; //Bonus rate by DC_DANCINGLESSON
-			val2 += status->int_/10; //Bonus rate by Dancer's INT
+		val1 = 15+skill_lv+(status->int_/10); // MaxSP percent increase
+		val2 = 20+3*skill_lv+(status->int_/10); // SP cost reduction
+		if(sd){
+			val1 += pc_checkskill(sd,DC_DANCINGLESSON)/2;
+			val2 += pc_checkskill(sd,DC_DANCINGLESSON)/2;
+		}
 		break;
 	case BA_ASSASSINCROSS:
 		val1 = 100+(10*skill_lv)+status->agi; // ASPD increase
@@ -12297,8 +12333,7 @@ struct skill_unit_group *skill_unitsetting(struct block_list *src, uint16 skill_
 			map_foreachincell(skill_maelstrom_suction,src->m,ux,uy,BL_SKILL,skill_id,skill_lv);
 
 		// Check active cell to failing or remove current unit
-		if( range <= 0 )
-			map_foreachincell(skill_cell_overlap,src->m,ux,uy,BL_SKILL,skill_id, &alive, src);
+		map_foreachincell(skill_cell_overlap,src->m,ux,uy,BL_SKILL,skill_id, &alive, src);
 		if( !alive )
 			continue;
 
@@ -12367,7 +12402,7 @@ static int skill_unit_onplace(struct skill_unit *unit, struct block_list *bl, un
 	nullpo_ret(sg = unit->group);
 	nullpo_ret(ss = map_id2bl(sg->src_id));
 
-	if( (skill_get_type(sg->skill_id) == BF_MAGIC && map_getcell(bl->m, bl->x, bl->y, CELL_CHKLANDPROTECTOR) && sg->skill_id != SA_LANDPROTECTOR) ||
+	if( (skill_get_type(sg->skill_id) == BF_MAGIC && map_getcell(unit->bl.m, unit->bl.x, unit->bl.y, CELL_CHKLANDPROTECTOR) && sg->skill_id != SA_LANDPROTECTOR) ||
 		map_getcell(bl->m, bl->x, bl->y, CELL_CHKMAELSTROM) )
 		return 0; //AoE skills are ineffective. [Skotlex]
 
@@ -12646,7 +12681,7 @@ int skill_unit_onplace_timer(struct skill_unit *unit, struct block_list *bl, uns
 		ts->tick = tick+sg->interval;
 
 		if ((skill_id==CR_GRANDCROSS || skill_id==NPC_GRANDDARKNESS) && !battle_config.gx_allhit)
-			ts->tick += sg->interval*(map_count_oncell(bl->m,bl->x,bl->y,BL_CHAR)-1);
+			ts->tick += sg->interval*(map_count_oncell(bl->m,bl->x,bl->y,BL_CHAR,0)-1);
 	}
 
 	// Wall of Thorn damaged by Fire element unit [Cydh]
@@ -12798,10 +12833,14 @@ int skill_unit_onplace_timer(struct skill_unit *unit, struct block_list *bl, uns
 			break;
 
 		case UNT_SKIDTRAP: {
-				skill_blown(&unit->bl,bl,skill_get_blewcount(sg->skill_id,sg->skill_lv),unit_getdir(bl),0);
+				//Knockback away from position of user during placement [Playtester]
+				skill_blown(&unit->bl,bl,skill_get_blewcount(sg->skill_id,sg->skill_lv),
+					(map_calc_dir_xy(sg->val1>>16,sg->val1&0xFFFF,bl->x,bl->y,6)+4)%8,0);
 				sg->unit_id = UNT_USED_TRAPS;
 				clif_changetraplook(&unit->bl, UNT_USED_TRAPS);
 				sg->limit=DIFF_TICK(tick,sg->tick)+1500;
+				//Target will be stopped for 3 seconds
+				sc_start(ss,bl,SC_STOP,100,0,skill_get_time2(sg->skill_id,sg->skill_lv));
 			}
 			break;
 
@@ -12815,7 +12854,7 @@ int skill_unit_onplace_timer(struct skill_unit *unit, struct block_list *bl, uns
 
 					if( td )
 						sec = DIFF_TICK(td->tick, tick);
-					if( sg->unit_id == UNT_MANHOLE || battle_config.skill_trap_type || !map_flag_gvg(unit->bl.m) ) {
+					if( !unit_blown_immune(bl,0x1) ) {
 						unit_movepos(bl, unit->bl.x, unit->bl.y, 0, 0);
 						clif_fixpos(bl);
 					}
@@ -12855,6 +12894,12 @@ int skill_unit_onplace_timer(struct skill_unit *unit, struct block_list *bl, uns
 				status_change_start(ss, bl,type,10000,sg->skill_lv,sg->group_id,0,0,skill_get_time2(sg->skill_id,sg->skill_lv),SCSTART_NONE);
 			break;
 
+		case UNT_LANDMINE:
+			//Land Mine only hits single target
+			skill_attack(skill_get_type(sg->skill_id),ss,&unit->bl,bl,sg->skill_id,sg->skill_lv,tick,0);
+			sg->unit_id = UNT_USED_TRAPS; //Changed ID so it does not invoke a for each in area again.
+			sg->limit = 1500;
+			break;
 		case UNT_MAGENTATRAP:
 		case UNT_COBALTTRAP:
 		case UNT_MAIZETRAP:
@@ -12866,7 +12911,6 @@ int skill_unit_onplace_timer(struct skill_unit *unit, struct block_list *bl, uns
 		case UNT_CLUSTERBOMB:
 			if( bl->id == ss->id )// it won't trigger on caster
 				break;
-		case UNT_LANDMINE:
 		case UNT_BLASTMINE:
 		case UNT_SHOCKWAVE:
 		case UNT_SANDMAN:
@@ -15265,13 +15309,12 @@ struct skill_condition skill_get_requirement(struct map_session_data* sd, uint16
 				req.sp -= req.sp*3*kaina_lv/100;
 		}
 			break;
-		case MO_TRIPLEATTACK:
 		case MO_CHAINCOMBO:
 		case MO_COMBOFINISH:
 		case CH_TIGERFIST:
 		case CH_CHAINCRUSH:
 			if(sc && sc->data[SC_SPIRIT] && sc->data[SC_SPIRIT]->val2 == SL_MONK)
-				req.sp -= req.sp*25/100; //FIXME: Need real data. this is a custom value.
+				req.sp = 2; //Monk Spirit makes monk/champion combo skills cost 2 SP regardless of original cost
 			break;
 		case MO_BODYRELOCATION:
 			if( sc && sc->data[SC_EXPLOSIONSPIRITS] )
@@ -15484,7 +15527,7 @@ int skill_vfcastfix(struct block_list *bl, double time, uint16 skill_id, uint16 
 			}
 		for( i = 0; i < ARRAYLENGTH(sd->skillfixcastrate) && sd->skillfixcastrate[i].id; i++ )
 			if( sd->skillfixcastrate[i].id == skill_id ){ // bonus2 bFixedCastrate
-				fixcast_r = sd->skillfixcastrate[i].val; // just speculation
+				fixcast_r = sd->skillfixcastrate[i].val;
 				break;
 			}
 	}
@@ -15579,7 +15622,10 @@ int skill_delayfix (struct block_list *bl, uint16 skill_id, uint16 skill_lv)
 	case CH_CHAINCRUSH:
 	case SR_DRAGONCOMBO:
 	case SR_FALLENEMPIRE:
-		time -= 4*status_get_agi(bl) - 2*status_get_dex(bl);
+		//If delay not specified, it will be 1000 - 4*agi - 2*dex
+		if (time == 0)
+			time = 1000;
+		time -= (4*status_get_agi(bl) + 2*status_get_dex(bl));
 		break;
 	case HP_BASILICA:
 		if( sc && !sc->data[SC_BASILICA] )
@@ -16466,9 +16512,11 @@ static int skill_cell_overlap(struct block_list *bl, va_list ap)
 					break;
 			}
 			break;
+		case WZ_ICEWALL:
 		case HP_BASILICA:
-			if (unit->group->skill_id == HP_BASILICA)
-			{	//Basilica can't be placed on top of itself to avoid map-cell stacking problems. [Skotlex]
+			//These can't be placed on top of themselves (duration can't be refreshed)
+			if (unit->group->skill_id == skill_id)
+			{
 				(*alive) = 0;
 				return 1;
 			}
@@ -17268,7 +17316,7 @@ int skill_unit_timer_sub_onplace(struct block_list* bl, va_list ap)
 
 	nullpo_ret(group = unit->group);
 
-	if( !(skill_get_inf2(group->skill_id)&(INF2_SONG_DANCE|INF2_TRAP)) && !(skill_get_inf3(group->skill_id)&(INF3_NOLP)) && group->skill_id != NC_NEUTRALBARRIER && map_getcell(bl->m, bl->x, bl->y, CELL_CHKLANDPROTECTOR) )
+	if( !(skill_get_inf2(group->skill_id)&(INF2_SONG_DANCE|INF2_TRAP)) && !(skill_get_inf3(group->skill_id)&(INF3_NOLP)) && group->skill_id != NC_NEUTRALBARRIER && map_getcell(unit->bl.m, unit->bl.x, unit->bl.y, CELL_CHKLANDPROTECTOR) )
 		return 0; //AoE skills are ineffective. [Skotlex]
 
 	if( battle_check_target(&unit->bl,bl,group->target_flag) <= 0 )

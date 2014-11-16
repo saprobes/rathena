@@ -47,6 +47,7 @@ struct unit_data {
 		unsigned change_walk_target : 1 ;
 		unsigned skillcastcancel : 1 ;
 		unsigned attack_continue : 1 ;
+		unsigned step_attack : 1;
 		unsigned walk_easy : 1 ;
 		unsigned running : 1;
 		unsigned speed_changed : 1;
@@ -99,6 +100,7 @@ int unit_warp(struct block_list *bl, short map, short x, short y, clr_type type)
 int unit_setdir(struct block_list *bl, unsigned char dir);
 uint8 unit_getdir(struct block_list *bl);
 int unit_blown(struct block_list* bl, int dx, int dy, int count, int flag);
+int unit_blown_immune(struct block_list* bl, int flag);
 
 // Can-reach checks
 bool unit_can_reach_pos(struct block_list *bl,int x,int y,int easy);
