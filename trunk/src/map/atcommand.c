@@ -2889,8 +2889,9 @@ ACMD_FUNC(char_block)
 		return -1;
 	}
 
-	chrif_req_login_operation(sd->status.account_id, atcmd_player_name, 1, 0, 0, 0); // type: 1 - block
-	clif_displaymessage(fd, msg_txt(sd,88)); // Character name sent to char-server to ask it.
+	chrif_req_login_operation(sd->status.account_id, atcmd_player_name, CHRIF_OP_LOGIN_BLOCK, 0, 0, 0); // type: 1 - block
+	sprintf(atcmd_output, msg_txt(sd,88), "login"); // Sending request to %s server...
+	clif_displaymessage(fd, atcmd_output);
 
 	return 0;
 }
@@ -2903,15 +2904,15 @@ ACMD_FUNC(char_block)
 ACMD_FUNC(char_ban)
 {
 	char * modif_p;
-	int32 timediff=0; //don't set this as uint as we may want to decrease banned time
-	int bantype=0; //2=account block, 6=char specific
+	int32 timediff = 0; //don't set this as uint as we may want to decrease banned time
+	int bantype = 0; //2=account block, 6=char specific
 
 	nullpo_retr(-1, sd);
 
 	memset(atcmd_output, '\0', sizeof(atcmd_output));
 	memset(atcmd_player_name, '\0', sizeof(atcmd_player_name));
 
-	bantype = strcmpi(command+1,"charban")?2:6; //! FIXME this breaking alias recognition
+	bantype = strcmpi(command+1,"charban") ? CHRIF_OP_LOGIN_BAN : CHRIF_OP_BAN; //! FIXME this breaking alias recognition
 	if (!message || !*message || sscanf(message, "%255s %23[^\n]", atcmd_output, atcmd_player_name) < 2) {
 		clif_displaymessage(fd, msg_txt(sd,1022)); // Please enter ban time and a player name (usage: @charban/@ban/@banish/@charbanish <time> <char name>).
 		return -1;
@@ -2925,28 +2926,29 @@ ACMD_FUNC(char_ban)
 
 	if (timediff == 0) { //allow negative ?
 		char output[256];
-		safesnprintf(output,sizeof(output),msg_txt(sd,85),bantype==6?"charban":"ban",timediff); // Invalid time for %s command (time=%d)
+		safesnprintf(output, sizeof(output), msg_txt(sd,85), bantype == CHRIF_OP_BAN ? "charban" : "ban", timediff); // Invalid time for %s command (time=%d)
 		clif_displaymessage(fd, output);
 		clif_displaymessage(fd, msg_txt(sd,702)); // Time parameter format is +/-<value> to alter. y/a = Year, m = Month, d/j = Day, h = Hour, n/mn = Minute, s = Second.
 		return -1;
 	}
 	
 	if( timediff<0 && (
-		( bantype==2 && !pc_can_use_command(sd, "unban", COMMAND_ATCOMMAND) ) 
-		|| ( bantype==6 && !pc_can_use_command(sd, "charunban", COMMAND_ATCOMMAND)) )
-		){
+		( bantype==CHRIF_OP_LOGIN_BAN && !pc_can_use_command(sd, "unban", COMMAND_ATCOMMAND) ) 
+		|| ( bantype==CHRIF_OP_BAN && !pc_can_use_command(sd, "charunban", COMMAND_ATCOMMAND)) )
+		)
+	{
 		clif_displaymessage(fd,msg_txt(sd,1023)); // You are not allowed to alter the time of a ban.
 		return -1;
 	}
 	
-	if(bantype==2) 
-		chrif_req_login_operation(sd->status.account_id, atcmd_player_name, 2, timediff, 0, 0); // type: 2 - ban
+	if (bantype == CHRIF_OP_LOGIN_BAN) 
+		chrif_req_login_operation(sd->status.account_id, atcmd_player_name, CHRIF_OP_LOGIN_BAN, timediff, 0, 0); // type: 2 - ban
 	else 
 		chrif_req_charban(sd->status.account_id, atcmd_player_name,timediff);
-	
+
 	{
 		char output[256];
-		safesnprintf(output,sizeof(output),msg_txt(sd,88),bantype==6?"char":"login"); // Sending request to %s server...
+		safesnprintf(output, sizeof(output), msg_txt(sd,88), bantype == CHRIF_OP_BAN ? "char" : "login"); // Sending request to %s server...
 		clif_displaymessage(fd, output);
 	}
 	return 0;
@@ -2967,8 +2969,9 @@ ACMD_FUNC(char_unblock)
 	}
 
 	// send answer to login server via char-server
-	chrif_req_login_operation(sd->status.account_id, atcmd_player_name, 3, 0, 0, 0); // type: 3 - unblock
-	clif_displaymessage(fd, msg_txt(sd,88)); // Character name sent to char-server to ask it.
+	chrif_req_login_operation(sd->status.account_id, atcmd_player_name, CHRIF_OP_LOGIN_UNBLOCK, 0, 0, 0); // type: 3 - unblock
+	sprintf(atcmd_output, msg_txt(sd,88), "login"); // Sending request to %s server...
+	clif_displaymessage(fd, atcmd_output);
 
 	return 0;
 }
@@ -2978,11 +2981,12 @@ ACMD_FUNC(char_unblock)
  * char unban command (usage: charunban <player_name>)
  *------------------------------------------*/
 ACMD_FUNC(char_unban){
-	int unbantype=0;
+	int unbantype = 0;
 	nullpo_retr(-1, sd);
 
+	memset(atcmd_output, '\0', sizeof(atcmd_output));
 	memset(atcmd_player_name, '\0', sizeof(atcmd_player_name));
-	unbantype = strcmpi(command+1,"charunban")?4:7; //! FIXME this breaking alias recognition
+	unbantype = strcmpi(command+1,"charunban") ? CHRIF_OP_LOGIN_UNBAN : CHRIF_OP_UNBAN; //! FIXME this breaking alias recognition
 
 	if (!message || !*message || sscanf(message, "%23[^\n]", atcmd_player_name) < 1) {	
 		if(unbantype==4) clif_displaymessage(fd, msg_txt(sd,1025)); // Please enter a player name (usage: @unblock <char name>).
@@ -2990,11 +2994,12 @@ ACMD_FUNC(char_unban){
 		return -1;
 	} 
 	
-	if(unbantype==4) // send answer to login server via char-server
-		chrif_req_login_operation(sd->status.account_id, atcmd_player_name, 4, 0, 0, 0); // type: 4 - unban
+	if (unbantype == CHRIF_OP_LOGIN_UNBAN) // send answer to login server via char-server
+		chrif_req_login_operation(sd->status.account_id, atcmd_player_name, CHRIF_OP_LOGIN_UNBAN, 0, 0, 0); // type: 4 - unban
 	else //directly unban via char-serv
-		chrif_req_charunban(sd->status.char_id);
-	clif_displaymessage(fd, msg_txt(sd,88)); // Character name sent to char-server to ask it.
+		chrif_req_charunban(sd->status.account_id,atcmd_player_name);
+	sprintf(atcmd_output, msg_txt(sd,88), unbantype == CHRIF_OP_UNBAN ? "char":"login"); // Sending request to %s server...
+	clif_displaymessage(fd, atcmd_output);
 
 	return 0;
 }
@@ -8878,18 +8883,23 @@ ACMD_FUNC(mount2) {
 
 ACMD_FUNC(accinfo) {
 	char query[NAME_LENGTH];
+	char type = 0; // type = 1, get only account name
 
-	if (!message || !*message || strlen(message) > NAME_LENGTH ) {
+	if (!message || !*message || strlen(message) > NAME_LENGTH
+		|| ( sscanf(message, "%31s %c", query, &type) < 1))
+	{
 		clif_displaymessage(fd, msg_txt(sd,1365)); // Usage: @accinfo/@accountinfo <account_id/char name>
 		clif_displaymessage(fd, msg_txt(sd,1366)); // You may search partial name by making use of '%' in the search, ex. "@accinfo %Mario%" lists all characters whose name contains "Mario".
 		return -1;
-	}
+	} else if (type != 0) {
+		type = type-'0'; //make it int
+		if (type != 1) {
+			clif_displaymessage(fd, "accinfo : Unknow type specified\n");
+			return -1;
+		}
+ 	}
 
-	//remove const type
-	safestrncpy(query, message, NAME_LENGTH);
-
-	intif_request_accinfo( sd->fd, sd->bl.id, pc_get_group_level(sd), query );
-
+	intif_request_accinfo( sd->fd, sd->bl.id, pc_get_group_level(sd), query, type);
 	return 0;
 }
 
@@ -9229,21 +9239,15 @@ static inline void atcmd_channel_help(struct map_session_data *sd, const char *c
 }
 
 ACMD_FUNC(channel) {
-	char key[CHAN_NAME_LENGTH], sub1[CHAN_NAME_LENGTH], sub2[CHAN_NAME_LENGTH], sub3[CHAN_NAME_LENGTH];
-	sub1[0] = sub2[0] = sub3[0] = '\0';
+	char key[NAME_LENGTH], sub1[CHAN_NAME_LENGTH], sub2[64];
+	sub1[0] = sub2[0] = '\0';
 
-	if( !message || !*message || sscanf(message, "%19s %19s %19s %19s", key, sub1, sub2, sub3) < 1 ) {
+	if( !message || !*message || sscanf(message, "%23s %19s %63[^\n]", key, sub1, sub2) < 1 ) {
 		atcmd_channel_help(sd,command);
 		return 0;
 	}
 
-	if( strcmpi(key,"create") == 0 && ( channel_config.user_chenable || pc_has_permission(sd, PC_PERM_CHANNEL_ADMIN) ) ) {
-		if(sub3[0] != '\0'){
-			clif_displaymessage(fd, msg_txt(sd,1408)); // Channel password may not contain spaces.
-			return -1;
-		}
-		return channel_pccreate(sd,sub1,sub2);
-	} else if( strcmpi(key,"delete") == 0 && pc_has_permission(sd, PC_PERM_CHANNEL_ADMIN) ) {
+	if( strcmpi(key,"delete") == 0 && pc_has_permission(sd, PC_PERM_CHANNEL_ADMIN) ) {
 		return channel_pcdelete(sd,sub1);
 	} else if ( strcmpi(key,"list") == 0 ) {
 		return channel_display_list(sd,sub1);
@@ -9258,16 +9262,26 @@ ACMD_FUNC(channel) {
 	} else if ( strcmpi(key,"unbind") == 0 ) {
 		return channel_pcunbind(sd);
 	} else if ( strcmpi(key,"ban") == 0 ) {
-		return channel_pcban(sd,sub1,map_nick2sd(sub2),0);
+		return channel_pcban(sd,sub1,sub2,0);
 	} else if ( strcmpi(key,"banlist") == 0 ) {
 		return channel_pcban(sd,sub1,NULL,3);
 	} else if ( strcmpi(key,"unban") == 0 ) {
-		return channel_pcban(sd,sub1,map_nick2sd(sub2),1);
+		return channel_pcban(sd,sub1,sub2,1);
 	} else if ( strcmpi(key,"unbanall") == 0 ) {
 		return channel_pcban(sd,sub1,NULL,2);
-	} else if ( strcmpi(key,"setopt") == 0 ) {
-		return channel_pcsetopt(sd,sub1,sub2,sub3);
 	} else {
+		char sub3[CHAN_NAME_LENGTH], sub4[CHAN_NAME_LENGTH];
+		sub3[0] = sub4[0] = '\0';
+		sscanf(sub2, "%19s %19s", sub3, sub4);
+		if( strcmpi(key,"create") == 0 && ( channel_config.user_chenable || pc_has_permission(sd, PC_PERM_CHANNEL_ADMIN) ) ) {
+			if (sub4[0] != '\0') {
+				clif_displaymessage(fd, msg_txt(sd, 1408)); // Channel password may not contain spaces.
+				return -1;
+			}
+			return channel_pccreate(sd,sub1,sub3);
+		} else if ( strcmpi(key,"setopt") == 0 ) {
+			return channel_pcsetopt(sd,sub1,sub3,sub4);
+		}
 		atcmd_channel_help(sd,command);
 	}
 
@@ -9395,7 +9409,7 @@ ACMD_FUNC(vip) {
 			clif_displaymessage(fd,atcmd_output);
 		}
 	}
-	chrif_req_login_operation(pl_sd->status.account_id, pl_sd->status.name, 6, vipdifftime, 7, 0); 
+	chrif_req_login_operation(pl_sd->status.account_id, pl_sd->status.name, CHRIF_OP_LOGIN_VIP, vipdifftime, 7, 0); 
 	return 0;
 }
 
