@@ -11633,7 +11633,7 @@ int skill_castend_pos2(struct block_list* src, int x, int y, uint16 skill_id, ui
 		{// consume arrow if this is a ground skill
 			battle_consume_ammo(sd, skill_id, skill_lv);
 		}
-
+		skill_onskillusage(sd, NULL, skill_id, tick);
 		// perform skill requirement consumption
 		skill_consume_requirement(sd,skill_id,skill_lv,2);
 	}
@@ -11664,7 +11664,6 @@ int skill_castend_map (struct map_session_data *sd, uint16 skill_id, const char 
 	}
 
 	pc_stop_attack(sd);
-	pc_stop_walking(sd,0);
 
 	if(battle_config.skill_log && battle_config.skill_log&BL_PC)
 		ShowInfo("PC %d skill castend skill =%d map=%s\n",sd->bl.id,skill_id,mapname);
@@ -12065,9 +12064,14 @@ struct skill_unit_group *skill_unitsetting(struct block_list *src, uint16 skill_
 		}
 		break;
 	case BA_ASSASSINCROSS:
-		val1 = 100+(10*skill_lv)+status->agi; // ASPD increase
+#ifdef RENEWAL
+		val1 = skill_lv + (status->agi/20); // ASPD increase
+#else
+		val1 = 10 + skill_lv + (status->agi/10); // ASPD increase
+#endif
 		if(sd)
-			val1 += 10*((pc_checkskill(sd,BA_MUSICALLESSON)+1)/2); //aspd +1% per 2lvl
+			val1 += pc_checkskill(sd,BA_MUSICALLESSON)/2;
+		val1*=10; // ASPD works with 1000 as 100%
 		break;
 	case DC_FORTUNEKISS:
 		val1 = 10+skill_lv+(status->luk/10); // Critical increase
@@ -16033,7 +16037,7 @@ int skill_autospell(struct map_session_data *sd, uint16 skill_id)
 	if(skill_id==MG_NAPALMBEAT)	maxlv=3;
 	else if(skill_id==MG_COLDBOLT || skill_id==MG_FIREBOLT || skill_id==MG_LIGHTNINGBOLT){
 		if (sd->sc.data[SC_SPIRIT] && sd->sc.data[SC_SPIRIT]->val2 == SL_SAGE)
-			maxlv =10; //Soul Linker bonus. [Skotlex]
+			maxlv = 10; //Soul Linker bonus. [Skotlex]
 		else if(skill_lv==2) maxlv=1;
 		else if(skill_lv==3) maxlv=2;
 		else if(skill_lv>=4) maxlv=3;
@@ -17813,16 +17817,21 @@ void skill_unit_move_unit_group(struct skill_unit_group *group, int16 m, int16 d
 		switch(m_flag[i]) {
 			case 0:
 			//Cell moves independently, safely move it.
+				map_foreachinmovearea(clif_outsight, &unit1->bl, AREA_SIZE, dx, dy, BL_PC, &unit1->bl);
 				map_moveblock(&unit1->bl, unit1->bl.x+dx, unit1->bl.y+dy, tick);
 				break;
 			case 1:
 			//Cell moves unto another cell, look for a replacement cell that won't collide
 			//and has no cell moving into it (flag == 2)
 				for(; j < group->unit_count; j++) {
+					int dx2, dy2;
 					if(m_flag[j] != 2 || !group->unit[j].alive)
 						continue;
 					//Move to where this cell would had moved.
 					unit2 = &group->unit[j];
+					dx2 = unit2->bl.x + dx - unit1->bl.x;
+					dy2 = unit2->bl.y + dy - unit1->bl.y;
+					map_foreachinmovearea(clif_outsight, &unit1->bl, AREA_SIZE, dx2, dy2, BL_PC, &unit1->bl);
 					map_moveblock(&unit1->bl, unit2->bl.x+dx, unit2->bl.y+dy, tick);
 					j++; //Skip this cell as we have used it.
 					break;

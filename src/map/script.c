@@ -10221,35 +10221,6 @@ BUILDIN_FUNC(getusers)
 }
 
 /*==========================================
- * Works like @WHO - displays all online users names in window
- *------------------------------------------*/
-BUILDIN_FUNC(getusersname)
-{
-	TBL_PC *sd, *pl_sd;
-	int /*disp_num=1,*/ group_level = 0;
-	struct s_mapiterator* iter;
-
-	sd = script_rid2sd(st);
-	if (!sd) return 0;
-
-	group_level = pc_get_group_level(sd);
-	iter = mapit_getallusers();
-	for( pl_sd = (TBL_PC*)mapit_first(iter); mapit_exists(iter); pl_sd = (TBL_PC*)mapit_next(iter) )
-	{
-		if (pc_has_permission(pl_sd, PC_PERM_HIDE_SESSION) && pc_get_group_level(pl_sd) > group_level)
-			continue; // skip hidden sessions
-
-		/* Temporary fix for bugreport:1023.
-		 * Do not uncomment unless you want thousands of 'next' buttons.
-		if((disp_num++)%10==0)
-			clif_scriptnext(sd,st->oid);*/
-		clif_scriptmes(sd,st->oid,pl_sd->status.name);
-	}
-	mapit_free(iter);
-	return SCRIPT_CMD_SUCCESS;
-}
-
-/*==========================================
  * getmapguildusers("mapname",guild ID) Returns the number guild members present on a map [Reddozen]
  *------------------------------------------*/
 BUILDIN_FUNC(getmapguildusers)
@@ -15958,19 +15929,38 @@ BUILDIN_FUNC(getmonsterinfo)
 	return SCRIPT_CMD_SUCCESS;
 }
 
-BUILDIN_FUNC(checkvending) // check vending [Nab4]
-{
+/**
+ * Check player's vending/buyingstore/autotrade state
+ * checkvending({"<Player Name>"})
+ * @author [Nab4]
+ */
+BUILDIN_FUNC(checkvending) {
 	TBL_PC *sd = NULL;
 
-	if(script_hasdata(st,2))
-		sd = map_nick2sd(script_getstr(st,2));
+	if (script_hasdata(st,2)) {
+		if (!(sd = map_nick2sd(script_getstr(st,2)))) {
+			ShowError("buildin_checkvending: Player '%s' is not online!\n", script_getstr(st,2));
+			return SCRIPT_CMD_FAILURE;
+		}
+	}
 	else
 		sd = script_rid2sd(st);
 
-	if(sd)
-		script_pushint(st, sd->state.autotrade ? 2 : sd->state.vending);
-	else
+	if (!sd) {
 		script_pushint(st,0);
+		return SCRIPT_CMD_SUCCESS;
+	}
+	else {
+		int8 ret = 0;
+		if (sd->state.vending)
+			ret = 1;
+		else if (sd->state.buyingstore)
+			ret = 4;
+
+		if (sd->state.autotrade)
+			ret |= 2;
+		script_pushint(st, ret);
+	}
 	return SCRIPT_CMD_SUCCESS;
 }
 
@@ -18258,7 +18248,7 @@ BUILDIN_FUNC(getgroupitem) {
 		return SCRIPT_CMD_SUCCESS;
 	
 	if (itemdb_pc_get_itemgroup(group_id,sd)) {
-		ShowError("getgroupitem: Invalid group id '%d' specified.",group_id);
+		ShowError("getgroupitem: Invalid group id '%d' specified.\n",group_id);
 		return SCRIPT_CMD_FAILURE;
 	}
 
@@ -18384,7 +18374,7 @@ BUILDIN_FUNC(consumeitem)
 			return SCRIPT_CMD_FAILURE;
 		}
 	}else{
-		ShowError("buildin_consumeitem: invalid data type for argument #1 (%d).", data->type );
+		ShowError("buildin_consumeitem: invalid data type for argument #1 (%d).\n", data->type );
 		return SCRIPT_CMD_FAILURE;
 	}
 
@@ -18781,7 +18771,7 @@ BUILDIN_FUNC(vip_time) {
 	if (sd == NULL)
 		return SCRIPT_CMD_FAILURE;
 
-	chrif_req_login_operation(sd->status.account_id, sd->status.name, 6, viptime, 7, 0); 
+	chrif_req_login_operation(sd->status.account_id, sd->status.name, CHRIF_OP_LOGIN_VIP, viptime, 7, 0); 
 #endif
 	return SCRIPT_CMD_SUCCESS;
 }
@@ -19451,7 +19441,6 @@ struct script_function buildin_func[] = {
 #endif
 	BUILDIN_DEF(preg_match,"ss?"),
 	BUILDIN_DEF(dispbottom,"s?"), //added from jA [Lupus]
-	BUILDIN_DEF(getusersname,""),
 	BUILDIN_DEF(recovery,"i???"),
 	BUILDIN_DEF(getpetinfo,"i"),
 	BUILDIN_DEF(gethominfo,"i"),

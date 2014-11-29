@@ -57,6 +57,15 @@
 #define RUDE_ATTACKED_COUNT 2	//After how many rude-attacks should the skill be used?
 #define MAX_MOB_CHAT 50 //Max Skill's messages
 
+// On official servers, monsters will only seek targets that are closer to walk to than their
+// search range. The search range is affected depending on if the monster is walking or not.
+// On some maps there can be a quite long path for just walking two cells in a direction and
+// the client does not support displaying walk paths that are longer than 14 cells, so this
+// option reduces position lag in such situation. But doing a complex search for every possible
+// target, might be CPU intensive.
+// Disable this to make monsters not do any path search when looking for a target (old behavior).
+#define ACTIVEPATHSEARCH
+
 //Dynamic mob database, allows saving of memory when there's big gaps in the mob_db [Skotlex]
 struct mob_db *mob_db_data[MAX_MOB_DB+1];
 struct mob_db *mob_dummy = NULL;	//Dummy mob to be returned when a non-existant one is requested.
@@ -952,6 +961,7 @@ int mob_spawn (struct mob_data *md)
 	md->move_fail_count = 0;
 	md->ud.state.attack_continue = 0;
 	md->ud.target_to = 0;
+	md->ud.dir = 0;
 	if( md->spawn_timer != INVALID_TIMER ) {
 		delete_timer(md->spawn_timer, mob_delayspawn);
 		md->spawn_timer = INVALID_TIMER;
@@ -1092,6 +1102,15 @@ static int mob_ai_sub_hard_activesearch(struct block_list *bl,va_list ap)
 			((*target) == NULL || !check_distance_bl(&md->bl, *target, dist)) &&
 			battle_check_range(&md->bl,bl,md->db->range2)
 		) { //Pick closest target?
+#ifdef ACTIVEPATHSEARCH
+			struct walkpath_data wpd;
+			if (!path_search(&wpd, md->bl.m, md->bl.x, md->bl.y, bl->x, bl->y, 0, CELL_CHKNOPASS)) // Count walk path cells
+				return 0;
+			//Standing monsters use range2, walking monsters use range3
+			if ((md->ud.walktimer == INVALID_TIMER && wpd.path_len > md->db->range2)
+				|| (md->ud.walktimer != INVALID_TIMER && wpd.path_len > md->db->range3))
+				return 0;
+#endif
 			(*target) = bl;
 			md->target_id=bl->id;
 			md->min_chase= dist + md->db->range3;
@@ -1161,12 +1180,11 @@ static int mob_ai_sub_hard_lootsearch(struct block_list *bl,va_list ap)
 	target = va_arg(ap,struct block_list**);
 
 	dist = distance_bl(&md->bl, bl);
-	if (mob_can_reach(md,bl,dist+1, MSS_LOOT) && (*target) == NULL) {
+	if (mob_can_reach(md,bl,dist+1, MSS_LOOT) && ((*target) == NULL || md->target_id > bl->id)) {
 		(*target) = bl;
 		md->target_id = bl->id;
 		md->min_chase = md->db->range3;
-	} else
-		mob_stop_walking(md, 1); // Stop walking immediately if item is no longer on the ground.
+	}
 	return 0;
 }
 
@@ -1542,7 +1560,7 @@ static bool mob_ai_sub_hard(struct mob_data *md, unsigned int tick)
 	if (!tbl && mode&MD_LOOTER && md->lootitem && DIFF_TICK(tick, md->ud.canact_tick) > 0 &&
 		(md->lootitem_count < LOOTITEM_SIZE || battle_config.monster_loot_type != 1))
 	{	// Scan area for items to loot, avoid trying to loot if the mob is full and can't consume the items.
-		map_foreachinrange (mob_ai_sub_hard_lootsearch, &md->bl, view_range, BL_ITEM, md, &tbl);
+		map_foreachinshootrange (mob_ai_sub_hard_lootsearch, &md->bl, view_range, BL_ITEM, md, &tbl);
 	}
 
 	if ((!tbl && mode&MD_AGGRESSIVE) || md->state.skillstate == MSS_FOLLOW)
@@ -1588,7 +1606,7 @@ static bool mob_ai_sub_hard(struct mob_data *md, unsigned int tick)
 			mob_unlocktarget(md, tick);
 			return true;
 		}
-		if (!check_distance_bl(&md->bl, tbl, 1))
+		if (!check_distance_bl(&md->bl, tbl, 0))
 		{	//Still not within loot range.
 			if (!(mode&MD_CANMOVE))
 			{	//A looter that can't move? Real smart.
@@ -1598,7 +1616,7 @@ static bool mob_ai_sub_hard(struct mob_data *md, unsigned int tick)
 			if (!can_move) //Stuck. Wait before walking.
 				return true;
 			md->state.skillstate = MSS_LOOT;
-			if (!unit_walktobl(&md->bl, tbl, 1, 1))
+			if (!unit_walktobl(&md->bl, tbl, 0, 1))
 				mob_unlocktarget(md, tick); //Can't loot...
 			return true;
 		}

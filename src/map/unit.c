@@ -92,6 +92,13 @@ int unit_walktoxy_sub(struct block_list *bl)
 	if( !path_search(&wpd,bl->m,bl->x,bl->y,ud->to_x,ud->to_y,ud->state.walk_easy,CELL_CHKNOPASS) )
 		return 0;
 
+#ifdef OFFICIAL_WALKPATH
+	if( !path_search_long(NULL, bl->m, bl->x, bl->y, ud->to_x, ud->to_y, CELL_CHKNOPASS) // Check if there is an obstacle between
+		&& wpd.path_len > 14	// Official number of walkable cells is 14 if and only if there is an obstacle between. [malufett]
+		&& (bl->type != BL_NPC) ) // If type is a NPC, please disregard.
+			return 0;
+#endif
+
 	memcpy(&ud->walkpath,&wpd,sizeof(wpd));
 
 	if (ud->target_to && ud->chaserange>1) {
@@ -469,8 +476,14 @@ static int unit_walktoxy_timer(int tid, unsigned int tick, int id, intptr_t data
 		ud->steptimer = add_timer(tick+i, unit_step_timer, bl->id, 0);
 	}
 
-	if(ud->state.change_walk_target)
-		return unit_walktoxy_sub(bl);
+	if(ud->state.change_walk_target) {
+		if(unit_walktoxy_sub(bl)) {
+			return 1;	
+		} else {
+			clif_fixpos(bl);
+			return 0;
+		}
+	}
 
 	ud->walkpath.path_pos++;
 
@@ -486,7 +499,7 @@ static int unit_walktoxy_timer(int tid, unsigned int tick, int id, intptr_t data
 		if( md && DIFF_TICK(tick,md->dmgtick) < 3000 ) // Not required not damaged recently
 			clif_move(ud);
 	} else if(ud->state.running) { // Keep trying to run.
-		if ( !(unit_run(bl, NULL, SC_RUN) || unit_run(bl, sd, SC_WUGDASH)) )
+		if (!(unit_run(bl, NULL, SC_RUN) || unit_run(bl, sd, SC_WUGDASH)) )
 			ud->state.running = 0;
 	} else if (!ud->stepaction && ud->target_to) {
 		// Update target trajectory.
@@ -709,7 +722,7 @@ static int unit_walktobl_sub(int tid, unsigned int tick, int id, intptr_t data)
  * @param tbl: Target object
  * @param range: How close to get to target (or attack range if flag&2)
  * @param flag: Extra behaviour
- *	&1: Use hard path seek (obstacles will be walked around if possible)
+ *	&1: Use easy path seek (obstacles will not be walked around)
  *	&2: Start attacking upon arrival within range, otherwise just walk to target
  * @return 1: Started walking or set timer 0: Failed
  */
@@ -735,6 +748,10 @@ int unit_walktobl(struct block_list *bl, struct block_list *tbl, int range, unsi
 		ud->target_to = 0;
 
 		return 0;
+	} else if (range == 0) {
+		//Should walk on the same cell as target (for looters)
+		ud->to_x = tbl->x;
+		ud->to_y = tbl->y;
 	}
 
 	ud->state.walk_easy = flag&1;
@@ -775,7 +792,8 @@ int unit_walktobl(struct block_list *bl, struct block_list *tbl, int range, unsi
  * Called by unit_run when an object is hit.
  * @param sd Required only when using SC_WUGDASH
  */
-void unit_run_hit(struct block_list *bl, struct status_change *sc, struct map_session_data *sd, enum sc_type type) {
+void unit_run_hit(struct block_list *bl, struct status_change *sc, struct map_session_data *sd, enum sc_type type)
+{
 	int lv = sc->data[type]->val1;
 
 	// If you can't run forward, you must be next to a wall, so bounce back. [Skotlex]
@@ -802,7 +820,8 @@ void unit_run_hit(struct block_list *bl, struct status_change *sc, struct map_se
  * @param sd: Required only when using SC_WUGDASH
  * @return true: Success (Finished running) false: Fail (Hit an object/Couldn't run)
  */
-bool unit_run(struct block_list *bl, struct map_session_data *sd, enum sc_type type) {
+bool unit_run(struct block_list *bl, struct map_session_data *sd, enum sc_type type)
+{
 	struct status_change *sc;
 	short to_x, to_y, dir_x, dir_y;
 	int i;
@@ -840,7 +859,7 @@ bool unit_run(struct block_list *bl, struct map_session_data *sd, enum sc_type t
 	}
 
 	// Can't run forward.
-	if( (to_x == bl->x && to_y == bl->y ) || (to_x == (bl->x + 1) || to_y == (bl->y + 1)) || (to_x == (bl->x - 1) || to_y == (bl->y - 1))) {
+	if( (to_x == bl->x && to_y == bl->y) || (to_x == (bl->x + 1) || to_y == (bl->y + 1)) || (to_x == (bl->x - 1) || to_y == (bl->y - 1))) {
 		unit_run_hit(bl, sc, sd, type);
 		return false;
 	}
@@ -1385,7 +1404,6 @@ int unit_can_move(struct block_list *bl) {
  */
 int unit_resume_running(int tid, unsigned int tick, int id, intptr_t data)
 {
-
 	struct unit_data *ud = (struct unit_data *)data;
 	TBL_PC *sd = map_id2sd(id);
 
@@ -2538,7 +2556,7 @@ static int unit_attack_timer_sub(struct block_list* src, int tid, unsigned int t
 
 	if( DIFF_TICK(ud->attackabletime,tick) <= 0 ) {
 		if (battle_config.attack_direction_change && (src->type&battle_config.attack_direction_change))
-			ud->dir = map_calc_dir(src, target->x,target->y );
+			ud->dir = map_calc_dir(src, target->x, target->y);
 
 		if(ud->walktimer != INVALID_TIMER)
 			unit_stop_walking(src,1);
