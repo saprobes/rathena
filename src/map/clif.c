@@ -4170,7 +4170,7 @@ static void clif_getareachar_pc(struct map_session_data* sd,struct map_session_d
 		(sd->bg_id && sd->bg_id == dstsd->bg_id) || //BattleGround
 		pc_has_permission(sd, PC_PERM_VIEW_HPMETER)
 	)
-		clif_hpmeter_single(sd->fd, dstsd->bl.id, dstsd->battle_status.hp, dstsd->battle_status.max_hp);
+	clif_hpmeter_single(sd->fd, dstsd->bl.id, dstsd->battle_status.hp, dstsd->battle_status.max_hp);
 
 	// display link (sd - dstsd) to sd
 	ARR_FIND( 0, MAX_DEVOTION, i, sd->devotion[i] == dstsd->bl.id );
@@ -5075,7 +5075,8 @@ int clif_skill_damage(struct block_list *src,struct block_list *dst,unsigned int
 	type = clif_calc_delay(type,div,damage,ddelay);
 
 #if PACKETVER >= 20131223
-	if( type == 6 ) type = 8;
+	if ( type == DMG_SKILL ) 
+		type = DMG_MULTI_HIT;		/* Temporary Fix */
 #endif
 
 	if( ( sc = status_get_sc(dst) ) && sc->count ) {
@@ -13206,8 +13207,14 @@ void clif_parse_GM_Item_Monster(int fd, struct map_session_data *sd)
 		StringBuf_Init(&command);
 		if( !itemdb_isstackable2(id) ) //Nonstackable
 			StringBuf_Printf(&command, "%citem2 %d 1 0 0 0 0 0 0 0", atcommand_symbol, id->nameid);
-		else
-			StringBuf_Printf(&command, "%citem %d 20", atcommand_symbol, id->nameid);
+		else {
+#ifdef ENABLE_ITEM_GUID
+			if (id->flag.guid)
+				StringBuf_Printf(&command, "%citem %d 1", atcommand_symbol, id->nameid);
+			else
+#endif
+				StringBuf_Printf(&command, "%citem %d 20", atcommand_symbol, id->nameid);
+		}
 		is_atcommand(fd, sd, StringBuf_Value(&command), 1);
 		StringBuf_Destroy(&command);
 		return;
@@ -17022,7 +17029,13 @@ void clif_snap( struct block_list *bl, short x, short y ) {
 	WBUFW(buf,6) = x;
 	WBUFW(buf,8) = y;
 
-	clif_send(buf,packet_len(0x8d2),bl,AREA);
+	if( disguised(bl) )
+	{
+		clif_send(buf, packet_len(0x8d2), bl, AREA_WOS);
+		WBUFL(buf,2) = -bl->id;
+		clif_send(buf, packet_len(0x8d2), bl, SELF);
+	} else
+		clif_send(buf,packet_len(0x8d2),bl, AREA);
 }
 
 void clif_monster_hp_bar( struct mob_data* md, int fd ) {
