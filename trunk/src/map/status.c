@@ -15,29 +15,12 @@
 #include "path.h"
 #include "pc.h"
 #include "pet.h"
-#include "npc.h"
-#include "mob.h"
-#include "clif.h"
-#include "guild.h"
-#include "skill.h"
-#include "itemdb.h"
-#include "battle.h"
 #include "battleground.h"
-#include "chrif.h"
-#include "skill.h"
-#include "status.h"
-#include "script.h"
-#include "unit.h"
 #include "homunculus.h"
 #include "mercenary.h"
 #include "elemental.h"
-#include "vending.h"
 
-#include <time.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <memory.h>
-#include <string.h>
 #include <math.h>
 
 // Regen related flags.
@@ -9576,9 +9559,7 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 			break;
 		case SC_PRESTIGE:
 			val2 = (status->int_ + status->luk) * val1 / 20 * status_get_lv(bl) / 200 + val1;	// Chance to evade magic damage.
-			val1 *= 15; // Defence added
-			if( sd )
-				val1 += (10 * pc_checkskill(sd,CR_DEFENDER)) * (status_get_lv(bl) / 100);
+			val1 = ((val1 * 15) + (10 * (sd?pc_checkskill(sd,CR_DEFENDER):skill_get_max(CR_DEFENDER)))) * status_get_lv(bl) / 100; // Defence added
 			break;
 		case SC_BANDING:
 			tick_time = 5000; // [GodLesZ] tick time
@@ -9588,17 +9569,14 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 			tick_time = 1000; // [GodLesZ] tick time
 			break;
 		case SC_INSPIRATION:
-			if( sd ) {
-				val2 = (sd?sd->status.job_level:50);
-				val3 = status_get_lv(bl) / 10 + val2 / 5; //All stat bonus
-			}
+			val2 = (sd?sd->status.job_level:50);
+			val3 = status_get_lv(bl) / 10 + val2 / 5; //All stat bonus
 			val4 = tick / 5000;
 			tick_time = 5000; // [GodLesZ] tick time
 			status_change_clear_buffs(bl,3); // Remove buffs/debuffs
 			break;
 		case SC_CRESCENTELBOW:
-			if( sd )
-				val2 = (sd->status.job_level / 2) + (50 + 5 * val1);
+			val2 = (sd?sd->status.job_level:50) / 2 + (50 + 5 * val1);
 			break;
 		case SC_LIGHTNINGWALK: // [(Job Level / 2) + (40 + 5 * Skill Level)] %
 			val1 = (sd?sd->status.job_level:2)/2 + 40 + 5 * val1;
