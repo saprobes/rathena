@@ -2481,9 +2481,9 @@ int status_calc_mob_(struct mob_data* md, enum e_status_calc_opt opt)
  * @return 1
  * @author [Skotlex]
  */
-int status_calc_pet_(struct pet_data *pd, enum e_status_calc_opt opt)
+void status_calc_pet_(struct pet_data *pd, enum e_status_calc_opt opt)
 {
-	nullpo_ret(pd);
+	nullpo_retv(pd);
 
 	if (opt&SCO_FIRST) {
 		memcpy(&pd->status, &pd->db->status, sizeof(struct status_data));
@@ -2540,11 +2540,8 @@ int status_calc_pet_(struct pet_data *pd, enum e_status_calc_opt opt)
 	}
 
 	// Support rate modifier (1000 = 100%)
-	pd->rate_fix = 1000*(pd->pet.intimate - battle_config.pet_support_min_friendly)/(1000- battle_config.pet_support_min_friendly) +500;
-	if(battle_config.pet_support_rate != 100)
-		pd->rate_fix = pd->rate_fix*battle_config.pet_support_rate/100;
-
-	return 1;
+	pd->rate_fix = min(1000 * (pd->pet.intimate - battle_config.pet_support_min_friendly) / (1000 - battle_config.pet_support_min_friendly) + 500, USHRT_MAX);
+	pd->rate_fix = min(apply_rate(pd->rate_fix, battle_config.pet_support_rate), USHRT_MAX);
 }
 
 /**
@@ -3158,8 +3155,8 @@ int status_calc_pc_(struct map_session_data* sd, enum e_status_calc_opt opt)
 
 	if( sd->pd ) { // Pet Bonus
 		struct pet_data *pd = sd->pd;
-		if( pd && pd->petDB && pd->petDB->equip_script && pd->pet.intimate >= battle_config.pet_equip_min_friendly )
-			run_script(pd->petDB->equip_script,0,sd->bl.id,0);
+		if( pd && pd->petDB && pd->petDB->pet_loyal_script && pd->pet.intimate >= battle_config.pet_equip_min_friendly )
+			run_script(pd->petDB->pet_loyal_script,0,sd->bl.id,0);
 		if( pd && pd->pet.intimate > 0 && (!battle_config.pet_equip_required || pd->pet.equip > 0) && pd->state.skillbonus == 1 && pd->bonus )
 			pc_bonus(sd,pd->bonus->type, pd->bonus->val);
 	}
@@ -6202,7 +6199,7 @@ static short status_calc_fix_aspd(struct block_list *bl, struct status_change *s
 		|| sc->data[SC_WILD_STORM_OPTION]))
 		aspd -= 50; // +5 ASPD
 	if (sc->data[SC_FIGHTINGSPIRIT] && sc->data[SC_FIGHTINGSPIRIT]->val2)
-		aspd -= (bl->type==BL_PC?pc_checkskill((TBL_PC *)bl, RK_RUNEMASTERY):10) / 10 * 40;
+		aspd -= sc->data[SC_FIGHTINGSPIRIT]->val2;
 	if (sc->data[SC_MTF_ASPD])
 		aspd -= 10;
 
@@ -8238,6 +8235,9 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 	case SC_FREEZING:
 		status_change_end(bl, SC_BURNING, INVALID_TIMER);
 		break;
+	case SC_EQC:
+		status_change_end(bl,SC_TINDER_BREAKER2,INVALID_TIMER);
+		break;
 	}
 
 	// Check for overlapping fails
@@ -9821,6 +9821,7 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 			val2 = 5 * val1; // def % reduc
 			val3 = 5 * val1; // atk % reduc
 			val4 = 2 * val1; // HP drain %
+			sc_start2(src, bl,SC_STUN,100,val1,bl->id,(1000*status_get_lv(src))/50+500*val1);
 			break;
 		case SC_ASH:
 			val2 = 50; // hit % reduc
@@ -10051,7 +10052,6 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 		case SC_ELECTRICSHOCKER:
 		case SC_BITE:
 		case SC_THORNSTRAP:
-		case SC__MANHOLE:
 		//case SC__CHAOS:
 		case SC_CRYSTALIZE:
 		case SC_CURSEDCIRCLE_ATKER:
@@ -10064,6 +10064,10 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 		case SC_ANKLE:
 		case SC_VACUUM_EXTREME:
 			if (!unit_blown_immune(bl,0x1))
+				unit_stop_walking(bl,1);
+			break;
+		case SC__MANHOLE:
+			if (bl->type == BL_PC || !unit_blown_immune(bl,0x1))
 				unit_stop_walking(bl,1);
 			break;
 		case SC_HIDING:
@@ -10372,10 +10376,6 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 			break;
 		case SC_RAISINGDRAGON:
 			sce->val2 = status->max_hp / 100; // Officially tested its 1%hp drain. [Jobbie]
-			break;
-		case SC_EQC:
-			sc_start2(src, bl,SC_STUN,100,val1,bl->id,(1000*status_get_lv(src))/50+500*val1);
-			status_change_end(bl,SC_TINDER_BREAKER2,INVALID_TIMER);
 			break;
 		case SC_C_MARKER:
 			//Send mini-map, don't wait for first timer triggered

@@ -2198,30 +2198,30 @@ void clif_additem(struct map_session_data *sd, int n, int amount, unsigned char 
 	WFIFOHEAD(fd,packet_len(header));
 	if( fail )
 	{
-		WFIFOW(fd,offs+0)=header;
-		WFIFOW(fd,offs+2)=n+2;
-		WFIFOW(fd,offs+4)=amount;
-		WFIFOW(fd,offs+6)=0;
-		WFIFOB(fd,offs+8)=0;
-		WFIFOB(fd,offs+9)=0;
-		WFIFOB(fd,offs+10)=0;
-		WFIFOW(fd,offs+11)=0;
-		WFIFOW(fd,offs+13)=0;
-		WFIFOW(fd,offs+15)=0;
-		WFIFOW(fd,offs+17)=0;
+		WFIFOW(fd,offs+0) = header;
+		WFIFOW(fd,offs+2) = n+2;
+		WFIFOW(fd,offs+4) = amount;
+		WFIFOW(fd,offs+6) = 0;
+		WFIFOB(fd,offs+8) = 0;
+		WFIFOB(fd,offs+9) = 0;
+		WFIFOB(fd,offs+10) = 0;
+		WFIFOW(fd,offs+11) = 0;
+		WFIFOW(fd,offs+13) = 0;
+		WFIFOW(fd,offs+15) = 0;
+		WFIFOW(fd,offs+17) = 0;
 #if PACKETVER < 20120925
-		WFIFOW(fd,offs+19)=0;
+		WFIFOW(fd,offs+19) = 0;
 #else
-		WFIFOL(fd,offs+19)=0;
+		WFIFOL(fd,offs+19) = 0;
 		offs += 2;
 #endif
-		WFIFOB(fd,offs+21)=0;
-		WFIFOB(fd,offs+22)=fail;
+		WFIFOB(fd,offs+21) = 0;
+		WFIFOB(fd,offs+22) = fail;
 #if PACKETVER >= 20061218
-		WFIFOL(fd,offs+23)=0;
+		WFIFOL(fd,offs+23) = 0;
 #endif
 #if PACKETVER >= 20071002
-		WFIFOW(fd,offs+27)=0;  //  HireExpireDate
+		WFIFOW(fd,offs+27) = 0;  //  HireExpireDate
 #endif
 	}
 	else
@@ -2229,31 +2229,31 @@ void clif_additem(struct map_session_data *sd, int n, int amount, unsigned char 
 		if( n < 0 || n >= MAX_INVENTORY || sd->status.inventory[n].nameid <=0 || sd->inventory_data[n] == NULL )
 			return;
 
-		WFIFOW(fd,offs+0)=header;
-		WFIFOW(fd,offs+2)=n+2;
-		WFIFOW(fd,offs+4)=amount;
+		WFIFOW(fd,offs+0) = header;
+		WFIFOW(fd,offs+2) = n+2;
+		WFIFOW(fd,offs+4) = amount;
 		if (sd->inventory_data[n]->view_id > 0)
-			WFIFOW(fd,offs+6)=sd->inventory_data[n]->view_id;
+			WFIFOW(fd,offs+6) = sd->inventory_data[n]->view_id;
 		else
-			WFIFOW(fd,offs+6)=sd->status.inventory[n].nameid;
-		WFIFOB(fd,offs+8)=sd->status.inventory[n].identify;
-		WFIFOB(fd,offs+9)=sd->status.inventory[n].attribute;
-		WFIFOB(fd,offs+10)=sd->status.inventory[n].refine;
+			WFIFOW(fd,offs+6) = sd->status.inventory[n].nameid;
+		WFIFOB(fd,offs+8) = sd->status.inventory[n].identify;
+		WFIFOB(fd,offs+9) = sd->status.inventory[n].attribute;
+		WFIFOB(fd,offs+10) = sd->status.inventory[n].refine;
 		clif_addcards(WFIFOP(fd,offs+11), &sd->status.inventory[n]);
 #if PACKETVER < 20120925
-		WFIFOW(fd,offs+19)=pc_equippoint(sd,n);
+		WFIFOW(fd,offs+19) = pc_equippoint(sd,n);
 #else
-		WFIFOL(fd,offs+19)=pc_equippoint(sd,n);
+		WFIFOL(fd,offs+19) = pc_equippoint(sd,n);
 		offs += 2;
 #endif
-		WFIFOB(fd,offs+21)=itemtype(sd->inventory_data[n]->nameid);
-		WFIFOB(fd,offs+22)=fail;
+		WFIFOB(fd,offs+21) = itemtype(sd->inventory_data[n]->nameid);
+		WFIFOB(fd,offs+22) = fail;
 #if PACKETVER >= 20061218
-		WFIFOL(fd,offs+23)=sd->status.inventory[n].expire_time;
+		WFIFOL(fd,offs+23) = sd->status.inventory[n].expire_time;
 #endif
 #if PACKETVER >= 20071002
 		/* Yellow color only for non-stackable item */
-		WFIFOW(fd,offs+27)=(sd->status.inventory[n].bound && !itemdb_isstackable(sd->status.inventory[n].nameid)) ? BOUND_DISPYELLOW : 0;
+		WFIFOW(fd,offs+27) = (sd->status.inventory[n].bound && !itemdb_isstackable(sd->status.inventory[n].nameid)) ? BOUND_DISPYELLOW : sd->inventory_data[n]->flag.bindOnEquip ? BOUND_ONEQUIP : 0;
 #endif
 	}
 
@@ -2322,7 +2322,7 @@ void clif_item_sub_v5(unsigned char *buf, int n, int idx, struct item *it, struc
 		WBUFB(buf,n+13) = it->refine; //refine lvl
 		clif_addcards(WBUFP(buf, n+14), it); //EQUIPSLOTINFO 8B
 		WBUFL(buf,n+22) = it->expire_time;
-		WBUFW(buf,n+26) = it->bound ? BOUND_DISPYELLOW : 0; //bindOnEquipType
+		WBUFW(buf,n+26) = it->bound ? BOUND_DISPYELLOW : id->flag.bindOnEquip ? BOUND_ONEQUIP : 0; //bindOnEquipType
 		WBUFW(buf,n+28) = (id->equip&EQP_VISIBLE) ? id->look : 0;
 		//V5_ITEM_flag
 		WBUFB(buf,n+30) = it->identify; //0x1 IsIdentified
@@ -2359,7 +2359,7 @@ void clif_item_sub(unsigned char *buf, int n, int idx, struct item *it, struct i
 		clif_addcards(WBUFP(buf, n+12), it); //8B
 #if PACKETVER >= 20071002
 		WBUFL(buf,n+20) = it->expire_time;
-		WBUFW(buf,n+24) = it->bound ? BOUND_DISPYELLOW : 0;
+		WBUFW(buf,n+24) = it->bound ? BOUND_DISPYELLOW : id->flag.bindOnEquip ? BOUND_ONEQUIP : 0;
 #endif
 #if PACKETVER >= 20100629
 		WBUFW(buf,n+26) = (id->equip&EQP_VISIBLE) ? id->look : 0;
@@ -8676,7 +8676,7 @@ void clif_refresh_storagewindow(struct map_session_data *sd) {
 	// Notify the client that the gstorage is open otherwise it will
 	// remain locked forever and nobody will be able to access it
 	if( sd->state.storage_flag == 2 ) {
-		struct guild_storage *gstor = guild2storage2(sd->status.guild_id);
+		struct guild_storage *gstor = gstorage_get_storage(sd->status.guild_id);
 
 		if( !gstor ) // Shouldn't happen. The information should already be at the map-server
 			intif_request_guild_storage(sd->status.account_id, sd->status.guild_id);
@@ -11915,7 +11915,7 @@ void clif_parse_MoveToKafra(int fd, struct map_session_data *sd)
 		storage_storageadd(sd, item_index, item_amount);
 	else
 	if (sd->state.storage_flag == 2)
-		storage_guild_storageadd(sd, item_index, item_amount);
+		gstorage_storageadd(sd, item_index, item_amount);
 }
 
 
@@ -11934,7 +11934,7 @@ void clif_parse_MoveFromKafra(int fd,struct map_session_data *sd)
 	if (sd->state.storage_flag == 1)
 		storage_storageget(sd, item_index, item_amount);
 	else if(sd->state.storage_flag == 2)
-		storage_guild_storageget(sd, item_index, item_amount);
+		gstorage_storageget(sd, item_index, item_amount);
 }
 
 
@@ -11954,7 +11954,7 @@ void clif_parse_MoveToKafraFromCart(int fd, struct map_session_data *sd){
 	if (sd->state.storage_flag == 1)
 		storage_storageaddfromcart(sd, idx, amount);
 	else if (sd->state.storage_flag == 2)
-		storage_guild_storageaddfromcart(sd, idx, amount);
+		gstorage_storageaddfromcart(sd, idx, amount);
 }
 
 
@@ -11974,7 +11974,7 @@ void clif_parse_MoveFromKafraToCart(int fd, struct map_session_data *sd){
 		storage_storagegettocart(sd, idx, amount);
 	else
 	if (sd->state.storage_flag == 2)
-		storage_guild_storagegettocart(sd, idx, amount);
+		gstorage_storagegettocart(sd, idx, amount);
 }
 
 
@@ -11986,7 +11986,7 @@ void clif_parse_CloseKafra(int fd, struct map_session_data *sd)
 		storage_storageclose(sd);
 	else
 	if( sd->state.storage_flag == 2 )
-		storage_guild_storageclose(sd);
+		gstorage_storageclose(sd);
 }
 
 
@@ -17408,6 +17408,26 @@ void clif_crimson_marker(struct map_session_data *sd, struct block_list *bl, boo
 	clif_send(buf, len, &sd->bl, SELF);
 }
 
+/**
+ * 02d3 <index>.W (ZC_NOTIFY_BIND_ON_EQUIP)
+ **/
+void clif_notify_bindOnEquip(struct map_session_data *sd, int n) {
+	struct s_packet_db *info = NULL;
+	int cmd = 0;
+
+	nullpo_retv(sd);
+
+	cmd = packet_db_ack[sd->packet_ver][ZC_NOTIFY_BIND_ON_EQUIP];
+	info = &packet_db[sd->packet_ver][cmd];
+	if (!cmd || !info->len)
+		return;
+
+	WFIFOHEAD(sd->fd, info->len);
+	WFIFOW(sd->fd, 0) = cmd;
+	WFIFOW(sd->fd, info->pos[0]) = n+2;
+	WFIFOSET(sd->fd, info->len);
+}
+
 /// [Ind/Hercules]
 void clif_showscript(struct block_list* bl, const char* message) {
 	char buf[256];
@@ -18105,6 +18125,7 @@ void packetdb_readdb(void)
 		{ "ZC_PERSONAL_INFOMATION_CHN", ZC_PERSONAL_INFOMATION_CHN},
 		{ "ZC_CLEAR_DIALOG", ZC_CLEAR_DIALOG},
 		{ "ZC_C_MARKERINFO", ZC_C_MARKERINFO},
+		{ "ZC_NOTIFY_BIND_ON_EQUIP", ZC_NOTIFY_BIND_ON_EQUIP },
 	};
 	const char *filename[] = { "packet_db.txt", DBIMPORT"/packet_db.txt"};
 	int f;

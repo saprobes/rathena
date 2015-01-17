@@ -53,10 +53,11 @@
 #define ACTIVEPATHSEARCH
 
 //Dynamic mob database, allows saving of memory when there's big gaps in the mob_db [Skotlex]
+//!NOTE: Mob ID is used also as index in mob db
 struct mob_db *mob_db_data[MAX_MOB_DB+1];
 struct mob_db *mob_dummy = NULL;	//Dummy mob to be returned when a non-existant one is requested.
 
-struct mob_db *mob_db(int index) { if (index < 0 || index > MAX_MOB_DB || mob_db_data[index] == NULL) return mob_dummy; return mob_db_data[index]; }
+struct mob_db *mob_db(int mob_id) { if (mob_id < 0 || mob_id > MAX_MOB_DB || mob_db_data[mob_id] == NULL) return mob_dummy; return mob_db_data[mob_id]; }
 
 //Dynamic mob chat database
 struct mob_chat *mob_chat_db[MAX_MOB_CHAT+1];
@@ -70,6 +71,14 @@ struct s_mob_item_drop_ratio {
 	unsigned short mob_id[MAX_ITEMRATIO_MOBS];
 };
 static DBMap *mob_item_drop_ratio;
+
+/// Mob skill struct for temporary storage
+struct s_mob_skill {
+	int16 mob_id; ///< Monster ID. -1 boss types, -2 normal types, -3 all monsters
+	struct mob_skill skill[MAX_MOBSKILL]; ///< Skills
+	uint8 count; ///< Number of skills
+};
+static DBMap *mob_skill_db; /// Monster skill temporary db. s_mob_skill -> mobid
 
 static struct eri *item_drop_ers; //For loot drops delay structures.
 static struct eri *item_drop_list_ers;
@@ -3875,99 +3884,39 @@ static bool mob_parse_dbrow(char** str)
 
 	// MVP Drops: MVP1id,MVP1per,MVP2id,MVP2per,MVP3id,MVP3per
 	for(i = 0; i < MAX_MVP_DROP; i++) {
-		int rate_adjust = battle_config.item_rate_mvp;;
 		db->mvpitem[i].nameid = atoi(str[31+i*2]);
-		if (!db->mvpitem[i].nameid) {
-			db->mvpitem[i].p = 0; //No item....
-			continue;
-		}
-		item_dropratio_adjust(db->mvpitem[i].nameid, mob_id, &rate_adjust);
-		db->mvpitem[i].p = mob_drop_adjust(atoi(str[32+i*2]), rate_adjust, battle_config.item_drop_mvp_min, battle_config.item_drop_mvp_max);
 
-		//calculate and store Max available drop chance of the MVP item
-		if (db->mvpitem[i].p) {
-			struct item_data *id;
-			id = itemdb_search(db->mvpitem[i].nameid);
-			if (id->maxchance == -1 || (id->maxchance < db->mvpitem[i].p/10 + 1) ) {
-				//item has bigger drop chance or sold in shops
-				id->maxchance = db->mvpitem[i].p/10 + 1; //reduce MVP drop info to not spoil common drop rate
+		if( db->mvpitem[i].nameid ){
+			if( itemdb_search(db->mvpitem[i].nameid) ){
+				db->mvpitem[i].p = atoi(str[32+i*2]);
+				continue;
+			}else{
+				ShowWarning( "Monster \"%s\"(id: %d) is dropping an unknown item \"%s\"(MVP-Drop %d)\n", db->name, mob_id, str[31+i*2], ( i / 2 ) + 1 );
 			}
 		}
+
+		// Delete the item
+		db->mvpitem[i].nameid = 0;
+		db->mvpitem[i].p = 0;
 	}
 
 	for(i = 0; i < MAX_MOB_DROP; i++) {
-		int rate = 0, rate_adjust, type;
-		unsigned short ratemin, ratemax;
-		struct item_data *id;
 		int k = 31 + MAX_MVP_DROP*2 + i*2;
+
 		db->dropitem[i].nameid = atoi(str[k]);
-		if (!db->dropitem[i].nameid) {
-			db->dropitem[i].p = 0; //No drop.
-			continue;
-		}
-		id = itemdb_search(db->dropitem[i].nameid);
-		type = id->type;
-		rate = atoi(str[k+1]);
-		if (battle_config.drop_rateincrease)
-			if (rate < 5000) rate++;
-		if( (mob_id >= 1324 && mob_id <= 1363) || (mob_id >= 1938 && mob_id <= 1946) )
-		{	//Treasure box drop rates [Skotlex]
-			rate_adjust = battle_config.item_rate_treasure;
-			ratemin = battle_config.item_drop_treasure_min;
-			ratemax = battle_config.item_drop_treasure_max;
-		}
-		else switch (type)
-		{ // Added suport to restrict normal drops of MVP's [Reddozen]
-		case IT_HEALING:
-			rate_adjust = (status->mode&MD_BOSS) ? battle_config.item_rate_heal_boss : battle_config.item_rate_heal;
-			ratemin = battle_config.item_drop_heal_min;
-			ratemax = battle_config.item_drop_heal_max;
-			break;
-		case IT_USABLE:
-		case IT_CASH:
-			rate_adjust = (status->mode&MD_BOSS) ? battle_config.item_rate_use_boss : battle_config.item_rate_use;
-			ratemin = battle_config.item_drop_use_min;
-			ratemax = battle_config.item_drop_use_max;
-			break;
-		case IT_WEAPON:
-		case IT_ARMOR:
-		case IT_PETARMOR:
-			rate_adjust = (status->mode&MD_BOSS) ? battle_config.item_rate_equip_boss : battle_config.item_rate_equip;
-			ratemin = battle_config.item_drop_equip_min;
-			ratemax = battle_config.item_drop_equip_max;
-			break;
-		case IT_CARD:
-			rate_adjust = (status->mode&MD_BOSS) ? battle_config.item_rate_card_boss : battle_config.item_rate_card;
-			ratemin = battle_config.item_drop_card_min;
-			ratemax = battle_config.item_drop_card_max;
-			break;
-		default:
-			rate_adjust = (status->mode&MD_BOSS) ? battle_config.item_rate_common_boss : battle_config.item_rate_common;
-			ratemin = battle_config.item_drop_common_min;
-			ratemax = battle_config.item_drop_common_max;
-			break;
-		}
-		item_dropratio_adjust(id->nameid, mob_id, &rate_adjust);
-		db->dropitem[i].p = mob_drop_adjust(rate, rate_adjust, ratemin, ratemax);
 
-		//calculate and store Max available drop chance of the item
-		if( db->dropitem[i].p && (mob_id < 1324 || mob_id > 1363) && (mob_id < 1938 || mob_id > 1946) )
-		{ //Skip treasure chests.
-			if (id->maxchance == -1 || (id->maxchance < db->dropitem[i].p) ) {
-				id->maxchance = db->dropitem[i].p; //item has bigger drop chance or sold in shops
-			}
-			for (k = 0; k< MAX_SEARCH; k++) {
-				if (id->mob[k].chance <= db->dropitem[i].p)
-					break;
-			}
-			if (k == MAX_SEARCH)
+		if( db->dropitem[i].nameid ){
+			if( itemdb_search( db->dropitem[i].nameid ) ){
+				db->dropitem[i].p = atoi(str[k+1]);
 				continue;
-
-			if (id->mob[k].id != mob_id)
-				memmove(&id->mob[k+1], &id->mob[k], (MAX_SEARCH-k-1)*sizeof(id->mob[0]));
-			id->mob[k].chance = db->dropitem[i].p;
-			id->mob[k].id = mob_id;
+			}else{
+				ShowWarning( "Monster \"%s\"(id: %d) is dropping an unknown item \"%s\"(Drop %d)\n", db->name, mob_id, str[k], ( i / 2 ) + 1 );
+			}
 		}
+
+		// Delete the item
+		db->dropitem[i].nameid = 0;
+		db->dropitem[i].p = 0;
 	}
 
 	// Finally insert monster's data into the database.
@@ -4288,9 +4237,10 @@ static bool mob_parse_row_mobskilldb(char** str, int columns, int current)
 	};
 	static int last_mob_id = 0;  // ensures that only one error message per mob id is printed
 
-	struct mob_skill *ms, gms;
+	struct s_mob_skill *skill = NULL;
+	struct mob_skill *ms = NULL;
 	int mob_id;
-	int i =0, j, tmp;
+	int i = 0, j, tmp;
 
 	mob_id = atoi(str[0]);
 
@@ -4302,29 +4252,31 @@ static bool mob_parse_row_mobskilldb(char** str, int columns, int current)
 		}
 		return false;
 	}
-	if( strcmp(str[1],"clear")==0 ){
-		if (mob_id < 0)
-			return false;
-		memset(mob_db_data[mob_id]->skill,0,sizeof(struct mob_skill));
-		mob_db_data[mob_id]->maxskill=0;
+	else if (mob_id == 0)
+		return false;
+
+	// Looking for existing entry
+	if (!(skill = (struct s_mob_skill *)idb_get(mob_skill_db, mob_id)))
+		CREATE(skill, struct s_mob_skill, 1);
+
+	if( strcmp(str[1],"clear") == 0 && skill->mob_id != 0 ) {
+		idb_remove(mob_skill_db, skill->mob_id);
+		aFree(skill);
+		ShowInfo("Cleared skill for mob id '%d'\n", mob_id);
 		return true;
 	}
 
-	if (mob_id < 0)
-	{	//Prepare global skill. [Skotlex]
-		memset(&gms, 0, sizeof (struct mob_skill));
-		ms = &gms;
-	} else {
-		ARR_FIND( 0, MAX_MOBSKILL, i, (ms = &mob_db_data[mob_id]->skill[i])->skill_id == 0 );
-		if( i == MAX_MOBSKILL )
-		{
-			if (mob_id != last_mob_id) {
-				ShowError("mob_parse_row_mobskilldb: Too many skills for monster %d[%s]\n", mob_id, mob_db_data[mob_id]->sprite);
-				last_mob_id = mob_id;
-			}
-			return false;
+	ARR_FIND( 0, MAX_MOBSKILL, i, skill->skill[i].skill_id == 0 );
+	if( i == MAX_MOBSKILL )
+	{
+		if (mob_id != last_mob_id) {
+			ShowError("mob_parse_row_mobskilldb: Too many skills for monster %d[%s]\n", mob_id, mob_db_data[mob_id]->sprite);
+			last_mob_id = mob_id;
 		}
+		return false;
 	}
+
+	ms = &skill->skill[i];
 
 	//State
 	ARR_FIND( 0, ARRAYLENGTH(state), j, strcmp(str[2],state[j].str) == 0 );
@@ -4336,8 +4288,8 @@ static bool mob_parse_row_mobskilldb(char** str, int columns, int current)
 	}
 
 	//Skill ID
-	j=atoi(str[3]);
-	if (j<=0 || j>MAX_SKILL_DB) //fixed Lupus
+	j = atoi(str[3]);
+	if (j <= 0 || j > MAX_SKILL_DB) //fixed Lupus
 	{
 		if (mob_id < 0)
 			ShowError("mob_parse_row_mobskilldb: Invalid Skill ID (%d) for all mobs\n", j);
@@ -4345,30 +4297,31 @@ static bool mob_parse_row_mobskilldb(char** str, int columns, int current)
 			ShowError("mob_parse_row_mobskilldb: Invalid Skill ID (%d) for mob %d (%s)\n", j, mob_id, mob_db_data[mob_id]->sprite);
 		return false;
 	}
-	ms->skill_id=j;
+	ms->skill_id = j;
 
 	//Skill lvl
-	j= atoi(str[4])<=0 ? 1 : atoi(str[4]);
-	ms->skill_lv= j>battle_config.mob_max_skilllvl ? battle_config.mob_max_skilllvl : j; //we strip max skill level
+	j = atoi(str[4]) <= 0 ? 1 : atoi(str[4]);
+	ms->skill_lv = j > battle_config.mob_max_skilllvl ? battle_config.mob_max_skilllvl : j; //we strip max skill level
 
 	//Apply battle_config modifiers to rate (permillage) and delay [Skotlex]
 	tmp = atoi(str[5]);
 	if (battle_config.mob_skill_rate != 100)
 		tmp = tmp*battle_config.mob_skill_rate/100;
 	if (tmp > 10000)
-		ms->permillage= 10000;
+		ms->permillage = 10000;
 	else if (!tmp && battle_config.mob_skill_rate)
-		ms->permillage= 1;
+		ms->permillage = 1;
 	else
-		ms->permillage= tmp;
-	ms->casttime=atoi(str[6]);
-	ms->delay=atoi(str[7]);
+		ms->permillage = tmp;
+	ms->casttime = atoi(str[6]);
+	ms->delay = atoi(str[7]);
 	if (battle_config.mob_skill_delay != 100)
 		ms->delay = ms->delay*battle_config.mob_skill_delay/100;
 	if (ms->delay < 0 || ms->delay > MOB_MAX_DELAY) //time overflow?
 		ms->delay = MOB_MAX_DELAY;
-	ms->cancel=atoi(str[8]);
-	if( strcmp(str[8],"yes")==0 ) ms->cancel=1;
+	ms->cancel = atoi(str[8]);
+	if( strcmp(str[8],"yes")==0 )
+		ms->cancel=1;
 
 	//Target
 	ARR_FIND( 0, ARRAYLENGTH(target), j, strcmp(str[9],target[j].str) == 0 );
@@ -4386,13 +4339,13 @@ static bool mob_parse_row_mobskilldb(char** str, int columns, int current)
 		{
 			ShowWarning("mob_parse_row_mobskilldb: Wrong mob skill target for ground skill %d (%s) for %s.\n",
 				ms->skill_id, skill_get_name(ms->skill_id),
-				mob_id < 0?"all mobs":mob_db_data[mob_id]->sprite);
+				mob_id < 0 ? "all mobs" : mob_db_data[mob_id]->sprite);
 			ms->target = MST_TARGET;
 		}
 	} else if (ms->target > MST_MASTER) {
 		ShowWarning("mob_parse_row_mobskilldb: Wrong mob skill target 'around' for non-ground skill %d (%s) for %s.\n",
 			ms->skill_id, skill_get_name(ms->skill_id),
-			mob_id < 0?"all mobs":mob_db_data[mob_id]->sprite);
+			mob_id < 0 ? "all mobs" : mob_db_data[mob_id]->sprite);
 		ms->target = MST_TARGET;
 	}
 
@@ -4413,62 +4366,42 @@ static bool mob_parse_row_mobskilldb(char** str, int columns, int current)
 	if( j < ARRAYLENGTH(cond2) )
 		ms->cond2 = cond2[j].id;
 
-	ms->val[0]=(int)strtol(str[12],NULL,0);
-	ms->val[1]=(int)strtol(str[13],NULL,0);
-	ms->val[2]=(int)strtol(str[14],NULL,0);
-	ms->val[3]=(int)strtol(str[15],NULL,0);
-	ms->val[4]=(int)strtol(str[16],NULL,0);
+	ms->val[0] = (int)strtol(str[12],NULL,0);
+	ms->val[1] = (int)strtol(str[13],NULL,0);
+	ms->val[2] = (int)strtol(str[14],NULL,0);
+	ms->val[3] = (int)strtol(str[15],NULL,0);
+	ms->val[4] = (int)strtol(str[16],NULL,0);
 
-	if(ms->skill_id == NPC_EMOTION && mob_id>0 &&
+	if(ms->skill_id == NPC_EMOTION && mob_id > 0 &&
 		ms->val[1] == mob_db(mob_id)->status.mode)
 	{
 		ms->val[1] = 0;
 		ms->val[4] = 1; //request to return mode to normal.
 	}
-	if(ms->skill_id == NPC_EMOTION_ON && mob_id>0 && ms->val[1])
+	if(ms->skill_id == NPC_EMOTION_ON && mob_id > 0 && ms->val[1])
 	{	//Adds a mode to the mob.
 		//Remove aggressive mode when the new mob type is passive.
 		if (!(ms->val[1]&MD_AGGRESSIVE))
-			ms->val[3]|=MD_AGGRESSIVE;
-		ms->val[2]|= ms->val[1]; //Add the new mode.
+			ms->val[3] |= MD_AGGRESSIVE;
+		ms->val[2] |= ms->val[1]; //Add the new mode.
 		ms->val[1] = 0; //Do not "set" it.
 	}
 
 	if(*str[17])
-		ms->emotion=atoi(str[17]);
+		ms->emotion = atoi(str[17]);
 	else
-		ms->emotion=-1;
+		ms->emotion = -1;
 
-	if(str[18]!=NULL && mob_chat_db[atoi(str[18])]!=NULL)
-		ms->msg_id=atoi(str[18]);
+	if(str[18] != NULL && mob_chat_db[atoi(str[18])]!=NULL)
+		ms->msg_id = atoi(str[18]);
 	else
-		ms->msg_id=0;
+		ms->msg_id = 0;
 
-	if (mob_id < 0)
-	{	//Set this skill to ALL mobs. [Skotlex]
-		mob_id *= -1;
-		for (i = 1; i < MAX_MOB_DB; i++)
-		{
-			if (mob_db_data[i] == NULL)
-				continue;
-			if (mob_db_data[i]->status.mode&MD_BOSS)
-			{
-				if (!(mob_id&2)) //Skill not for bosses
-					continue;
-			} else
-				if (!(mob_id&1)) //Skill not for normal enemies.
-					continue;
-
-			ARR_FIND( 0, MAX_MOBSKILL, j, mob_db_data[i]->skill[j].skill_id == 0 );
-			if(j==MAX_MOBSKILL)
-				continue;
-
-			memcpy (&mob_db_data[i]->skill[j], ms, sizeof(struct mob_skill));
-			mob_db_data[i]->maxskill=j+1;
-		}
-	} else //Skill set on a single mob.
-		mob_db_data[mob_id]->maxskill=i+1;
-
+	skill->count++;
+	if (!skill->mob_id) { // Insert new entry
+		skill->mob_id = mob_id;
+		idb_put(mob_skill_db, mob_id, skill);
+	}
 	return true;
 }
 
@@ -4580,7 +4513,7 @@ static bool mob_readdb_itemratio(char* str[], int columns, int current)
 	nameid = atoi(str[0]);
 
 	if (itemdb_exists(nameid) == NULL) {
-		ShowWarning("itemdb_read_itemratio: Invalid item id %hu.\n", nameid);
+		ShowWarning("mob_readdb_itemratio: Invalid item id %hu.\n", nameid);
 		return false;
 	}
 
@@ -4591,19 +4524,270 @@ static bool mob_readdb_itemratio(char* str[], int columns, int current)
 
 	item_ratio->drop_ratio = ratio;
 	memset(item_ratio->mob_id, 0, sizeof(item_ratio->mob_id));
-	for (i = 0; i < columns-2; i++)
-		item_ratio->mob_id[i] = atoi(str[i+2]);
+	for (i = 0; i < columns-2; i++) {
+		uint16 mob_id = atoi(str[i+2]);
+		if (mob_db(mob_id) == mob_dummy)
+			ShowError("mob_readdb_itemratio: Invalid monster with ID %hu (Item:%hu Col:%d).\n", mob_id, nameid, columns);
+		else
+			item_ratio->mob_id[i] = atoi(str[i+2]);
+	}
 
-	if (!item_ratio->nameid)
+	if (!item_ratio->nameid) {
+		item_ratio->nameid = nameid;
 		idb_put(mob_item_drop_ratio, nameid, item_ratio);
+	}
 
 	return true;
 }
 
+/**
+ * Free drop ratio data
+ **/
 static int mob_item_drop_ratio_free(DBKey key, DBData *data, va_list ap) {
 	struct s_mob_item_drop_ratio *item_ratio = db_data2ptr(data);
 	aFree(item_ratio);
 	return 0;
+}
+
+/**
+ * Adjust drop ratio for each monster
+ **/
+static void mob_drop_ratio_adjust(void){
+	unsigned short i;
+
+	for( i = 0; i <= MAX_MOB_DB; i++ ){
+		struct mob_db *mob;
+		struct item_data *id;
+		unsigned short nameid;
+		int j, rate, rate_adjust = 0, mob_id;
+
+		mob = mob_db(i);
+
+		// Skip dummy mobs.
+		if( mob == mob_dummy ){
+			continue;
+		}
+
+		mob_id = i;
+
+		for( j = 0; j < MAX_MVP_DROP; j++ ){
+			nameid = mob->mvpitem[j].nameid;
+			rate = mob->mvpitem[j].p;
+
+			if( nameid == 0 || rate == 0 ){
+				continue;
+			}
+
+			rate_adjust = battle_config.item_rate_mvp;
+
+			// Adjust the rate if there is an entry in mob_item_ratio
+			item_dropratio_adjust( nameid, mob_id, &rate_adjust );
+
+			// Adjust rate with given algorithms
+			rate = mob_drop_adjust( rate, rate_adjust, battle_config.item_drop_mvp_min, battle_config.item_drop_mvp_max );
+
+			// calculate and store Max available drop chance of the MVP item
+			if( rate ){
+				id = itemdb_search( nameid );
+
+				// Item is not known anymore(should never happen)
+				if( !id ){
+					ShowWarning( "Monster \"%s\"(id:%d) is dropping an unknown item(id: %d)\n", mob->name, mob_id, nameid );
+					mob->mvpitem[j].nameid = 0;
+					mob->mvpitem[j].p = 0;
+					continue;
+				}
+
+				if( id->maxchance == -1 || ( id->maxchance < rate/10 + 1 ) ){
+					// item has bigger drop chance or sold in shops
+					id->maxchance = rate/10 + 1; // reduce MVP drop info to not spoil common drop rate
+				}
+			}
+
+			mob->mvpitem[j].p = rate;
+		}
+
+		for( j = 0; j < MAX_MOB_DROP; j++ ){
+			unsigned short ratemin, ratemax;
+			bool is_treasurechest;
+
+			nameid = mob->dropitem[j].nameid;
+			rate = mob->dropitem[j].p;
+
+			if( nameid == 0 || rate == 0 ){
+				continue;
+			}
+
+			id = itemdb_search( nameid );
+
+			// Item is not known anymore(should never happen)
+			if( !id ){
+				ShowWarning( "Monster \"%s\"(id:%d) is dropping an unknown item(id: %d)\n", mob->name, mob_id, nameid );
+				mob->dropitem[j].nameid = 0;
+				mob->dropitem[j].p = 0;
+				continue;
+			}
+
+			if( battle_config.drop_rateincrease && rate < 5000 ){
+				rate++;
+			}
+
+			// Treasure box drop rates [Skotlex]
+			if( ( mob_id >= MOBID_TREAS01 && mob_id <= MOBID_TREAS40 ) || ( mob_id >= MOBID_TREAS41 && mob_id <= MOBID_TREAS49 ) ){
+				is_treasurechest = true;
+
+				rate_adjust = battle_config.item_rate_treasure;
+				ratemin = battle_config.item_drop_treasure_min;
+				ratemax = battle_config.item_drop_treasure_max;
+			}else{
+				is_treasurechest = false;
+
+				 // Added suport to restrict normal drops of MVP's [Reddozen]
+				switch( id->type ){
+					case IT_HEALING:
+						rate_adjust = (mob->status.mode&MD_BOSS) ? battle_config.item_rate_heal_boss : battle_config.item_rate_heal;
+						ratemin = battle_config.item_drop_heal_min;
+						ratemax = battle_config.item_drop_heal_max;
+						break;
+					case IT_USABLE:
+					case IT_CASH:
+						rate_adjust = (mob->status.mode&MD_BOSS) ? battle_config.item_rate_use_boss : battle_config.item_rate_use;
+						ratemin = battle_config.item_drop_use_min;
+						ratemax = battle_config.item_drop_use_max;
+						break;
+					case IT_WEAPON:
+					case IT_ARMOR:
+					case IT_PETARMOR:
+						rate_adjust = (mob->status.mode&MD_BOSS) ? battle_config.item_rate_equip_boss : battle_config.item_rate_equip;
+						ratemin = battle_config.item_drop_equip_min;
+						ratemax = battle_config.item_drop_equip_max;
+						break;
+					case IT_CARD:
+						rate_adjust = (mob->status.mode&MD_BOSS) ? battle_config.item_rate_card_boss : battle_config.item_rate_card;
+						ratemin = battle_config.item_drop_card_min;
+						ratemax = battle_config.item_drop_card_max;
+						break;
+					default:
+						rate_adjust = (mob->status.mode&MD_BOSS) ? battle_config.item_rate_common_boss : battle_config.item_rate_common;
+						ratemin = battle_config.item_drop_common_min;
+						ratemax = battle_config.item_drop_common_max;
+						break;
+				}
+			}
+
+			item_dropratio_adjust( nameid, mob_id, &rate_adjust );
+			rate = mob_drop_adjust( rate, rate_adjust, ratemin, ratemax );
+
+			// calculate and store Max available drop chance of the item
+			// but skip treasure chests.
+			if( rate && !is_treasurechest ){
+				unsigned short k;
+
+				if( id->maxchance == -1 || ( id->maxchance < rate ) ){
+					id->maxchance = rate; // item has bigger drop chance or sold in shops
+				}
+
+				for( k = 0; k < MAX_SEARCH; k++ ){
+					if( id->mob[k].chance <= rate ){
+						break;
+					}
+				}
+
+				if( k != MAX_SEARCH ){
+					if( id->mob[k].id != mob_id ){
+						memmove( &id->mob[k+1], &id->mob[k], (MAX_SEARCH-k-1)*sizeof(id->mob[0]) );
+					}
+
+					id->mob[k].chance = rate;
+					id->mob[k].id = mob_id;
+				}
+			}
+
+			mob->dropitem[j].p = rate;
+		}
+	}
+
+	// Now that we are done we can delete the stored item ratios
+	mob_item_drop_ratio->clear( mob_item_drop_ratio, mob_item_drop_ratio_free );
+}
+
+/**
+ * Copy skill from DB to monster
+ * @param mob Monster DB entry
+ * @param skill Monster skill entries
+ **/
+static void mob_skill_db_set_single_sub(struct mob_db *mob, struct s_mob_skill *skill) {
+	uint8 i;
+
+	nullpo_retv(mob);
+	nullpo_retv(skill);
+
+	for (i = 0; mob->maxskill < MAX_MOBSKILL && i < skill->count; i++) {
+		mob->skill[mob->maxskill++] = skill->skill[i];
+	}
+
+	if (i < skill->count)
+		ShowWarning("Monster '%s' (%d, src:%d) reaches max skill limit %d. Ignores '%d' skills left.\n", mob->sprite, mob->vd.class_, skill->mob_id, MAX_MOBSKILL, skill->count-i);
+}
+
+/**
+ * Check the skill & monster id before put the skills
+ * @param skill
+ **/
+static void mob_skill_db_set_single(struct s_mob_skill *skill) {
+	struct mob_db *mob = NULL;
+
+	nullpo_retv(skill);
+
+	// Specific monster
+	if (skill->mob_id >= 0) {
+		mob = mob_db(skill->mob_id);
+		if (mob != mob_dummy)
+			//memcpy(&mob->skill, skill, sizeof(skill));
+			mob_skill_db_set_single_sub(mob, skill);
+	}
+	// Global skill
+	else {
+		uint16 i, id = skill->mob_id;
+		id *= -1;
+		for (i = 0; i < MAX_MOB_DB; i++) {
+			mob = mob_db(i);
+			if (mob == mob_dummy)
+				continue;
+			if (   (!(id&1) && mob->status.mode&MD_BOSS) // Bosses
+				|| (!(id&2) && !(mob->status.mode&MD_BOSS)) // Normal monsters
+				)
+				continue;
+			mob_skill_db_set_single_sub(mob, skill);
+		}
+	}
+	
+}
+
+/**
+ * Free drop ratio data
+ **/
+static int mob_skill_db_free(DBKey key, DBData *data, va_list ap) {
+	struct s_mob_skill *skill = (struct s_mob_skill *)db_data2ptr(data);
+	if (skill)
+		aFree(skill);
+	return 0;
+}
+
+/**
+ * Set monster skills
+ **/
+static void mob_skill_db_set(void) {
+	DBIterator *iter = db_iterator(mob_skill_db);
+	struct s_mob_skill *skill = NULL;
+
+	for (skill = (struct s_mob_skill *)dbi_first(iter);  dbi_exists(iter); skill = (struct s_mob_skill *)dbi_next(iter)) {
+		mob_skill_db_set_single(skill);
+	}
+	dbi_destroy(iter);
+
+	//ShowStatus("Set skills to '%d' monsters.\n", db_size(mob_skill_db));
+	mob_skill_db->clear(mob_skill_db, mob_skill_db_free);
 }
 
 /**
@@ -4616,7 +4800,7 @@ static void mob_load(void)
 		"",
 		"/"DBIMPORT,
 	};
-	
+
 	for(i=0; i<ARRAYLENGTH(dbsubpath); i++){	
 		int n1 = strlen(db_path)+strlen(dbsubpath[i])+1;
 		int n2 = strlen(db_path)+strlen(DBPATH)+strlen(dbsubpath[i])+1;
@@ -4633,8 +4817,6 @@ static void mob_load(void)
 			safesnprintf(dbsubpath2,n1,"%s%s",db_path,dbsubpath[i]);
 		}
 		
-		sv_readdb(dbsubpath1, "mob_item_ratio.txt", ',', 2, 2+MAX_ITEMRATIO_MOBS, -1, &mob_readdb_itemratio, i); // must be read before mobdb
-		sv_readdb(dbsubpath1, "mob_chat_db.txt", '#', 3, 3, MAX_MOB_CHAT, &mob_parse_row_chatdb, i);
 		if (db_use_sqldbs && i==0) //only read once for sql
 		{
 			mob_read_sqldb();
@@ -4643,12 +4825,18 @@ static void mob_load(void)
 			sv_readdb(dbsubpath2, "mob_db.txt", ',', 31+2*MAX_MVP_DROP+2*MAX_MOB_DROP, 31+2*MAX_MVP_DROP+2*MAX_MOB_DROP, -1, &mob_readdb_sub, i);
 			mob_readskilldb(dbsubpath2,i);
 		}
+
 		sv_readdb(dbsubpath1, "mob_avail.txt", ',', 2, 12, -1, &mob_readdb_mobavail, i);
 		sv_readdb(dbsubpath2, "mob_race2_db.txt", ',', 2, 20, -1, &mob_readdb_race2, i);
+		sv_readdb(dbsubpath1, "mob_item_ratio.txt", ',', 2, 2+MAX_ITEMRATIO_MOBS, -1, &mob_readdb_itemratio, i);
+		sv_readdb(dbsubpath1, "mob_chat_db.txt", '#', 3, 3, MAX_MOB_CHAT, &mob_parse_row_chatdb, i);
 		
 		aFree(dbsubpath1);
 		aFree(dbsubpath2);
 	}
+
+	mob_drop_ratio_adjust();
+	mob_skill_db_set();
 	mob_read_randommonster();
 }
 
@@ -4659,13 +4847,13 @@ void mob_reload(void) {
 	for (i = 0; i < MAX_MOB_DB; i++) {
 		if (mob_db_data[i]) {
 			memset(&mob_db_data[i]->skill,0,sizeof(mob_db_data[i]->skill));
-			mob_db_data[i]->maxskill=0;
+			mob_db_data[i]->maxskill = 0;
 		}
 	}
 
 	// Clear item_drop_ratio_db
 	mob_item_drop_ratio->clear(mob_item_drop_ratio, mob_item_drop_ratio_free);
-
+	mob_skill_db->clear(mob_skill_db, mob_skill_db_free);
 	mob_load();
 }
 
@@ -4687,6 +4875,7 @@ void do_init_mob(void){
 	item_drop_ers = ers_new(sizeof(struct item_drop),"mob.c::item_drop_ers",ERS_OPT_NONE);
 	item_drop_list_ers = ers_new(sizeof(struct item_drop_list),"mob.c::item_drop_list_ers",ERS_OPT_NONE);
 	mob_item_drop_ratio = idb_alloc(DB_OPT_BASE);
+	mob_skill_db = idb_alloc(DB_OPT_BASE);
 	mob_load();
 
 	add_timer_func_list(mob_delayspawn,"mob_delayspawn");
@@ -4727,6 +4916,7 @@ void do_final_mob(void){
 		}
 	}
 	mob_item_drop_ratio->destroy(mob_item_drop_ratio,mob_item_drop_ratio_free);
+	mob_skill_db->destroy(mob_skill_db, mob_skill_db_free);
 	ers_destroy(item_drop_ers);
 	ers_destroy(item_drop_list_ers);
 }

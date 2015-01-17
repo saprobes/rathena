@@ -112,6 +112,10 @@ int agit_flag = 0;
 int agit2_flag = 0;
 int night_flag = 0; // 0=day, 1=night [Yor]
 
+#ifdef ADJUST_SKILL_DAMAGE
+struct eri *map_skill_damage_ers = NULL;
+#endif
+
 struct charid_request {
 	struct charid_request* next;
 	int charid;// who want to be notified of the nick
@@ -1524,16 +1528,16 @@ bool map_closest_freecell(int16 m, int16 *x, int16 *y, int type, int flag)
 int map_addflooritem(struct item *item,int amount,int16 m,int16 x,int16 y,int first_charid,int second_charid,int third_charid,int flags)
 {
 	int r;
-	struct flooritem_data *fitem=NULL;
+	struct flooritem_data *fitem = NULL;
 
 	nullpo_ret(item);
 
-	if(!(flags&4) && battle_config.item_onfloor && (itemdb_traderight(item->nameid)&1) )
+	if (!(flags&4) && battle_config.item_onfloor && (itemdb_traderight(item->nameid)&1))
 		return 0; //can't be dropped
 
-	if(!map_searchrandfreecell(m,&x,&y,flags&2?1:0))
+	if (!map_searchrandfreecell(m,&x,&y,flags&2?1:0))
 		return 0;
-	r=rnd();
+	r = rnd();
 
 	CREATE(fitem, struct flooritem_data, 1);
 	fitem->bl.type=BL_ITEM;
@@ -1542,7 +1546,7 @@ int map_addflooritem(struct item *item,int amount,int16 m,int16 x,int16 y,int fi
 	fitem->bl.x=x;
 	fitem->bl.y=y;
 	fitem->bl.id = map_get_new_object_id();
-	if(fitem->bl.id==0){
+	if (fitem->bl.id==0) {
 		aFree(fitem);
 		return 0;
 	}
@@ -1555,13 +1559,13 @@ int map_addflooritem(struct item *item,int amount,int16 m,int16 x,int16 y,int fi
 	fitem->third_get_tick = fitem->second_get_tick + (flags&1 ? battle_config.mvp_item_third_get_time : battle_config.item_third_get_time);
 
 	memcpy(&fitem->item,item,sizeof(*item));
-	fitem->item.amount=amount;
-	fitem->subx=(r&3)*3+3;
-	fitem->suby=((r>>2)&3)*3+3;
-	fitem->cleartimer=add_timer(gettick()+battle_config.flooritem_lifetime,map_clearflooritem_timer,fitem->bl.id,0);
+	fitem->item.amount = amount;
+	fitem->subx = (r&3)*3+3;
+	fitem->suby = ((r>>2)&3)*3+3;
+	fitem->cleartimer = add_timer(gettick()+battle_config.flooritem_lifetime,map_clearflooritem_timer,fitem->bl.id,0);
 
 	map_addiddb(&fitem->bl);
-	if(map_addblock(&fitem->bl))
+	if (map_addblock(&fitem->bl))
 		return 0;
 	clif_dropflooritem(fitem);
 
@@ -1771,6 +1775,8 @@ int map_quit(struct map_session_data *sd) {
 		status_change_end(&sd->bl, SC_READYDOWN, INVALID_TIMER);
 		status_change_end(&sd->bl, SC_READYTURN, INVALID_TIMER);
 		status_change_end(&sd->bl, SC_READYCOUNTER, INVALID_TIMER);
+		status_change_end(&sd->bl, SC_CBC, INVALID_TIMER);
+		status_change_end(&sd->bl, SC_EQC, INVALID_TIMER);
 		if (battle_config.debuff_on_logout&1) { //Remove negative buffs
 			status_change_end(&sd->bl, SC_ORCISH, INVALID_TIMER);
 			status_change_end(&sd->bl, SC_STRIPWEAPON, INVALID_TIMER);
@@ -3227,8 +3233,9 @@ void map_flags_init(void)
 
 		// skill damage
 #ifdef ADJUST_SKILL_DAMAGE
-		memset(map[i].skill_damage, 0, sizeof(map[i].skill_damage));
 		memset(&map[i].adjust.damage, 0, sizeof(map[i].adjust.damage));
+		if (map[i].skill_damage.count)
+			map_skill_damage_free(&map[i]);
 #endif
 
 		// adjustments
@@ -3916,6 +3923,65 @@ int cleanup_sub(struct block_list *bl, va_list ap)
 	return 1;
 }
 
+#ifdef ADJUST_SKILL_DAMAGE
+/**
+ * Free all skill damage entries for a map
+ * @param m Map data
+ **/
+void map_skill_damage_free(struct map_data *m) {
+	uint8 i;
+
+	for (i = 0; i < m->skill_damage.count; i++) {
+		ers_free(map_skill_damage_ers, m->skill_damage.entries[i]);
+		m->skill_damage.entries[i] = NULL;
+	}
+
+	aFree(m->skill_damage.entries);
+	m->skill_damage.entries = NULL;
+	m->skill_damage.count = 0;
+}
+
+/**
+ * Add new skill damage adjustment entry for a map
+ * @param m Map data
+ * @param skill_id Skill
+ * @param pc Rate to PC
+ * @param mobs Rate to Monster
+ * @param boss Rate to Boss-monster
+ * @param other Rate to Other target
+ * @param caster Caster type
+ **/
+void map_skill_damage_add(struct map_data *m, uint16 skill_id, int pc, int mob, int boss, int other, uint8 caster) {
+	struct s_skill_damage *entry;
+	int i = 0;
+
+	if (m->skill_damage.count >= UINT8_MAX)
+		return;
+
+	for (i = 0; i < m->skill_damage.count; i++) {
+		if (m->skill_damage.entries[i]->skill_id == skill_id) {
+			m->skill_damage.entries[i]->pc = pc;
+			m->skill_damage.entries[i]->mob = mob;
+			m->skill_damage.entries[i]->boss = boss;
+			m->skill_damage.entries[i]->other = other;
+			m->skill_damage.entries[i]->caster = caster;
+			return;
+		}
+	}
+
+	entry = ers_alloc(map_skill_damage_ers, struct s_skill_damage);
+	entry->skill_id = skill_id;
+	entry->pc = pc;
+	entry->mob = mob;
+	entry->boss = boss;
+	entry->other = other;
+	entry->caster = caster;
+
+	RECREATE(m->skill_damage.entries, struct s_skill_damage *, m->skill_damage.count+1);
+	m->skill_damage.entries[m->skill_damage.count++] = entry;
+}
+#endif
+
 /**
  * @see DBApply
  */
@@ -4001,6 +4067,10 @@ void do_final(void)
 			for (j=0; j<MAX_MOB_LIST_PER_MAP; j++)
 				if (map[i].moblist[j]) aFree(map[i].moblist[j]);
 		}
+#ifdef ADJUST_SKILL_DAMAGE
+		if (map[i].skill_damage.count)
+			map_skill_damage_free(&map[i]);
+#endif
 	}
 
 	mapindex_final();
@@ -4015,6 +4085,10 @@ void do_final(void)
 	charid_db->destroy(charid_db, NULL);
 	iwall_db->destroy(iwall_db, NULL);
 	regen_db->destroy(regen_db, NULL);
+
+#ifdef ADJUST_SKILL_DAMAGE
+	ers_destroy(map_skill_damage_ers);
+#endif
 
 	map_sql_close();
 
@@ -4254,6 +4328,10 @@ int do_init(int argc, char *argv[])
 	charid_db = idb_alloc(DB_OPT_BASE);
 	regen_db = idb_alloc(DB_OPT_BASE); // efficient status_natural_heal processing
 	iwall_db = strdb_alloc(DB_OPT_RELEASE_DATA,2*NAME_LENGTH+2+1); // [Zephyrus] Invisible Walls
+
+#ifdef ADJUST_SKILL_DAMAGE
+	map_skill_damage_ers = ers_new(sizeof(struct s_skill_damage), "map.c:map_skill_damage_ers", ERS_OPT_NONE);
+#endif
 
 	map_sql_init();
 	if (log_config.sql_logs)
