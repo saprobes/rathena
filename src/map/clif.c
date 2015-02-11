@@ -1411,15 +1411,24 @@ void clif_hominfo(struct map_session_data *sd, struct homun_data *hd, int flag)
 	WBUFW(buf,29)=hd->homunculus.hunger;
 	WBUFW(buf,31)=(unsigned short) (hd->homunculus.intimacy / 100) ;
 	WBUFW(buf,33)=0; // equip id
+#ifdef RENEWAL
+	WBUFW(buf,35)=cap_value(status->rhw.atk2, 0, INT16_MAX);
+#else
 	WBUFW(buf,35)=cap_value(status->rhw.atk2+status->batk, 0, INT16_MAX);
+#endif
 	WBUFW(buf,37)=min(status->matk_max, INT16_MAX); //FIXME capping to INT16 here is too late
 	WBUFW(buf,39)=status->hit;
 	if (battle_config.hom_setting&HOMSET_DISPLAY_LUK)
 		WBUFW(buf,41)=status->luk/3 + 1;	//crit is a +1 decimal value! Just display purpose.[Vicious]
 	else
 		WBUFW(buf,41)=status->cri/10;
-	WBUFW(buf,43)=status->def + status->vit ;
+#ifdef RENEWAL
+	WBUFW(buf,43)=status->def + status->def2;
+	WBUFW(buf,45)=status->mdef + status->mdef2;
+#else
+	WBUFW(buf,43)=status->def + status->vit;
 	WBUFW(buf,45)=status->mdef;
+#endif
 	WBUFW(buf,47)=status->flee;
 	WBUFW(buf,49)=(flag)?0:status->amotion;
 	if (status->max_hp > INT16_MAX) {
@@ -2903,7 +2912,6 @@ void clif_updatestatus(struct map_session_data *sd,int type)
 	case SP_MATK2:
 		WFIFOL(fd,4)=pc_leftside_matk(sd);
 		break;
-
 
 	case SP_ZENY:
 		WFIFOW(fd,0)=0xb1;
@@ -4545,10 +4553,10 @@ static void clif_graffiti(struct block_list *bl, struct skill_unit *unit, enum s
 /// 08c7 <lenght>.W <id> L <creator id>.L <x>.W <y>.W <unit id>.B <range>.W <visible>.B (ZC_SKILL_ENTRY3)
 /// 099f <lenght>.W <id> L <creator id>.L <x>.W <y>.W <unit id>.L <range>.W <visible>.B (ZC_SKILL_ENTRY4)
 /// 09ca <lenght>.W <id> L <creator id>.L <x>.W <y>.W <unit id>.L <range>.B <visible>.B <skill level>.B (ZC_SKILL_ENTRY5)
-void clif_getareachar_skillunit(struct block_list *bl, struct skill_unit *unit, enum send_target target) {
+void clif_getareachar_skillunit(struct block_list *bl, struct skill_unit *unit, enum send_target target, uint8 flag) {
 	int header = 0, unit_id = 0, pos = 0, fd = 0, len = -1;
 	unsigned char buf[128];
-	
+
 	nullpo_retv(bl);
 	nullpo_retv(unit);
 
@@ -4558,14 +4566,30 @@ void clif_getareachar_skillunit(struct block_list *bl, struct skill_unit *unit, 
 	if (unit->group->state.guildaura)
 		return;
 
-	if (battle_config.traps_setting&1 && skill_get_inf2(unit->group->skill_id)&INF2_TRAP)
-		unit_id = UNT_DUMMYSKILL; //Use invisible unit id for traps.
-	else if (unit->group->state.song_dance&0x1 && unit->val2&UF_ENSEMBLE)
+	if (unit->group->state.song_dance&0x1 && unit->val2&UF_ENSEMBLE)
 		unit_id = unit->val2&UF_SONG ? UNT_DISSONANCE : UNT_UGLYDANCE;
 	else if (skill_get_unit_flag(unit->group->skill_id) & UF_RANGEDSINGLEUNIT && !(unit->val2 & UF_RANGEDSINGLEUNIT))
-		unit_id = UNT_DUMMYSKILL; //Use invisible unit id for other case of rangedsingle unit
+		unit_id = UNT_DUMMYSKILL; // Use invisible unit id for other case of rangedsingle unit
 	else
 		unit_id = unit->group->unit_id;
+
+	if (flag && battle_config.traps_setting&1) {
+		switch(unit->group->skill_id) {
+			case HT_ANKLESNARE:
+				if (!map_flag_vs(((TBL_PC*)bl)->bl.m))
+					break;
+			case HT_SKIDTRAP:
+			case MA_SKIDTRAP:
+			case HT_SHOCKWAVE:
+			case HT_SANDMAN:
+			case MA_SANDMAN:
+			case HT_FLASHER:
+			case HT_FREEZINGTRAP:
+			case MA_FREEZINGTRAP:
+				unit_id = UNT_DUMMYSKILL; // Use invisible unit id for Hunter's traps
+				break;
+		}
+	}
 
 #if PACKETVER >= 3
 	if (unit_id == UNT_GRAFFITI) { // Graffiti [Valaris]
@@ -4690,7 +4714,7 @@ static int clif_getareachar(struct block_list* bl,va_list ap)
 		clif_getareachar_item(sd,(struct flooritem_data*) bl);
 		break;
 	case BL_SKILL:
-		clif_getareachar_skillunit(&sd->bl, (TBL_SKILL*)bl, SELF);
+		clif_getareachar_skillunit(&sd->bl, (TBL_SKILL*)bl, SELF, 1);
 		break;
 	default:
 		if(&sd->bl == bl)
@@ -4778,7 +4802,7 @@ int clif_insight(struct block_list *bl,va_list ap)
 			clif_getareachar_item(tsd,(struct flooritem_data*)bl);
 			break;
 		case BL_SKILL:
-			clif_getareachar_skillunit(&tsd->bl, (TBL_SKILL*)bl, SELF);
+			clif_getareachar_skillunit(&tsd->bl, (TBL_SKILL*)bl, SELF, 1);
 			break;
 		default:
 			clif_getareachar_unit(tsd,bl);
@@ -11241,16 +11265,20 @@ static void clif_parse_UseSkillToId_homun(struct homun_data *hd, struct map_sess
 
 	if( !hd )
 		return;
-	if( skill_isNotOk_hom(skill_id, hd) )
+	if( skill_isNotOk_hom(skill_id, hd) ) {
+		clif_emotion(&hd->bl, E_DOTS);
 		return;
+	}
 	if( hd->bl.id != target_id && skill_get_inf(skill_id)&INF_SELF_SKILL )
 		target_id = hd->bl.id;
-	if( hd->ud.skilltimer != INVALID_TIMER )
-	{
+	if( hd->ud.skilltimer != INVALID_TIMER ) {
 		if( skill_id != SA_CASTCANCEL && skill_id != SO_SPELLFIST ) return;
-	}
-	else if( DIFF_TICK(tick, hd->ud.canact_tick) < 0 )
+	} else if( DIFF_TICK(tick, hd->ud.canact_tick) < 0 ) {
+		clif_emotion(&hd->bl, E_DOTS);
+		if (hd->master)
+			clif_skill_fail(hd->master, skill_id, USESKILL_FAIL_SKILLINTERVAL, 0);
 		return;
+	}
 
 	lv = hom_checkskill(hd, skill_id);
 	if( skill_lv > lv )
@@ -11264,12 +11292,18 @@ static void clif_parse_UseSkillToPos_homun(struct homun_data *hd, struct map_ses
 	int lv;
 	if( !hd )
 		return;
-	if( skill_isNotOk_hom(skill_id, hd) )
+	if( skill_isNotOk_hom(skill_id, hd) ) {
+		clif_emotion(&hd->bl, E_DOTS);
 		return;
+	}
 	if( hd->ud.skilltimer != INVALID_TIMER ) {
 		if( skill_id != SA_CASTCANCEL && skill_id != SO_SPELLFIST ) return;
-	} else if( DIFF_TICK(tick, hd->ud.canact_tick) < 0 )
+	} else if( DIFF_TICK(tick, hd->ud.canact_tick) < 0 ) {
+		clif_emotion(&hd->bl, E_DOTS);
+		if (hd->master)
+			clif_skill_fail(hd->master, skill_id, USESKILL_FAIL_SKILLINTERVAL, 0);
 		return;
+	}
 
 	if( hd->sc.data[SC_BASILICA] )
 		return;
