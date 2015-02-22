@@ -154,11 +154,11 @@ static void set_sc(uint16 skill_id, sc_type sc, int icon, unsigned int flag)
 {
 	uint16 idx = skill_get_index(skill_id);
 	if( idx == 0 ) {
-		ShowError("set_sc: Unsupported skill id %d\n", skill_id);
+		ShowError("set_sc: Unsupported skill id %d (SC: %d. Icon: %d)\n", skill_id, sc, icon);
 		return;
 	}
 	if( sc < 0 || sc >= SC_MAX ) {
-		ShowError("set_sc: Unsupported status change id %d\n", sc);
+		ShowError("set_sc: Unsupported status change id %d (Skill: %d. Icon: %d)\n", sc, skill_id, icon);
 		return;
 	}
 
@@ -170,6 +170,16 @@ static void set_sc(uint16 skill_id, sc_type sc, int icon, unsigned int flag)
 
 	if( SkillStatusChangeTable[idx] == SC_NONE )
 		SkillStatusChangeTable[idx] = sc;
+}
+
+static void set_sc_with_vfx_noskill(sc_type sc, int icon, unsigned flag) {
+	if (sc > SC_NONE && sc < SC_MAX) {
+		if (StatusIconChangeTable[sc] == SI_BLANK)
+			StatusIconChangeTable[sc] = icon;
+		StatusChangeFlagTable[sc] |= flag;
+	}
+	if (icon > SI_BLANK && icon < SI_MAX)
+		StatusRelevantBLTypes[icon] |= BL_SCEFFECT;
 }
 
 void initChangeTables(void)
@@ -791,8 +801,6 @@ void initChangeTables(void)
 	set_sc( OB_OBOROGENSOU			, SC_GENSOU		, SI_GENSOU		, SCB_NONE );
 
 	set_sc( ALL_FULL_THROTTLE		, SC_FULL_THROTTLE	, SI_FULL_THROTTLE	, SCB_SPEED|SCB_STR|SCB_AGI|SCB_VIT|SCB_INT|SCB_DEX|SCB_LUK );
-	set_sc_with_vfx( SC_MOONSTAR		, SC_MOONSTAR		, SI_MOONSTAR		, SCB_NONE );
-	set_sc_with_vfx( SC_SUPER_STAR		, SC_SUPER_STAR		, SI_SUPER_STAR		, SCB_NONE );
 
 	/* Rebellion */
 	add_sc( RL_MASS_SPIRAL		, SC_BLEEDING );
@@ -806,24 +814,26 @@ void initChangeTables(void)
 	set_sc_with_vfx( RL_C_MARKER	, SC_C_MARKER		, SI_C_MARKER		, SCB_FLEE );
 	set_sc_with_vfx( RL_AM_BLAST	, SC_ANTI_M_BLAST	, SI_ANTI_M_BLAST	, SCB_NONE );
 
-	set_sc_with_vfx( SC_ALL_RIDING		, SC_ALL_RIDING		, SI_ALL_RIDING		, SCB_SPEED );
+	set_sc_with_vfx_noskill( SC_MOONSTAR	, SI_MOONSTAR	, SCB_NONE );
+	set_sc_with_vfx_noskill( SC_SUPER_STAR	, SI_SUPER_STAR	, SCB_NONE );
+	set_sc_with_vfx_noskill( SC_ALL_RIDING	, SI_ALL_RIDING	, SCB_SPEED );
 
 	/* Storing the target job rather than simply SC_SPIRIT simplifies code later on */
-	SkillStatusChangeTable[SL_ALCHEMIST]	= (sc_type)MAPID_ALCHEMIST,
-	SkillStatusChangeTable[SL_MONK]		= (sc_type)MAPID_MONK,
-	SkillStatusChangeTable[SL_STAR]		= (sc_type)MAPID_STAR_GLADIATOR,
-	SkillStatusChangeTable[SL_SAGE]		= (sc_type)MAPID_SAGE,
-	SkillStatusChangeTable[SL_CRUSADER]	= (sc_type)MAPID_CRUSADER,
-	SkillStatusChangeTable[SL_SUPERNOVICE]	= (sc_type)MAPID_SUPER_NOVICE,
-	SkillStatusChangeTable[SL_KNIGHT]	= (sc_type)MAPID_KNIGHT,
-	SkillStatusChangeTable[SL_WIZARD]	= (sc_type)MAPID_WIZARD,
-	SkillStatusChangeTable[SL_PRIEST]	= (sc_type)MAPID_PRIEST,
-	SkillStatusChangeTable[SL_BARDDANCER]	= (sc_type)MAPID_BARDDANCER,
-	SkillStatusChangeTable[SL_ROGUE]	= (sc_type)MAPID_ROGUE,
-	SkillStatusChangeTable[SL_ASSASIN]	= (sc_type)MAPID_ASSASSIN,
-	SkillStatusChangeTable[SL_BLACKSMITH]	= (sc_type)MAPID_BLACKSMITH,
-	SkillStatusChangeTable[SL_HUNTER]	= (sc_type)MAPID_HUNTER,
-	SkillStatusChangeTable[SL_SOULLINKER]	= (sc_type)MAPID_SOUL_LINKER,
+	SkillStatusChangeTable[skill_get_index(SL_ALCHEMIST)]	= (sc_type)MAPID_ALCHEMIST,
+	SkillStatusChangeTable[skill_get_index(SL_MONK)]		= (sc_type)MAPID_MONK,
+	SkillStatusChangeTable[skill_get_index(SL_STAR)]		= (sc_type)MAPID_STAR_GLADIATOR,
+	SkillStatusChangeTable[skill_get_index(SL_SAGE)]		= (sc_type)MAPID_SAGE,
+	SkillStatusChangeTable[skill_get_index(SL_CRUSADER)]	= (sc_type)MAPID_CRUSADER,
+	SkillStatusChangeTable[skill_get_index(SL_SUPERNOVICE)]	= (sc_type)MAPID_SUPER_NOVICE,
+	SkillStatusChangeTable[skill_get_index(SL_KNIGHT)]	= (sc_type)MAPID_KNIGHT,
+	SkillStatusChangeTable[skill_get_index(SL_WIZARD)]	= (sc_type)MAPID_WIZARD,
+	SkillStatusChangeTable[skill_get_index(SL_PRIEST)]	= (sc_type)MAPID_PRIEST,
+	SkillStatusChangeTable[skill_get_index(SL_BARDDANCER)]	= (sc_type)MAPID_BARDDANCER,
+	SkillStatusChangeTable[skill_get_index(SL_ROGUE)]	= (sc_type)MAPID_ROGUE,
+	SkillStatusChangeTable[skill_get_index(SL_ASSASIN)]	= (sc_type)MAPID_ASSASSIN,
+	SkillStatusChangeTable[skill_get_index(SL_BLACKSMITH)]	= (sc_type)MAPID_BLACKSMITH,
+	SkillStatusChangeTable[skill_get_index(SL_HUNTER)]	= (sc_type)MAPID_HUNTER,
+	SkillStatusChangeTable[skill_get_index(SL_SOULLINKER)]	= (sc_type)MAPID_SOUL_LINKER,
 
 	/* Status that don't have a skill associated */
 	StatusIconChangeTable[SC_WEIGHT50] = SI_WEIGHT50;
@@ -1628,21 +1638,22 @@ int status_heal(struct block_list *bl,int64 hhp,int64 hsp, int flag)
 }
 
 /**
- * Applies percentage based damage to a unit
- * If a mob is killed this way and there is no src, no EXP/Drops will be awarded
+ * Applies percentage based damage to a unit.
+ * If a mob is killed this way and there is no src, no EXP/Drops will be awarded.
  * @param src: Object initiating HP/SP modification [PC|MOB|PET|HOM|MER|ELEM]
  * @param target: Object to modify HP/SP
  * @param hp_rate: Percentage of HP to modify
  * @param sp_rate: Percentage of SP to modify
  * @param flag: \n
  *		0: Heal target \n 
- *		2: Target must not die from subtraction
+ *		1: Use status_damage \n 
+ *		2: Use status_damage and make sure target must not die from subtraction
  * @return hp+sp through status_heal()
  */
-int status_percent_change(struct block_list *src,struct block_list *target,signed char hp_rate, signed char sp_rate, int flag)
+int status_percent_change(struct block_list *src, struct block_list *target, int8 hp_rate, int8 sp_rate, uint8 flag)
 {
 	struct status_data *status;
-	unsigned int hp  =0, sp = 0;
+	unsigned int hp = 0, sp = 0;
 
 	status = status_get_status_data(target);
 
@@ -1651,15 +1662,11 @@ int status_percent_change(struct block_list *src,struct block_list *target,signe
 	if (hp_rate > 99)
 		hp = status->hp;
 	else if (hp_rate > 0)
-		hp = status->hp>10000?
-			hp_rate*(status->hp/100):
-			((int64)hp_rate*status->hp)/100;
+		hp = apply_rate(status->hp, hp_rate);
 	else if (hp_rate < -99)
 		hp = status->max_hp;
 	else if (hp_rate < 0)
-		hp = status->max_hp>10000?
-			(-hp_rate)*(status->max_hp/100):
-			((int64)-hp_rate*status->max_hp)/100;
+		hp = (apply_rate(status->hp, -hp_rate));
 	if (hp_rate && !hp)
 		hp = 1;
 
@@ -1669,29 +1676,29 @@ int status_percent_change(struct block_list *src,struct block_list *target,signe
 	if (sp_rate > 99)
 		sp = status->sp;
 	else if (sp_rate > 0)
-		sp = ((int64)sp_rate*status->sp)/100;
+		sp = apply_rate(status->sp, sp_rate);
 	else if (sp_rate < -99)
 		sp = status->max_sp;
 	else if (sp_rate < 0)
-		sp = ((int64)-sp_rate)*status->max_sp/100;
+		sp = (apply_rate(status->sp, -sp_rate));
 	if (sp_rate && !sp)
 		sp = 1;
 
 	// Ugly check in case damage dealt is too much for the received args of
 	// status_heal / status_damage. [Skotlex]
 	if (hp > INT_MAX) {
-	  	hp -= INT_MAX;
+		hp -= INT_MAX;
 		if (flag)
 			status_damage(src, target, INT_MAX, 0, 0, (!src||src==target?5:1));
 		else
-		  	status_heal(target, INT_MAX, 0, 0);
+			status_heal(target, INT_MAX, 0, 0);
 	}
-  	if (sp > INT_MAX) {
+	if (sp > INT_MAX) {
 		sp -= INT_MAX;
 		if (flag)
 			status_damage(src, target, 0, INT_MAX, 0, (!src||src==target?5:1));
 		else
-		  	status_heal(target, 0, INT_MAX, 0);
+			status_heal(target, 0, INT_MAX, 0);
 	}
 	if (flag)
 		return status_damage(src, target, hp, sp, 0, (!src||src==target?5:1));
@@ -2962,6 +2969,7 @@ int status_calc_pc_(struct map_session_data* sd, enum e_status_calc_opt opt)
 		+ sizeof(sd->subele2)
 		+ sizeof(sd->def_set_race)
 		+ sizeof(sd->mdef_set_race)
+		+ sizeof(sd->vanish_race)
 	);
 
 	memset (&sd->bonus, 0, sizeof(sd->bonus));
@@ -3171,13 +3179,7 @@ int status_calc_pc_(struct map_session_data* sd, enum e_status_calc_opt opt)
 			run_script(data->script,0,sd->bl.id,0);
 	}
 
-	for (i = 0; i < MAX_PC_BONUS_SCRIPT; i++) { //Process script Bonus [Cydh]
-		if (!(&sd->bonus_script[i]) || !sd->bonus_script[i].script)
-			continue;
-		if (sd->bonus_script[i].tid == INVALID_TIMER) //Just add timer only for new attached script
-			sd->bonus_script[i].tid = add_timer(sd->bonus_script[i].tick,pc_bonus_script_timer,sd->bl.id,i);
-		run_script(sd->bonus_script[i].script,0,sd->bl.id,0);
-	}
+	pc_bonus_script(sd);
 
 	if( sd->pd ) { // Pet Bonus
 		struct pet_data *pd = sd->pd;
@@ -3710,6 +3712,7 @@ int status_calc_homunculus_(struct homun_data *hd, enum e_status_calc_opt opt)
 #ifdef RENEWAL
 	amotion = hd->homunculusDB->baseASPD;
 	amotion = amotion - amotion * (status->dex + hom->dex_value) / 1000 - (status->agi + hom->agi_value) * amotion / 250;
+	status->def = status->mdef = 0;
 #else
 	skill_lv = hom->level / 10 + status->vit / 5;
 	status->def = cap_value(skill_lv, 0, 99);
@@ -4475,23 +4478,13 @@ void status_calc_bl_main(struct block_list *bl, /*enum scb_flag*/int flag)
 			break;
 
 		case BL_HOM:
-			if ((bl->type&BL_HOM && battle_config.hom_setting&HOMSET_SAME_MATK)  /// Hom Min Matk is always the same as Max Matk
-					|| (sc && sc->data[SC_RECOGNIZEDSPELL]))
-				status->matk_min = status->matk_max;
-			else
-				status->matk_min += (status_get_homint(bl) + status_get_homdex(bl)) / 5;
-
+			status->matk_min += (status_get_homint(bl) + status_get_homdex(bl)) / 5;
 			status->matk_max += (status_get_homluk(bl) + status_get_homint(bl) + status_get_homdex(bl)) / 3;
 			break;
 
 		case BL_MOB:
 			status->matk_min += 70 * ((TBL_MOB*)bl)->status.rhw.atk2 / 100;
 			status->matk_max += 130 * ((TBL_MOB*)bl)->status.rhw.atk2 / 100;
-			break;
-
-		default:
-			status->matk_max = status_calc_matk(bl, sc, status->matk_max);
-			status->matk_min = status_calc_matk(bl, sc, status->matk_min);
 			break;
 		}
 #endif
@@ -4500,18 +4493,25 @@ void status_calc_bl_main(struct block_list *bl, /*enum scb_flag*/int flag)
 			status->matk_min = status->matk_min * sd->matk_rate/100;
 		}
 
+		if ((bl->type&BL_HOM && battle_config.hom_setting&HOMSET_SAME_MATK)  /// Hom Min Matk is always the same as Max Matk
+				|| (sc && sc->data[SC_RECOGNIZEDSPELL]))
+			status->matk_min = status->matk_max;
+
 #ifdef RENEWAL
 		if( sd && sd->right_weapon.overrefine > 0) {
 			status->matk_min++;
 			status->matk_max += sd->right_weapon.overrefine - 1;
 		}
 #endif
+
+		status->matk_max = status_calc_matk(bl, sc, status->matk_max);
+		status->matk_min = status_calc_matk(bl, sc, status->matk_min);
 	}
 
 	if(flag&SCB_ASPD) {
 		int amotion;
 		if ( bl->type&BL_HOM ) {
-#ifdef RENEWAL
+#ifdef RENEWAL_ASPD
 			amotion = ((TBL_HOM*)bl)->homunculusDB->baseASPD;
 			amotion = amotion - amotion * status_get_homdex(bl) / 1000 - status_get_homagi(bl) * amotion / 250;
 			amotion = (amotion * status_calc_aspd(bl, sc, 1) + status_calc_aspd(bl, sc, 2)) / - 100 + amotion;

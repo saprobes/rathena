@@ -1883,10 +1883,10 @@ static int battle_skill_damage_skill(struct block_list *src, struct block_list *
 	struct s_skill_damage *damage = NULL;
 	struct map_data *mapd = &map[m];
 
-	if (!idx || !skill_db[idx].damage.map)
+	if (!idx || !skill_db[idx]->damage.map)
 		return 0;
 
-	damage = &skill_db[idx].damage;
+	damage = &skill_db[idx]->damage;
 
 	//check the adjustment works for specified type
 	if (!battle_skill_damage_iscaster(damage->caster, src->type))
@@ -6517,10 +6517,28 @@ void battle_drain(TBL_PC *sd, struct block_list *tbl, int64 rdamage, int64 ldama
 {
 	struct weapon_data *wd;
 	int64 *damage;
-	int thp = 0, tsp = 0, rhp = 0, rsp = 0, hp=0, sp=0, i;
+	int thp = 0, tsp = 0, rhp = 0, rsp = 0, hp = 0, sp = 0;
+	uint8 i = 0;
+	short vrate_hp = 0, vrate_sp = 0, v_hp = 0, v_sp = 0;
+
 	if (!CHK_RACE(race) && !CHK_CLASS(class_))
 		return;
 
+	// Check for vanish HP/SP. !CHECKME: Which first, drain or vanish?
+	vrate_hp = cap_value(sd->bonus.hp_vanish_rate + sd->vanish_race[race].hp_rate + sd->vanish_race[RC_ALL].hp_rate, SHRT_MIN, SHRT_MAX);
+	v_hp = cap_value(sd->bonus.hp_vanish_per + sd->vanish_race[race].hp_per + sd->vanish_race[RC_ALL].hp_per, INT8_MIN, INT8_MAX);
+
+	vrate_sp = cap_value(sd->bonus.sp_vanish_rate + sd->vanish_race[race].sp_rate + sd->vanish_race[RC_ALL].sp_rate, SHRT_MIN, SHRT_MAX);
+	v_sp = cap_value(sd->bonus.sp_vanish_per + sd->vanish_race[race].sp_per + sd->vanish_race[RC_ALL].sp_per, INT8_MIN, INT8_MAX);
+
+	if (v_hp > 0 && vrate_hp > 0 && (vrate_hp >= 10000 || rnd()%10000 < vrate_hp))
+		i |= 1;
+	if (v_sp > 0 && vrate_sp > 0 && (vrate_sp >= 10000 || rnd()%10000 < vrate_sp))
+		i |= 2;
+	if (i)
+		status_percent_damage(&sd->bl, tbl, (i&1 ? (int8)v_hp: 0), (i&2 ? (int8)v_sp : 0), false);
+
+	i = 0;
 	for (i = 0; i < 4; i++) {
 		//First two iterations: Right hand
 		if (i < 2) { wd = &sd->right_weapon; damage = &rdamage; }
@@ -6585,13 +6603,6 @@ void battle_drain(TBL_PC *sd, struct block_list *tbl, int64 rdamage, int64 ldama
 		}
 	}
 
-	if (sd->bonus.sp_vanish_rate && rnd()%1000 < sd->bonus.sp_vanish_rate)
-		status_percent_damage(&sd->bl, tbl, 0, (unsigned char)sd->bonus.sp_vanish_per, false);
-
-	if (sd->bonus.hp_vanish_rate && rnd()%1000 < sd->bonus.hp_vanish_rate
-		&& tbl->type == BL_PC && (map[sd->bl.m].flag.pvp || map[sd->bl.m].flag.gvg))
-		status_percent_damage(&sd->bl, tbl, (unsigned char)sd->bonus.hp_vanish_per, 0, false);
-
 	if( sd->sp_gain_race_attack[race] )
 		tsp += sd->sp_gain_race_attack[race];
 	if( sd->sp_gain_race_attack[RC_ALL] )
@@ -6601,7 +6612,8 @@ void battle_drain(TBL_PC *sd, struct block_list *tbl, int64 rdamage, int64 ldama
 	if( sd->hp_gain_race_attack[RC_ALL] )
 		thp += sd->hp_gain_race_attack[RC_ALL];
 
-	if (!thp && !tsp) return;
+	if (!thp && !tsp)
+		return;
 
 	status_heal(&sd->bl, thp, tsp, battle_config.show_hp_sp_drain?3:1);
 
@@ -6945,11 +6957,12 @@ enum damage_lv battle_weapon_attack(struct block_list* src, struct block_list* t
 		}
 	}
 	if (sd) {
+		uint16 r_skill = 0, sk_idx = 0;
 		if( wd.flag&BF_SHORT && sc && sc->data[SC__AUTOSHADOWSPELL] && rnd()%100 < sc->data[SC__AUTOSHADOWSPELL]->val3 &&
-			sd->status.skill[sc->data[SC__AUTOSHADOWSPELL]->val1].id != 0 && sd->status.skill[sc->data[SC__AUTOSHADOWSPELL]->val1].flag == SKILL_FLAG_PLAGIARIZED )
+			(r_skill = (uint16)sc->data[SC__AUTOSHADOWSPELL]->val1) && (sk_idx = skill_get_index(r_skill)) &&
+			sd->status.skill[sk_idx].id != 0 && sd->status.skill[sk_idx].flag == SKILL_FLAG_PLAGIARIZED )
 		{
-			int r_skill = sd->status.skill[sc->data[SC__AUTOSHADOWSPELL]->val1].id,
-				r_lv = sc->data[SC__AUTOSHADOWSPELL]->val2;
+			int r_lv = sc->data[SC__AUTOSHADOWSPELL]->val2;
 
 			if (r_skill != AL_HOLYLIGHT && r_skill != PR_MAGNUS) {
 				int type;
@@ -7789,7 +7802,7 @@ static const struct _battle_data {
 	{ "show_hp_sp_gain",                    &battle_config.show_hp_sp_gain,                 1,      0,      1,              },
 	{ "mob_npc_event_type",                 &battle_config.mob_npc_event_type,              1,      0,      1,              },
 	{ "character_size",                     &battle_config.character_size,                  1|2,    0,      1|2,            },
-	{ "mob_max_skilllvl",                   &battle_config.mob_max_skilllvl,                MAX_SKILL_LEVEL, 1, MAX_SKILL_LEVEL, },
+	{ "mob_max_skilllvl",                   &battle_config.mob_max_skilllvl,                MAX_MOBSKILL_LEVEL, 1, MAX_MOBSKILL_LEVEL, },
 	{ "retaliate_to_master",                &battle_config.retaliate_to_master,             1,      0,      1,              },
 	{ "rare_drop_announce",                 &battle_config.rare_drop_announce,              0,      0,      10000,          },
 	{ "duel_allow_pvp",                     &battle_config.duel_allow_pvp,                  0,      0,      1,              },
@@ -7948,6 +7961,8 @@ static const struct _battle_data {
 	{ "default_fixed_castrate",             &battle_config.default_fixed_castrate,          20,     0,      100,            },
 	{ "default_bind_on_equip",              &battle_config.default_bind_on_equip,           BOUND_CHAR, BOUND_NONE, BOUND_MAX-1, },
 	{ "pet_ignore_infinite_def",            &battle_config.pet_ignore_infinite_def,         0,      0,      1,              },
+	{ "homunculus_evo_intimacy_need",       &battle_config.homunculus_evo_intimacy_need,    91100,  0,      INT_MAX,        },
+	{ "homunculus_evo_intimacy_reset",      &battle_config.homunculus_evo_intimacy_reset,   1000,   0,      INT_MAX,        },
 };
 
 #ifndef STATS_OPT_OUT
