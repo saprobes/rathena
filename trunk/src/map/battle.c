@@ -1227,12 +1227,6 @@ int64 battle_calc_damage(struct block_list *src,struct block_list *bl,struct Dam
 			return 0;
 		}
 
-		//Probably not the most correct place, but it'll do here
-		//(since battle_drain is strictly for players currently)
-		if ((sce=sc->data[SC_BLOODLUST]) && flag&BF_WEAPON && damage > 0 &&
-			rnd()%100 < sce->val3)
-			status_heal(src, (int64)damage*sce->val4/100, 0, 3);
-
 		if( sd && (sce = sc->data[SC_FORCEOFVANGUARD]) && flag&BF_WEAPON && rnd()%100 < sce->val2 )
 			pc_addspiritball(sd,skill_get_time(LG_FORCEOFVANGUARD,sce->val1),sce->val3);
 
@@ -1263,6 +1257,10 @@ int64 battle_calc_damage(struct block_list *src,struct block_list *bl,struct Dam
 	if (sc && sc->count) {
 		if( sc->data[SC_INVINCIBLE] && !sc->data[SC_INVINCIBLEOFF] )
 			DAMAGE_ADDRATE(75)
+
+		if ((sce = sc->data[SC_BLOODLUST]) && flag&BF_WEAPON && damage > 0 && rnd()%100 < sce->val3)
+			status_heal(src, damage * sce->val4 / 100, 0, 3);
+
 		// [Epoque]
 		if (bl->type == BL_MOB) {
 			uint8 i;
@@ -3460,7 +3458,12 @@ static int battle_calc_attack_skill_ratio(struct Damage wd, struct block_list *s
 			skillratio += 100 *(skill_lv+1);
 			break;
 		case GS_PIERCINGSHOT:
-			skillratio += 20*skill_lv;
+#ifdef RENEWAL
+			if (sd && sd->weapontype1 == W_RIFLE)
+				skillratio += 50 + 30 * skill_lv;
+			else
+#endif
+				skillratio += 20*skill_lv;
 			break;
 		case GS_RAPIDSHOWER:
 			skillratio += 400+50*skill_lv;
@@ -6824,8 +6827,13 @@ enum damage_lv battle_weapon_attack(struct block_list* src, struct block_list* t
 	if (tsc && tsc->data[SC_MTF_MLEATKED] && rnd()%100 < 20)
 		clif_skill_nodamage(target, target, SM_ENDURE, 5, sc_start(src, target, SC_ENDURE, 100, 5, skill_get_time(SM_ENDURE, 5)));
 
-	if(tsc && tsc->data[SC_KAAHI] && tsc->data[SC_KAAHI]->val4 == INVALID_TIMER && tstatus->hp < tstatus->max_hp)
-		tsc->data[SC_KAAHI]->val4 = add_timer(tick + skill_get_time2(SL_KAAHI,tsc->data[SC_KAAHI]->val1), kaahi_heal_timer, target->id, SC_KAAHI); //Activate heal.
+	if(tsc && tsc->data[SC_KAAHI] && tstatus->hp < tstatus->max_hp && status_charge(target, 0, tsc->data[SC_KAAHI]->val3)) {
+		int hp_heal = tstatus->max_hp - tstatus->hp;
+		if (hp_heal > tsc->data[SC_KAAHI]->val2)
+			hp_heal = tsc->data[SC_KAAHI]->val2;
+		if (hp_heal)
+			status_heal(target, hp_heal, 0, 2);
+	}
 
 	wd = battle_calc_attack(BF_WEAPON, src, target, 0, 0, flag);
 
@@ -7704,7 +7712,7 @@ static const struct _battle_data {
 	{ "bone_drop",                          &battle_config.bone_drop,                       0,      0,      2,              },
 	{ "buyer_name",                         &battle_config.buyer_name,                      1,      0,      1,              },
 	{ "skill_wall_check",                   &battle_config.skill_wall_check,                1,      0,      1,              },
-	{ "official_cell_stack_limit",          &battle_config.official_cell_stack_limit,       1,      1,      255,            },
+	{ "official_cell_stack_limit",          &battle_config.official_cell_stack_limit,       1,      0,      255,            },
 	{ "custom_cell_stack_limit",            &battle_config.custom_cell_stack_limit,         1,      1,      255,            },
 	{ "dancing_weaponswitch_fix",           &battle_config.dancing_weaponswitch_fix,        1,      0,      1,              },
 

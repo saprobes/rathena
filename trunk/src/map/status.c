@@ -2087,11 +2087,7 @@ int status_base_amotion_pc(struct map_session_data* sd, struct status_data* stat
  */
 unsigned short status_base_atk(const struct block_list *bl, const struct status_data *status)
 {
-	int flag = 0, str, dex,
-#ifdef RENEWAL
-		rstr,
-#endif
-		dstr;
+	int flag = 0, str, dex, dstr;
 
 	if(!(bl->type&battle_config.enable_baseatk))
 		return 0;
@@ -2110,13 +2106,13 @@ unsigned short status_base_atk(const struct block_list *bl, const struct status_
 	}
 	if (flag) {
 #ifdef RENEWAL
-		rstr =
+		dstr =
 #endif
 		str = status->dex;
 		dex = status->str;
 	} else {
 #ifdef RENEWAL
-		rstr =
+		dstr =
 #endif
 		str = status->str;
 		dex = status->dex;
@@ -2128,16 +2124,18 @@ unsigned short status_base_atk(const struct block_list *bl, const struct status_
 #ifdef RENEWAL
 	if (bl->type == BL_HOM)
 		str = 2 * ((((TBL_HOM*)bl)->homunculus.level) + status_get_homstr(bl));
-#endif
+#else
 	dstr = str/10;
 	str += dstr*dstr;
-	if (bl->type == BL_PC) {
+#endif
+	if (bl->type == BL_PC)
 #ifdef RENEWAL
-		str = (rstr*10 + dex*10/5 + status->luk*10/3 + ((TBL_PC*)bl)->status.base_level*10/4)/10;
+		str = (dstr*10 + dex*10/5 + status->luk*10/3 + ((TBL_PC*)bl)->status.base_level*10/4)/10;
+	else if (bl->type == BL_MOB || bl->type == BL_MER)
+		str = dstr + ((TBL_MOB*)bl)->level;
 #else
 		str+= dex/5 + status->luk/5;
 #endif
-	}
 	return cap_value(str, 0, USHRT_MAX);
 }
 
@@ -2171,6 +2169,8 @@ unsigned short status_base_matk(struct block_list *bl, const struct status_data*
 		return status->int_ + level;
 	case BL_HOM:
 		return status_get_homint(bl) + level;
+	case BL_MER:
+		return status->int_ + status->int_ / 5 * status->int_ / 5;
 	case BL_PC:
 	default:
 		return status->int_ + (status->int_ / 2) + (status->dex / 5) + (status->luk / 3) + (level / 4);
@@ -2227,18 +2227,30 @@ void status_calc_misc(struct block_list *bl, struct status_data *status, int lev
 		status->hit = cap_value(stat, 1, SHRT_MAX);
 		// Flee
 		stat = status->flee;
-		stat += level + status->agi + (bl->type == BL_PC ? status->luk / 5 : 0) + 100; //base level + ( every 1 agi = +1 flee ) + (every 5 luk = +1 flee) + 100
+		stat += level + status->agi + (bl->type == BL_MER ? 0 : bl->type == BL_PC ? status->luk / 5 : 0) + 100; //base level + ( every 1 agi = +1 flee ) + (every 5 luk = +1 flee) + 100
 		status->flee = cap_value(stat, 1, SHRT_MAX);
 		// Def2
-		stat = status->def2;
-		stat += (int)(((float)level + status->vit) / 2 + (bl->type == BL_PC ? ((float)status->agi / 5) : 0)); //base level + (every 2 vit = +1 def) + (every 5 agi = +1 def)
+		if (bl->type == BL_MER)
+			stat = (int)(status->vit + ((float)level / 10) + ((float)status->vit / 5));
+		else {
+			stat = status->def2;
+			stat += (int)(((float)level + status->vit) / 2 + (bl->type == BL_PC ? ((float)status->agi / 5) : 0)); //base level + (every 2 vit = +1 def) + (every 5 agi = +1 def)
+		}
 		status->def2 = cap_value(stat, 0, SHRT_MAX);
 		// Mdef2
-		stat = status->mdef2;
-		stat += (int)(bl->type == BL_PC ? (status->int_ + ((float)level / 4) + ((float)(status->dex + status->vit) / 5)) : ((float)(status->int_ + level) / 4)); //(every 4 base level = +1 mdef) + (every 1 int = +1 mdef) + (every 5 dex = +1 mdef) + (every 5 vit = +1 mdef)
+		if (bl->type == BL_MER)
+			stat = (int)(((float)level / 10) + ((float)status->int_ / 5));
+		else {
+			stat = status->mdef2;
+			stat += (int)(bl->type == BL_PC ? (status->int_ + ((float)level / 4) + ((float)(status->dex + status->vit) / 5)) : ((float)(status->int_ + level) / 4)); //(every 4 base level = +1 mdef) + (every 1 int = +1 mdef) + (every 5 dex = +1 mdef) + (every 5 vit = +1 mdef)
+		}
 		status->mdef2 = cap_value(stat, 0, SHRT_MAX);
+		// Special Matk case for Mercenary
+		if (bl->type == BL_MER)
+			status->matk_min = status->matk_max = status_base_matk(bl, status, level);
 	}
 #else
+	// Matk
 	status->matk_min = status_base_matk_min(status);
 	status->matk_max = status_base_matk_max(status);
 	// Hit
@@ -4434,20 +4446,20 @@ void status_calc_bl_main(struct block_list *bl, /*enum scb_flag*/int flag)
 		 * MATK = (sMATK + wMATK + eMATK) * Multiplicative Modifiers
 		 **/
 		status->matk_min = status->matk_max = status_base_matk(bl, status, status_get_lv(bl));
+
 		switch( bl->type ) {
 		case BL_PC: {
 			int wMatk = 0;
 			int variance = 0;
 
 			// Any +MATK you get from skills and cards, including cards in weapon, is added here.
-			if (sd->bonus.ematk > 0) {
-				status->matk_max += sd->bonus.ematk;
+			if (sd->bonus.ematk > 0)
 				status->matk_min += sd->bonus.ematk;
-			}
-			status->matk_min = status_calc_ematk(bl, sc, status->matk_min);
-			status->matk_max = status_calc_ematk(bl, sc, status->matk_max);
-			// This is the only portion in MATK that varies depending on the weapon level and refinement rate.
 
+			status->matk_min = status_calc_ematk(bl, sc, status->matk_min);
+			status->matk_max = status->matk_min;
+
+			// This is the only portion in MATK that varies depending on the weapon level and refinement rate.
 			if (b_status->lhw.matk) {
 				if (sd) {
 					//sd->state.lr_flag = 1; //?? why was that set here
@@ -4476,18 +4488,21 @@ void status_calc_bl_main(struct block_list *bl, /*enum scb_flag*/int flag)
 			status->matk_max += wMatk + variance;
 			}
 			break;
-
 		case BL_HOM:
 			status->matk_min += (status_get_homint(bl) + status_get_homdex(bl)) / 5;
 			status->matk_max += (status_get_homluk(bl) + status_get_homint(bl) + status_get_homdex(bl)) / 3;
 			break;
-
 		case BL_MOB:
 			status->matk_min += 70 * ((TBL_MOB*)bl)->status.rhw.atk2 / 100;
 			status->matk_max += 130 * ((TBL_MOB*)bl)->status.rhw.atk2 / 100;
 			break;
+		case BL_MER:
+			status->matk_min += 70 * ((TBL_MER*)bl)->battle_status.rhw.atk2 / 100;
+			status->matk_max += 130 * ((TBL_MER*)bl)->battle_status.rhw.atk2 / 100;
+			break;
 		}
 #endif
+
 		if (bl->type&BL_PC && sd->matk_rate != 100) {
 			status->matk_max = status->matk_max * sd->matk_rate/100;
 			status->matk_min = status->matk_min * sd->matk_rate/100;
@@ -4510,6 +4525,7 @@ void status_calc_bl_main(struct block_list *bl, /*enum scb_flag*/int flag)
 
 	if(flag&SCB_ASPD) {
 		int amotion;
+
 		if ( bl->type&BL_HOM ) {
 #ifdef RENEWAL_ASPD
 			amotion = ((TBL_HOM*)bl)->homunculusDB->baseASPD;
@@ -4518,7 +4534,7 @@ void status_calc_bl_main(struct block_list *bl, /*enum scb_flag*/int flag)
 #else
 			amotion = (1000 - 4 * status->agi - status->dex) * ((TBL_HOM*)bl)->homunculusDB->baseASPD / 1000;
 
-			amotion = status_calc_aspd_rate(bl, sc, b_status->aspd_rate);
+			amotion = status_calc_aspd_rate(bl, sc, amotion);
 
 			if (status->aspd_rate != 1000)
 				amotion = amotion * status->aspd_rate / 1000;
@@ -4540,8 +4556,7 @@ void status_calc_bl_main(struct block_list *bl, /*enum scb_flag*/int flag)
 			amotion -= (int)(sqrt( (pow(status->agi, 2) / 2) + (pow(status->dex, 2) / 5) ) / 4 + (status_calc_aspd(bl, sc, 1) * status->agi / 200)) * 10;
 
 			if( (status_calc_aspd(bl, sc, 2) + status->aspd_rate2) != 0 ) // RE ASPD percertage modifier
-				amotion -= ( amotion - pc_maxaspd(sd) )
-							* (status_calc_aspd(bl, sc, 2) + status->aspd_rate2) / 100;
+				amotion -= ( amotion - pc_maxaspd(sd) ) * (status_calc_aspd(bl, sc, 2) + status->aspd_rate2) / 100;
 
 			if(status->aspd_rate != 1000) // Absolute percentage modifier
 				amotion = ( 200 - (200-amotion/10) * status->aspd_rate / 1000 ) * 10;
@@ -4632,11 +4647,15 @@ void status_calc_bl_(struct block_list* bl, enum scb_flag flag, enum e_status_ca
 		}
 	}
 
-	if (opt&SCO_FIRST && bl->type == BL_MOB)
-		return; // Assume there will be no statuses active
-
 	if( bl->type == BL_PET )
 		return; // Pets are not affected by statuses
+
+	if (opt&SCO_FIRST && bl->type == BL_MOB) {
+#ifdef RENEWAL
+		status_calc_bl_main(bl, SCB_MATK); // Otherwise, the mob will spawn with lower MATK values
+#endif
+		return; // Assume there will be no statuses active
+	}
 
 	status_calc_bl_main(bl, flag);
 
@@ -8359,14 +8378,6 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 				if(sce->val1 > val1)
 					return 1;
 				break;
-			case SC_KAAHI:
-				// Kaahi overwrites previous level regardless of existing level.
-				// Delete timer if it exists.
-				if (sce->val4 != INVALID_TIMER) {
-					delete_timer(sce->val4,kaahi_heal_timer);
-					sce->val4 = INVALID_TIMER;
-				}
-				break;
 			case SC_JAILED:
 				// When a player is already jailed, do not edit the jail data.
 				val2 = sce->val2;
@@ -9017,7 +9028,6 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 		case SC_KAAHI:
 			val2 = 200*val1; // HP heal
 			val3 = 5*val1; // SP cost
-			val4 = INVALID_TIMER;	// Kaahi Timer.
 			break;
 		case SC_BLESSING:
 			if ((!undead_flag && status->race!=RC_DEMON) || bl->type == BL_PC)
@@ -9893,7 +9903,7 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 		case SC_FRIGG_SONG:
 			val2 = 5 * val1; // maxhp bonus
 			val3 = 80 + 20 * val1; // healing
-			tick_time = 10000;
+			tick_time = 1000;
 			val4 = tick / tick_time;
 			break;
 		case SC_FLASHCOMBO:
@@ -9984,9 +9994,6 @@ int status_change_start(struct block_list* src, struct block_list* bl,enum sc_ty
 				clif_changelook(bl,LOOK_WEAPON,0);
 				clif_changelook(bl,LOOK_SHIELD,0);
 				clif_changelook(bl,LOOK_CLOTHES_COLOR,vd->cloth_color);
-				break;
-			case SC_KAAHI:
-				val4 = INVALID_TIMER;
 				break;
 		}
 
@@ -10877,11 +10884,6 @@ int status_change_end_(struct block_list* bl, enum sc_type type, int tid, const 
 					skill_delunitgroup(group);
 			}
 			break;
-		case SC_KAAHI:
-			// Delete timer if it exists.
-			if (sce->val4 != INVALID_TIMER)
-				delete_timer(sce->val4,kaahi_heal_timer);
-			break;
 		case SC_JAILED:
 			if(tid == INVALID_TIMER)
 				break;
@@ -11304,48 +11306,6 @@ int status_change_end_(struct block_list* bl, enum sc_type type, int tid, const 
 		npc_touch_areanpc(sd,bl->m,bl->x,bl->y); // Trigger on-touch event.
 
 	ers_free(sc_data_ers, sce);
-	return 1;
-}
-
-/**
- * Special timer and heal for Kaahi status
- * @param tid: Timer ID
- * @param tick: How long before next call
- * @param id: ID of character
- * @param data: Information passed through the timer call
- * @return 1: Success 0: Fail
- */
-int kaahi_heal_timer(int tid, unsigned int tick, int id, intptr_t data)
-{
-	struct block_list *bl;
-	struct status_change *sc;
-	struct status_change_entry *sce;
-	struct status_data *status;
-	int hp;
-
-	if(!((bl=map_id2bl(id))&&
-		(sc=status_get_sc(bl)) &&
-		(sce = sc->data[SC_KAAHI])))
-		return 0;
-
-	if(sce->val4 != tid) {
-		ShowError("kaahi_heal_timer: Timer mismatch: %d != %d\n", tid, sce->val4);
-		sce->val4 = INVALID_TIMER;
-		return 0;
-	}
-
-	status=status_get_status_data(bl);
-	if(!status_charge(bl, 0, sce->val3)) {
-		sce->val4 = INVALID_TIMER;
-		return 0;
-	}
-
-	hp = status->max_hp - status->hp;
-	if (hp > sce->val2)
-		hp = sce->val2;
-	if (hp)
-		status_heal(bl, hp, 0, 2);
-	sce->val4 = INVALID_TIMER;
 	return 1;
 }
 
@@ -12988,7 +12948,6 @@ int status_readdb(void)
 int do_init_status(void)
 {
 	add_timer_func_list(status_change_timer,"status_change_timer");
-	add_timer_func_list(kaahi_heal_timer,"kaahi_heal_timer");
 	add_timer_func_list(status_natural_heal_timer,"status_natural_heal_timer");
 	initChangeTables();
 	initDummyData();
