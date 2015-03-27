@@ -5521,7 +5521,7 @@ int pc_get_skillcooldown(struct map_session_data *sd, uint16 skill_id, uint16 sk
  *------------------------------------------*/
 uint8 pc_checkskill(struct map_session_data *sd, uint16 skill_id)
 {
-	uint16 i = 0, idx = 0;
+	uint16 idx = 0;
 	if (sd == NULL)
 		return 0;
 	if ((idx = skill_get_index(skill_id)) == 0) {
@@ -7943,6 +7943,9 @@ int pc_itemheal(struct map_session_data *sd,int itemid, int hp,int sp)
 		// Recovery Potion
 		if( sd->sc.data[SC_INCHEALRATE] )
 			hp += (int)(hp * sd->sc.data[SC_INCHEALRATE]->val1/100.);
+		// 2014 Halloween Event : Pumpkin Bonus
+		if(sd->sc.data[SC_MTF_PUMPKIN] && itemid == ITEMID_PUMPKIN)
+			hp += (int)(hp * sd->sc.data[SC_MTF_PUMPKIN]->val1 / 100.);
 	}
 	if(sp) {
 		bonus = 100 + (sd->battle_status.int_<<1)

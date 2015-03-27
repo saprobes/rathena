@@ -312,7 +312,8 @@ enum npc_subtype {
 	NPCTYPE_CASHSHOP, /// Cashshop
 	NPCTYPE_ITEMSHOP, /// Itemshop
 	NPCTYPE_POINTSHOP, /// Pointshop
-	NPCTYPE_TOMB /// Monster tomb
+	NPCTYPE_TOMB, /// Monster tomb
+	NPCTYPE_MARKETSHOP, /// Marketshop
 };
 
 enum e_race {
@@ -836,6 +837,8 @@ struct mob_data * map_id2md(int id);
 struct npc_data * map_id2nd(int id);
 struct homun_data* map_id2hd(int id);
 struct mercenary_data* map_id2mc(int id);
+struct pet_data* map_id2pd(int id);
+struct elemental_data* map_id2ed(int id);
 struct chat_data* map_id2cd(int id);
 struct block_list * map_id2bl(int id);
 bool map_blid_exists( int id );
@@ -991,6 +994,7 @@ extern char mob_skill_db_re_db[32];
 extern char mob_skill_db2_db[32];
 extern char vendings_db[32];
 extern char vending_items_db[32];
+extern char market_table[32];
 
 void do_shutdown(void);
 

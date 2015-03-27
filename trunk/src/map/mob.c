@@ -1353,6 +1353,7 @@ int mob_randomwalk(struct mob_data *md,unsigned int tick)
 	nullpo_ret(md);
 
 	if(DIFF_TICK(md->next_walktime,tick)>0 ||
+	   (status_get_mode(&md->bl)&MD_NORANDOM_WALK) ||
 	   !unit_can_move(&md->bl) ||
 	   !(status_get_mode(&md->bl)&MD_CANMOVE))
 		return 0;
@@ -3048,6 +3049,9 @@ int mob_summonslave(struct mob_data *md2,int *value,int amount,uint16 skill_id)
 			}
 		}
 
+		if (md2->state.copy_master_mode)
+			md->status.mode = md2->status.mode;
+
 		clif_skill_nodamage(&md->bl,&md->bl,skill_id,amount,1);
 	}
 
@@ -3185,7 +3189,7 @@ int mobskill_use(struct mob_data *md, unsigned int tick, int event)
 	nullpo_ret(md);
 	nullpo_ret(ms = md->db->skill);
 
-	if (!battle_config.mob_skill_rate || md->ud.skilltimer != INVALID_TIMER || !md->db->maxskill)
+	if (!battle_config.mob_skill_rate || md->ud.skilltimer != INVALID_TIMER || !md->db->maxskill || (status_get_mode(&md->bl)&MD_NOCAST_SKILL))
 		return 0;
 
 	if (event == -1 && DIFF_TICK(md->ud.canact_tick, tick) > 0)
@@ -4185,6 +4189,7 @@ static bool mob_parse_row_mobskilldb(char** str, int columns, int current)
 		char str[32];
 		int id;
 	} cond1[] = {
+		// enum e_mob_skill_condition
 		{ "always",            MSC_ALWAYS            },
 		{ "myhpltmaxrate",     MSC_MYHPLTMAXRATE     },
 		{ "myhpinrate",        MSC_MYHPINRATE        },
@@ -4222,6 +4227,7 @@ static bool mob_parse_row_mobskilldb(char** str, int columns, int current)
 		{	"hiding",		SC_HIDING		},
 		{	"sight",		SC_SIGHT		},
 	}, target[] = {
+		// enum e_mob_skill_target
 		{	"target",	MST_TARGET	},
 		{	"randomtarget",	MST_RANDOM	},
 		{	"self",		MST_SELF	},
