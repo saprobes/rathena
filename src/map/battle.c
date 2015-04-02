@@ -1230,7 +1230,7 @@ int64 battle_calc_damage(struct block_list *src,struct block_list *bl,struct Dam
 		if( sd && (sce = sc->data[SC_FORCEOFVANGUARD]) && flag&BF_WEAPON && rnd()%100 < sce->val2 )
 			pc_addspiritball(sd,skill_get_time(LG_FORCEOFVANGUARD,sce->val1),sce->val3);
 
-		if( sd && (sce = sc->data[SC_GT_ENERGYGAIN]) && flag&BF_WEAPON && rnd()%100 < sce->val3 ) {
+		if( sd && (sce = sc->data[SC_GT_ENERGYGAIN]) && flag&BF_WEAPON && rnd()%100 < sce->val2 ) {
 			int spheres = 5;
 
 			if( sc->data[SC_RAISINGDRAGON] )
@@ -1984,7 +1984,7 @@ static int battle_skill_damage_map(struct block_list *src, struct block_list *ta
  */
 static int battle_skill_damage(struct block_list *src, struct block_list *target, uint16 skill_id) {
 	nullpo_ret(src);
-	if (!target)
+	if (!target || !skill_id)
 		return 0;
 	return battle_skill_damage_skill(src, target, skill_id) + battle_skill_damage_map(src, target, skill_id);
 }
@@ -2393,9 +2393,9 @@ static bool is_attack_hitting(struct Damage wd, struct block_list *src, struct b
 
 	if (sc) {
 		if (sc->data[SC_MTF_ASPD])
-			hitrate += 5;
+			hitrate += sc->data[SC_MTF_ASPD]->val2;
 		if (sc->data[SC_MTF_ASPD2])
-			hitrate += 10;
+			hitrate += sc->data[SC_MTF_ASPD2]->val2;
 	}
 
 	hitrate = cap_value(hitrate, battle_config.min_hitrate, battle_config.max_hitrate);
@@ -3017,10 +3017,6 @@ struct Damage battle_calc_skill_base_damage(struct Damage wd, struct block_list 
 					ATK_ADDRATE(wd.damage, wd.damage2, sd->bonus.crit_atk_rate);
 				}
 #endif
-				if(sc && sc->data[SC_MTF_CRIDAMAGE] && is_attack_critical(wd, src, target, skill_id, skill_lv, false)) {
-					ATK_ADDRATE(wd.damage, wd.damage2, 25);
-					RE_ALLATK_ADDRATE(wd, 25); //Temporary it should be 'bonus.crit_atk_rate'
-				}
 				if(sd->status.party_id && (skill=pc_checkskill(sd,TK_POWER)) > 0) {
 					if( (i = party_foreachsamemap(party_sub_count, sd, 0)) > 1 ) { // exclude the player himself [Inkfish]
 						ATK_ADDRATE(wd.damage, wd.damage2, 2*skill*i);
@@ -4275,16 +4271,12 @@ struct Damage battle_attack_sc_bonus(struct Damage wd, struct block_list *src, s
 		}
 		if((wd.flag&(BF_LONG|BF_MAGIC)) == BF_LONG) { // Monster Transformation bonus
 			if (sc->data[SC_MTF_RANGEATK]) {
-				ATK_ADDRATE(wd.damage, wd.damage2, 25);
-				RE_ALLATK_ADDRATE(wd, 25);
+				ATK_ADDRATE(wd.damage, wd.damage2, sc->data[SC_MTF_RANGEATK]->val1);
+				RE_ALLATK_ADDRATE(wd, sc->data[SC_MTF_RANGEATK]->val1);
 			}
 			if (sc->data[SC_MTF_RANGEATK2]) {
-				ATK_ADDRATE(wd.damage, wd.damage2, 30);
-				RE_ALLATK_ADDRATE(wd, 30);
-			}
-			if (sc->data[SC_MTF_CRIDAMAGE] && is_attack_critical(wd, src, target, skill_id, skill_lv, false)) {
-				ATK_ADDRATE(wd.damage, wd.damage2, 25);
-				RE_ALLATK_ADDRATE(wd, 25); //Temporary it should be 'bonus.crit_atk_rate'
+				ATK_ADDRATE(wd.damage, wd.damage2, sc->data[SC_MTF_RANGEATK]->val1);
+				RE_ALLATK_ADDRATE(wd, sc->data[SC_MTF_RANGEATK]->val1);
 			}
 		}
 	}
@@ -4360,7 +4352,7 @@ struct Damage battle_calc_defense_reduction(struct Damage wd, struct block_list 
 			def2 = (def2*(100-i))/100;
 		}
 
-		if (tsc->data[SC_GT_REVITALIZE] && tsc->data[SC_GT_REVITALIZE]->val2)
+		if (tsc->data[SC_GT_REVITALIZE])
 			def2 += tsc->data[SC_GT_REVITALIZE]->val4;
 
 		if (tsc->data[SC_OVERED_BOOST] && target->type == BL_PC)
@@ -6804,29 +6796,29 @@ enum damage_lv battle_weapon_attack(struct block_list* src, struct block_list* t
 				return ATK_DEF;
 			return ATK_MISS;
 		}
-		if( sc->data[SC_GT_ENERGYGAIN] && sc->data[SC_GT_ENERGYGAIN]->val2 ) {
+		if( sc->data[SC_GT_ENERGYGAIN] ) {
 			int spheres = 5;
 
 			if( sc->data[SC_RAISINGDRAGON] )
 				spheres += sc->data[SC_RAISINGDRAGON]->val1;
 
-			if( sd && rnd()%100 < sc->data[SC_GT_ENERGYGAIN]->val3 )
+			if( sd && rnd()%100 < sc->data[SC_GT_ENERGYGAIN]->val2 )
 				pc_addspiritball(sd, skill_get_time2(SR_GENTLETOUCH_ENERGYGAIN, sc->data[SC_GT_ENERGYGAIN]->val1), spheres);
 		}
 	}
 
-	if( tsc && tsc->data[SC_GT_ENERGYGAIN] && tsc->data[SC_GT_ENERGYGAIN]->val2 ) {
+	if( tsc && tsc->data[SC_GT_ENERGYGAIN] ) {
 		int spheres = 5;
 
 		if( tsc->data[SC_RAISINGDRAGON] )
 			spheres += tsc->data[SC_RAISINGDRAGON]->val1;
 
-		if( tsd && rnd()%100 < tsc->data[SC_GT_ENERGYGAIN]->val3 )
+		if( tsd && rnd()%100 < tsc->data[SC_GT_ENERGYGAIN]->val2 )
 			pc_addspiritball(tsd, skill_get_time2(SR_GENTLETOUCH_ENERGYGAIN, tsc->data[SC_GT_ENERGYGAIN]->val1), spheres);
 	}
 
-	if (tsc && tsc->data[SC_MTF_MLEATKED] && rnd()%100 < 20)
-		clif_skill_nodamage(target, target, SM_ENDURE, 5, sc_start(src, target, SC_ENDURE, 100, 5, skill_get_time(SM_ENDURE, 5)));
+	if (tsc && tsc->data[SC_MTF_MLEATKED] && rnd()%100 < tsc->data[SC_MTF_MLEATKED]->val2)
+		clif_skill_nodamage(target, target, SM_ENDURE, tsc->data[SC_MTF_MLEATKED]->val1, sc_start(src, target, SC_ENDURE, 100, tsc->data[SC_MTF_MLEATKED]->val1, skill_get_time(SM_ENDURE, tsc->data[SC_MTF_MLEATKED]->val1)));
 
 	if(tsc && tsc->data[SC_KAAHI] && tstatus->hp < tstatus->max_hp && status_charge(target, 0, tsc->data[SC_KAAHI]->val3)) {
 		int hp_heal = tstatus->max_hp - tstatus->hp;
@@ -7982,6 +7974,7 @@ static const struct _battle_data {
 	{ "pet_ignore_infinite_def",            &battle_config.pet_ignore_infinite_def,         0,      0,      1,              },
 	{ "homunculus_evo_intimacy_need",       &battle_config.homunculus_evo_intimacy_need,    91100,  0,      INT_MAX,        },
 	{ "homunculus_evo_intimacy_reset",      &battle_config.homunculus_evo_intimacy_reset,   1000,   0,      INT_MAX,        },
+	{ "monster_loot_search_type",           &battle_config.monster_loot_search_type,        1,      0,      1,              },
 };
 
 #ifndef STATS_OPT_OUT

@@ -14342,12 +14342,15 @@ void clif_parse_HomMenu(int fd, struct map_session_data *sd)
 /// 0292
 void clif_parse_AutoRevive(int fd, struct map_session_data *sd)
 {
-	int item_position = pc_search_inventory(sd, ITEMID_TOKEN_OF_SIEGFRIED);
-	int hpsp = 100;
+	short item_position = pc_search_inventory(sd, ITEMID_TOKEN_OF_SIEGFRIED);
+	uint8 hp = 100, sp = 100;
 
 	if (item_position < 0) {
-		if (sd->sc.data[SC_LIGHT_OF_REGENE])
-			hpsp = sd->sc.data[SC_LIGHT_OF_REGENE]->val2;
+		if (sd->sc.data[SC_LIGHT_OF_REGENE]) {
+			// HP restored
+			hp = sd->sc.data[SC_LIGHT_OF_REGENE]->val2;
+			sp = 0;
+		}
 		else
 			return;
 	}
@@ -14355,7 +14358,7 @@ void clif_parse_AutoRevive(int fd, struct map_session_data *sd)
 	if (sd->sc.data[SC_HELLPOWER]) //Cannot res while under the effect of SC_HELLPOWER.
 		return;
 
-	if (!status_revive(&sd->bl, hpsp, hpsp))
+	if (!status_revive(&sd->bl, hp, sp))
 		return;
 
 	if (item_position < 0)
@@ -18441,7 +18444,8 @@ void packetdb_readdb(bool reload)
 					char key1[12] = { 0 }, key2[12] = { 0 }, key3[12] = { 0 };
 					trim(w2);
 					if (sscanf(w2, "%11[^,],%11[^,],%11[^ \r\n/]", key1, key2, key3) == 3) {
-						CREATE(packet_keys[packet_ver], struct s_packet_keys, 1);
+						if (!packet_keys[packet_ver])
+							CREATE(packet_keys[packet_ver], struct s_packet_keys, 1);
 						packet_keys[packet_ver]->keys[0] = strtol(key1, NULL, 0);
 						packet_keys[packet_ver]->keys[1] = strtol(key2, NULL, 0);
 						packet_keys[packet_ver]->keys[2] = strtol(key3, NULL, 0);
@@ -18572,8 +18576,10 @@ void packetdb_readdb(bool reload)
 	ShowStatus("Packet Obfuscation: "CL_GREEN"Enabled"CL_RESET". Keys: "CL_WHITE"0x%08X, 0x%08X, 0x%08X"CL_RESET"\n", clif_cryptKey[0], clif_cryptKey[1], clif_cryptKey[2]);
 
 	for (i = 0; i < ARRAYLENGTH(packet_keys); i++) {
-		if (packet_keys[i])
+		if (packet_keys[i]) {
 			aFree(packet_keys[i]);
+			packet_keys[i] = NULL;
+		}
 	}
 #endif
 }
