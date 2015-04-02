@@ -10363,11 +10363,7 @@ BUILDIN_FUNC(hideonnpc)
  * sc_start  <effect_id>,<duration>,<val1>{,<rate>,<flag>,{<unit_id>}};
  * sc_start2 <effect_id>,<duration>,<val1>,<val2>{,<rate,<flag>,{<unit_id>}};
  * sc_start4 <effect_id>,<duration>,<val1>,<val2>,<val3>,<val4>{,<rate,<flag>,{<unit_id>}};
- * <flag>
- * 	&1: Cannot be avoided (it has to start)
- * 	&2: Tick should not be reduced (by vit, luk, lv, etc)
- * 	&4: sc_data loaded, no value has to be altered.
- * 	&8: rate should not be reduced
+ * <flag>: enum e_status_change_start_flags
  */
 BUILDIN_FUNC(sc_start)
 {
@@ -10391,9 +10387,9 @@ BUILDIN_FUNC(sc_start)
 
 	//If from NPC we make default flag 1 to be unavoidable
 	if(nd && nd->bl.id == fake_nd->bl.id)
-		flag = script_hasdata(st,5+start_type)?script_getnum(st,5+start_type):2;
+		flag = script_hasdata(st,5+start_type)?script_getnum(st,5+start_type):SCSTART_NOTICKDEF;
 	else
-		flag = script_hasdata(st,5+start_type)?script_getnum(st,5+start_type):1;
+		flag = script_hasdata(st,5+start_type)?script_getnum(st,5+start_type):SCSTART_NOAVOID;
 
 	rate = script_hasdata(st,4+start_type)?min(script_getnum(st,4+start_type),10000):10000;
 
@@ -16500,7 +16496,7 @@ BUILDIN_FUNC(setunitdata)
 	TBL_PET* pd = NULL;
 	TBL_ELEM* ed = NULL;
 	TBL_NPC* nd = NULL;
-	int type, value;
+	int type, value = 0;
 
 	bl = map_id2bl(script_getnum(st, 2));
 
@@ -19878,7 +19874,9 @@ BUILDIN_FUNC(npcshopupdate) {
 	struct npc_data* nd = npc_name2id(npcname);
 	uint16 nameid = script_getnum(st, 3);
 	int price = script_getnum(st, 4);
-	uint16 stock = 0;
+#if PACKETVER >= 20131223
+	uint16 stock = script_hasdata(st,5) ? script_getnum(st,5) : 0;
+#endif
 	int i;
 
 	if( !nd || ( nd->subtype != NPCTYPE_SHOP && nd->subtype != NPCTYPE_CASHSHOP && nd->subtype != NPCTYPE_ITEMSHOP && nd->subtype != NPCTYPE_POINTSHOP && nd->subtype != NPCTYPE_MARKETSHOP ) ) { // Not found.
@@ -19890,14 +19888,6 @@ BUILDIN_FUNC(npcshopupdate) {
 		ShowError("buildin_npcshopupdate: Attempt to update empty shop from '%s'.\n", nd->exname);
 		script_pushint(st,0);
 		return SCRIPT_CMD_FAILURE;
-	}
-
-	if (nd->subtype == NPCTYPE_MARKETSHOP) {
-		FETCH(5, stock);
-	}
-	else if ((price = cap_value(price, 0, INT_MAX)) == 0) { // Nothing to do here...
-		script_pushint(st,1);
-		return SCRIPT_CMD_SUCCESS;
 	}
 
 	for (i = 0; i < nd->u.shop.count; i++) {

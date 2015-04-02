@@ -7749,7 +7749,7 @@ int skill_castend_nodamage_id (struct block_list *src, struct block_list *bl, ui
 		break;
 
 	case NPC_AGIUP:
-		sc_start(src,bl,SC_SPEEDUP1,100,skill_lv,skill_get_time(skill_id, skill_lv));
+		sc_start(src,bl,SC_SPEEDUP1,100,50,skill_get_time(skill_id, skill_lv));
 		clif_skill_nodamage(src,bl,skill_id,skill_lv,
 			sc_start(src,bl,type,100,100,skill_get_time(skill_id, skill_lv)));
 		break;
@@ -9514,7 +9514,7 @@ int skill_castend_nodamage_id (struct block_list *src, struct block_list *bl, ui
 	case SR_GENTLETOUCH_CHANGE:
 	case SR_GENTLETOUCH_REVITALIZE:
 		clif_skill_nodamage(src,bl,skill_id,skill_lv,
-			sc_start2(src,bl,type,100,skill_lv,bl->id,skill_get_time(skill_id,skill_lv)));
+			sc_start(src,bl,type,100,skill_lv,skill_get_time(skill_id,skill_lv)));
 		break;
 	case SR_FLASHCOMBO: {
 		const int combo[] = { SR_DRAGONCOMBO, SR_FALLENEMPIRE, SR_TIGERCANNON, SR_SKYNETBLOW };
@@ -15691,7 +15691,7 @@ int skill_vfcastfix(struct block_list *bl, double time, uint16 skill_id, uint16 
 		if (sc->data[SC_WATER_INSIGNIA] && sc->data[SC_WATER_INSIGNIA]->val1 == 3 && (skill_get_ele(skill_id, skill_lv) == ELE_WATER))
 			VARCAST_REDUCTION(-30); //Reduces 30% Variable Cast Time of Water spells.
 		if (sc->data[SC_TELEKINESIS_INTENSE])
-			VARCAST_REDUCTION(-sc->data[SC_TELEKINESIS_INTENSE]->val2);
+			VARCAST_REDUCTION(-sc->data[SC_TELEKINESIS_INTENSE]->val4);
 
 		// Multiplicative Fixed CastTime values
 		if (sc->data[SC_SECRAMENT])
@@ -20419,7 +20419,7 @@ static bool skill_parse_row_nonearnpcrangedb(char* split[], int column, int curr
 	else
 		id = skill_name2id(split[0]);
 
-	id = skill_db_isset(atoi(split[0]), __FUNCTION__);
+	id = skill_db_isset(id, __FUNCTION__);
 
 	skill_db[id]->unit_nonearnpc_range = max(atoi(split[1]),0);
 	skill_db[id]->unit_nonearnpc_type = (atoi(split[2])) ? cap_value(atoi(split[2]),1,15) : 15;
@@ -20524,20 +20524,26 @@ static bool skill_parse_row_changematerialdb(char* split[], int columns, int cur
  */
 static bool skill_parse_row_skilldamage(char* split[], int columns, int current)
 {
-	uint16 idx;
-	
-	idx = skill_db_isset(atoi(split[0]), __FUNCTION__);
+	uint16 id = 0;
 
-	memset(&skill_db[idx]->damage,0,sizeof(struct s_skill_damage));
-	skill_db[idx]->damage.caster |= atoi(split[1]);
-	skill_db[idx]->damage.map |= atoi(split[2]);
-	skill_db[idx]->damage.pc = cap_value(atoi(split[3]),-100,INT_MAX);
+	trim(split[0]);
+	if (ISDIGIT(split[0][0]))
+		id = atoi(split[0]);
+	else
+		id = skill_name2id(split[0]);
+
+	id = skill_db_isset(id, __FUNCTION__);
+
+	memset(&skill_db[id]->damage,0,sizeof(struct s_skill_damage));
+	skill_db[id]->damage.caster |= atoi(split[1]);
+	skill_db[id]->damage.map |= atoi(split[2]);
+	skill_db[id]->damage.pc = cap_value(atoi(split[3]),-100,INT_MAX);
 	if (split[3])
-		skill_db[idx]->damage.mob = cap_value(atoi(split[4]),-100,INT_MAX);
+		skill_db[id]->damage.mob = cap_value(atoi(split[4]),-100,INT_MAX);
 	if (split[4])
-		skill_db[idx]->damage.boss = cap_value(atoi(split[5]),-100,INT_MAX);
+		skill_db[id]->damage.boss = cap_value(atoi(split[5]),-100,INT_MAX);
 	if (split[5])
-		skill_db[idx]->damage.other = cap_value(atoi(split[6]),-100,INT_MAX);
+		skill_db[id]->damage.other = cap_value(atoi(split[6]),-100,INT_MAX);
 	return true;
 }
 #endif
