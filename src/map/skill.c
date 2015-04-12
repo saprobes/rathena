@@ -2812,7 +2812,7 @@ void skill_attack_blow(struct block_list *src, struct block_list *dsrc, struct b
 		// This ensures the storm randomly pushes instead of exactly a cell backwards per official mechanics.
 		case WZ_STORMGUST:
 			if(!battle_config.stormgust_knockback)
-				dir = rand()%8;
+				dir = rnd()%8;
 			break;
 		case WL_CRIMSONROCK:
 			dir = map_calc_dir(target,skill_area_temp[4],skill_area_temp[5]);
@@ -2933,7 +2933,7 @@ int64 skill_attack (int attack_type, struct block_list* src, struct block_list *
 		return 0;
 
 	//When Gravitational Field is active, damage can only be dealt by Gravitational Field and Autospells
-	if(sc && sc->data[SC_GRAVITATION] && sc->data[SC_GRAVITATION]->val3 == BCT_SELF && skill_id != HW_GRAVITATION && !sd->state.autocast)
+	if(sd && sc && sc->data[SC_GRAVITATION] && sc->data[SC_GRAVITATION]->val3 == BCT_SELF && skill_id != HW_GRAVITATION && !sd->state.autocast)
 		return 0;
 
 	dmg = battle_calc_attack(attack_type,src,bl,skill_id,skill_lv,flag&0xFFF);
@@ -3036,7 +3036,7 @@ int64 skill_attack (int attack_type, struct block_list* src, struct block_list *
 				sp = sp/((skill_lv|1)*(skill_lv|1)); //Estimate SP cost of a single water-ball
 			status_heal(bl, 0, sp, 2);
 		}
-		if( (dmg.damage || dmg.damage2) && tsc && tsc->data[SC_HALLUCINATIONWALK] && rand()%100 < tsc->data[SC_HALLUCINATIONWALK]->val3 ) {
+		if( (dmg.damage || dmg.damage2) && tsc && tsc->data[SC_HALLUCINATIONWALK] && rnd()%100 < tsc->data[SC_HALLUCINATIONWALK]->val3 ) {
 			dmg.damage = dmg.damage2 = 0;
 			dmg.dmg_lv = ATK_MISS;
 		}
@@ -3282,7 +3282,7 @@ int64 skill_attack (int attack_type, struct block_list* src, struct block_list *
 				status_fix_damage(NULL,d_bl, damage, 0);
 			} else {
 				bool isDevotRdamage = false;
-				if (battle_config.devotion_rdamage && battle_config.devotion_rdamage > rand()%100)
+				if (battle_config.devotion_rdamage && battle_config.devotion_rdamage > rnd()%100)
 					isDevotRdamage = true;
 				// If !isDevotRdamage, reflected magics are done directly on the target not on paladin
 				// This check is only for magical skill.
@@ -3381,6 +3381,9 @@ int skill_area_sub(struct block_list *bl, va_list ap)
 	tick = va_arg(ap,unsigned int);
 	flag = va_arg(ap,int);
 	func = va_arg(ap,SkillFunc);
+
+	if (flag&BCT_WOS && src == bl)
+		return 0;
 
 	if(battle_check_target(src,bl,flag) > 0) {
 		// several splash skills need this initial dummy packet to display correctly
@@ -4583,7 +4586,7 @@ int skill_castend_damage_id (struct block_list* src, struct block_list *bl, uint
 				if(idb_exists(bowling_db, bl->id))
 					break;
 				// Random direction
-				dir = rand()%8;
+				dir = rnd()%8;
 			} else {
 				// Create an empty list of already hit targets
 				db_clear(bowling_db);
@@ -5037,7 +5040,7 @@ int skill_castend_damage_id (struct block_list* src, struct block_list *bl, uint
 				if ( s == 0 )
 					break;
 
-				i = spell[s==1?0:rand()%s];// Random select of spell to be released.
+				i = spell[s==1?0:rnd()%s];// Random select of spell to be released.
 				if(sc->data[i] ){// Now extract the data from the preserved spell
 					pres_skill_id = sc->data[i]->val1;
 					pres_skill_lv = sc->data[i]->val2;
@@ -9577,16 +9580,14 @@ int skill_castend_nodamage_id (struct block_list *src, struct block_list *bl, ui
 		break;
 
 	case WM_VOICEOFSIREN:
-		if( flag&1 ) {
-			tick = (status_get_lv(bl) > 150 ? 150 : status_get_lv(bl)) / 10 + (dstsd ? (dstsd->status.job_level > 50 ? 50 : dstsd->status.job_level) / 5 : 0);
-			sc_start2(src,bl,type,100,skill_lv,src->id,skill_get_time(skill_id,skill_lv) - (1000 * tick));
-		} else {
-			int rate = 6 * skill_lv + ((sd) ? pc_checkskill(sd,WM_LESSON) * 2 + (sd->status.job_level > 50 ? 50 : sd->status.job_level) / 2 : skill_get_max(WM_LESSON));
-
-			if (rnd()%100 < rate) {
-				map_foreachinrange(skill_area_sub, src, skill_get_splash(skill_id,skill_lv), BL_CHAR|BL_SKILL, src, skill_id, skill_lv, tick, flag|BCT_ENEMY|1, skill_castend_nodamage_id);
-				clif_skill_nodamage(src,bl,skill_id,skill_lv,1);
-			}
+		if (flag&1)
+			sc_start2(src,bl,type,skill_area_temp[5],skill_lv,src->id,skill_area_temp[6]);
+		else {
+			// Success chance: (Skill Level x 6) + (Voice Lesson Skill Level x 2) + (Caster’s Job Level / 2) %
+			skill_area_temp[5] = skill_lv * 6 + ((sd) ? pc_checkskill(sd, WM_LESSON) : skill_get_max(WM_LESSON)) * 2 + (sd ? sd->status.job_level : 50) / 2;
+			skill_area_temp[6] = skill_get_time(skill_id,skill_lv);
+			map_foreachinrange(skill_area_sub, src, skill_get_splash(skill_id,skill_lv), BL_CHAR|BL_SKILL, src, skill_id, skill_lv, tick, flag|BCT_ALL|BCT_WOS|1, skill_castend_nodamage_id);
+			clif_skill_nodamage(src,bl,skill_id,skill_lv,1);
 		}
 		break;
 
@@ -9794,24 +9795,29 @@ int skill_castend_nodamage_id (struct block_list *src, struct block_list *bl, ui
 
 	case SO_ARRULLO:
 		{
-			// [(15 + 5 * Skill Level) + ( Caster's INT / 5 ) + ( Caster's Job Level / 5 ) - ( Target's INT / 6 ) - ( Target's LUK / 10 )] %
-			int rate = (15 + 5 * skill_lv) + status_get_int(src)/5 + (sd ? sd->status.job_level : 0);
-			rate -= status_get_int(bl)/6 - status_get_luk(bl)/10;
+			// Success chance: [(15 + 5 * Skill Level) + ( Caster's INT / 5 ) + ( Caster's Job Level / 5 ) - ( Target's INT / 6 ) - ( Target's LUK / 10 )] %
+			int rate = (15 + 5 * skill_lv) * 1000 + status_get_int(src) * 200 + (sd ? sd->status.job_level * 200 : 0) - status_get_int(bl) * 1000 / 6 - status_get_luk(bl) * 100;
+			struct status_data *bstatus = status_get_base_status(bl);
+			// Resistance: {(Target’s Base Level / 20) + (Target’s Base INT / 40)} seconds
+			int duration = skill_get_time(skill_id, skill_lv) - (status_get_baselevel_limit(bl, 150) * 50 + bstatus->int_ * 25);
 			clif_skill_nodamage(src, bl, skill_id, skill_lv, 1);
-			sc_start2(src,bl, type, rate, skill_lv, 1, skill_get_time(skill_id, skill_lv));
+			status_change_start(src,bl,type,rate,skill_lv,0,0,0,max(duration,5000),SCSTART_NORATEDEF|SCSTART_NOTICKDEF); // Avoid general resistance
 		}
 		break;
 
 	case WM_LULLABY_DEEPSLEEP:
-		if( flag&1 ){
-			//[(Skill Level x 4) + (Voice Lessons Skill Level x 2) + (Caster's Base Level / 15) + (Caster's Job Level / 5)] %
-			int rate = (4 * skill_lv) + ((sd) ? pc_checkskill(sd,WM_LESSON)*2 + sd->status.job_level/5 : skill_get_max(WM_LESSON)) + status_get_lv(src) / 15;
-			if( bl != src )
-				sc_start(src,bl,type,rate,skill_lv,skill_get_time(skill_id,skill_lv));
-		} else {
+		if (flag&1) {
+			struct status_data *bstatus = status_get_base_status(bl);
+			// Resistance: {(Target’s Base Level / 20) + (Target’s Base INT / 20)} seconds
+			int duration = skill_area_temp[6] - (status_get_baselevel_limit(bl, 150) * 50 + bstatus->int_ * 50);
+			status_change_start(src,bl,type,skill_area_temp[5],skill_lv,0,0,0,max(duration,5000),SCSTART_NORATEDEF|SCSTART_NOTICKDEF); // Avoid general resistance
+		}
+		else {
+			// Success chance: [(Skill Level x 4) + (Voice Lessons Skill Level x 2) + (Caster's Base Level / 15) + (Caster's Job Level / 5)] %
+			skill_area_temp[5] = (4 * skill_lv * 1000) + ((sd) ? pc_checkskill(sd,WM_LESSON) : skill_get_max(WM_LESSON)) * 2000 + (status_get_lv(src) * 1000 / 15) + (sd ? sd->status.job_level * 200 : 0);
+			skill_area_temp[6] = skill_get_time(skill_id,skill_lv);
 			clif_skill_nodamage(src, bl, skill_id, skill_lv, 1);
-			map_foreachinrange(skill_area_sub, bl, skill_get_splash(skill_id, skill_lv), BL_CHAR,
-							   src, skill_id, skill_lv, tick, flag|BCT_ALL|1, skill_castend_nodamage_id);
+			map_foreachinrange(skill_area_sub, bl, skill_get_splash(skill_id, skill_lv), BL_CHAR, src, skill_id, skill_lv, tick, flag|BCT_ALL|BCT_WOS|1, skill_castend_nodamage_id);
 		}
 		break;
 
@@ -10010,7 +10016,7 @@ int skill_castend_nodamage_id (struct block_list *src, struct block_list *bl, ui
 					clif_skill_nodamage(src,src,skill_id,skill_lv,1);
 					clif_skill_damage(src, ( skill_id == EL_GUST || skill_id == EL_BLAST || skill_id == EL_WILD_STORM )?src:bl, tick, status_get_amotion(src), 0, -30000, 1, skill_id, skill_lv, 6);
 					if( skill_id == EL_WIND_STEP )	// There aren't teleport, just push the master away.
-						skill_blown(src,bl,(rnd()%skill_get_blewcount(skill_id,skill_lv))+1,rand()%8,0);
+						skill_blown(src,bl,(rnd()%skill_get_blewcount(skill_id,skill_lv))+1,rnd()%8,0);
 					sc_start(src,src,type2,100,skill_lv,skill_get_time(skill_id,skill_lv));
 					sc_start(src,bl,type,100,skill_lv,skill_get_time(skill_id,skill_lv));
 				}
@@ -10077,7 +10083,7 @@ int skill_castend_nodamage_id (struct block_list *src, struct block_list *bl, ui
 		}
 		break;
 	case KO_KYOUGAKU:
-		if( dstsd && tsc && !tsc->data[type] && rand()%100 < tstatus->int_/2 ){
+		if( dstsd && tsc && !tsc->data[type] && rnd()%100 < tstatus->int_/2 ){
 			clif_skill_nodamage(src,bl,skill_id,skill_lv,
 				sc_start(src,bl,type,100,skill_lv,skill_get_time(skill_id,skill_lv)));
 		}else if( sd )
@@ -10085,7 +10091,7 @@ int skill_castend_nodamage_id (struct block_list *src, struct block_list *bl, ui
 		break;
 	case KO_JYUSATSU:
 		if( dstsd && tsc && !tsc->data[type] &&
-			rand()%100 < ((45+5*skill_lv) + skill_lv*5 - status_get_int(bl)/2) ){//[(Base chance of success) + (Skill Level x 5) - (int / 2)]%.
+			rnd()%100 < ((45+5*skill_lv) + skill_lv*5 - status_get_int(bl)/2) ){//[(Base chance of success) + (Skill Level x 5) - (int / 2)]%.
 			clif_skill_nodamage(src,bl,skill_id,skill_lv,
 				status_change_start(src,bl,type,10000,skill_lv,0,0,0,skill_get_time(skill_id,skill_lv),SCSTART_NOAVOID));
 			status_zap(bl, tstatus->max_hp*skill_lv*5/100 , 0);
@@ -14715,7 +14721,7 @@ bool skill_check_condition_castbegin(struct map_session_data* sd, uint16 skill_i
 			break;
 		case LG_REFLECTDAMAGE:
 		case CR_REFLECTSHIELD:
-			if( sc && sc->data[SC_KYOMU] && rand()%100 < 30){
+			if( sc && sc->data[SC_KYOMU] && rnd()%100 < 30){
 				clif_skill_fail(sd,skill_id,USESKILL_FAIL_LEVEL,0);
 				return false;
 			}
