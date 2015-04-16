@@ -5779,8 +5779,9 @@ int pc_jobid2mapid(unsigned short b_class)
 //Reverts the map-style class id to the client-style one.
 int pc_mapid2jobid(unsigned short class_, int sex)
 {
-	switch(class_)
-	{
+	class_ &= JOBL_SUPER_NOVICE; // Quick conversion to get proper Super Novice ID.
+
+	switch(class_) {
 	//Novice And 1-1 Jobs
 		case MAPID_NOVICE:                return JOB_NOVICE;
 		case MAPID_SWORDMAN:              return JOB_SWORDMAN;
@@ -10470,17 +10471,46 @@ static bool pc_readdb_levelpenalty(char* fields[], int columns, int current)
 /** [Cydh]
 * Calculates base hp of player. Reference: http://irowiki.org/wiki/Max_HP
 * @param level Base level of player
-* @param idx Index of class
+* @param class_ Job ID @see enum e_job
 * @return base_hp
 */
-static unsigned int pc_calc_basehp(uint16 level, uint16 class_idx) {
+static unsigned int pc_calc_basehp(uint16 level, uint16 class_) {
 	double base_hp;
-	uint16 i;
+	uint16 i, idx = pc_class2idx(class_);
 
-	base_hp = 35 + level * (job_info[class_idx].hp_multiplicator/100.);
+	base_hp = 35 + level * (job_info[idx].hp_multiplicator/100.);
+#ifndef RENEWAL
+	if(level >= 10 && (class_ == JOB_NINJA || class_ == JOB_GUNSLINGER)) base_hp += 90;
+#endif
 	for (i = 2; i <= level; i++)
-		base_hp += floor(((job_info[class_idx].hp_factor/100.) * i) + 0.5); //Don't have round()
+		base_hp += floor(((job_info[idx].hp_factor/100.) * i) + 0.5); //Don't have round()
 	return (unsigned int)base_hp;
+}
+
+/** [Playtester]
+* Calculates base sp of player.
+* @param level Base level of player
+* @param class_ Job ID @see enum e_job
+* @return base_sp
+*/
+static unsigned int pc_calc_basesp(uint16 level, uint16 class_) {
+	double base_sp;
+	uint16 idx = pc_class2idx(class_);
+
+	base_sp = 10 + floor(level * (job_info[idx].sp_factor / 100.));
+#ifndef RENEWAL
+	switch (class_) {
+		case JOB_NINJA:
+			if (level >= 10)
+				base_sp -= 20;
+			break;
+		case JOB_GUNSLINGER:
+			if (level >= 10)
+				base_sp -= 17;
+			break;
+	}
+#endif
+	return (unsigned int)base_sp;
 }
 
 //Reading job_db1.txt line, (class,weight,HPFactor,HPMultiplicator,SPFactor,aspd/lvl...)
@@ -10836,7 +10866,8 @@ void pc_readdb(void) {
 	for (i = 0; i < JOB_MAX; i++) {
 		int idx;
 		uint16 j;
-		if (!pcdb_checkid(i)) continue;
+		if (!pcdb_checkid(i))
+			continue;
 		if (i == JOB_WEDDING || i == JOB_XMAS || i == JOB_SUMMER || i == JOB_HANBOK || i == JOB_OKTOBERFEST)
 			continue; //Classes that do not need exp tables.
 		idx = pc_class2idx(i);
@@ -10848,9 +10879,9 @@ void pc_readdb(void) {
 		//Init and checking the empty value of Base HP/SP [Cydh]
 		for (j = 0; j < (job_info[idx].max_level[0] ? job_info[idx].max_level[0] : MAX_LEVEL); j++) {
 			if (job_info[idx].base_hp[j] == 0)
-				job_info[idx].base_hp[j] = pc_calc_basehp(j+1,idx);
+				job_info[idx].base_hp[j] = pc_calc_basehp(j+1,i);
 			if (job_info[idx].base_sp[j] == 0)
-				job_info[idx].base_sp[j] = 10 + (unsigned int)floor((j+1) * (job_info[idx].sp_factor / 100.));
+				job_info[idx].base_sp[j] = pc_calc_basesp(j+1,i);
 		}
 	}
 }
