@@ -428,7 +428,7 @@ int skill_calc_heal(struct block_list *src, struct block_list *target, uint16 sk
 				hp += hp * skill * 2 / 100;
 			else if( src->type == BL_HOM && (skill = hom_checkskill(((TBL_HOM*)src), HLIF_BRAIN)) > 0 )
 				hp += hp * skill * 2 / 100;
-			if( sd && tsd && sd->status.partner_id == tsd->status.char_id && sd->class_&JOBL_SUPER_NOVICE && sd->status.sex == 0 )
+			if( sd && tsd && sd->status.partner_id == tsd->status.char_id && (sd->class_&MAPID_UPPERMASK) == MAPID_SUPER_NOVICE && sd->status.sex == 0 )
 				hp *= 2;
 			break;
 	}
@@ -8172,7 +8172,7 @@ int skill_castend_nodamage_id (struct block_list *src, struct block_list *bl, ui
 	case SL_SUPERNOVICE:
 	case SL_WIZARD:
 		//NOTE: here, 'type' has the value of the associated MAPID, not of the SC_SPIRIT constant.
-		if (sd && dstsd && !(((dstsd->class_&MAPID_UPPERMASK) == type) || (skill_id == SL_SUPERNOVICE && (dstsd->class_&JOBL_SUPER_NOVICE)))) {
+		if (sd && dstsd && !((dstsd->class_&MAPID_UPPERMASK) == type)) {
 			clif_skill_fail(sd,skill_id,USESKILL_FAIL_LEVEL,0);
 			break;
 		}
@@ -12332,6 +12332,13 @@ struct skill_unit_group *skill_unitsetting(struct block_list *src, uint16 skill_
 	case HW_GRAVITATION:
 		if(sc && sc->data[SC_GRAVITATION] && sc->data[SC_GRAVITATION]->val3 == BCT_SELF)
 			link_group_id = sc->data[SC_GRAVITATION]->val4;
+		break;
+	case SO_VACUUM_EXTREME:
+		// Coordinates
+		val1 = x;
+		val2 = y;
+		val3 = 0; // Suck target at n seconds.
+		break;
 	}
 
 	// Init skill unit group
@@ -13426,12 +13433,12 @@ int skill_unit_onplace_timer(struct skill_unit *unit, struct block_list *bl, uns
 			break;
 
 		case UNT_VACUUM_EXTREME:
-			if ( tsc && tsc->data[SC_HALLUCINATIONWALK] )
+			if (tsc && (tsc->data[SC_HALLUCINATIONWALK] || tsc->data[SC_HOVERING] || tsc->data[SC_VACUUM_EXTREME] ||
+				(tsc->data[SC_VACUUM_EXTREME_POSTDELAY] && tsc->data[SC_VACUUM_EXTREME_POSTDELAY]->val2 == sg->group_id))) // Ignore post delay from other vacuum (this will make stack effect enabled)
 				return 0;
-			else {
-				sg->limit -= 100 * tstatus->str/20;
-				sc_start(ss, bl, SC_VACUUM_EXTREME, 100, sg->skill_lv, sg->limit);
-			}
+			else
+				// Apply effect and suck targets one-by-one each n seconds
+				sc_start4(ss, bl, SC_VACUUM_EXTREME, 100, sg->skill_lv, sg->group_id, (sg->val1<<16)|(sg->val2), ++sg->val3*500, (sg->limit - DIFF_TICK(tick, sg->tick)));
 			break;
 
 		case UNT_BANDING:
@@ -20696,7 +20703,7 @@ static void skill_readdb(void)
 		sv_readdb(dbsubpath2, "skill_unit_db.txt"     , ',',   8,  8, -1, skill_parse_row_unitdb, i);
 		sv_readdb(dbsubpath2, "skill_nocast_db.txt"   , ',',   2,  2, -1, skill_parse_row_nocastdb, i);
 
-		sv_readdb(dbsubpath1, "produce_db.txt"        , ',',   5,  5+2*MAX_PRODUCE_RESOURCE, MAX_SKILL_PRODUCE_DB, skill_parse_row_producedb, i);
+		sv_readdb(dbsubpath2, "produce_db.txt"        , ',',   5,  5+2*MAX_PRODUCE_RESOURCE, MAX_SKILL_PRODUCE_DB, skill_parse_row_producedb, i);
 		sv_readdb(dbsubpath1, "create_arrow_db.txt"   , ',', 1+2,  1+2*MAX_ARROW_RESULT, MAX_SKILL_ARROW_DB, skill_parse_row_createarrowdb, i);
 		sv_readdb(dbsubpath1, "abra_db.txt"           , ',',   3,  3, MAX_SKILL_ABRA_DB, skill_parse_row_abradb, i);
 		sv_readdb(dbsubpath1, "spellbook_db.txt"      , ',',   3,  3, MAX_SKILL_SPELLBOOK_DB, skill_parse_row_spellbookdb, i);
